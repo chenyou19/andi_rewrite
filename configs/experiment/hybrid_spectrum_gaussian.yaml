@@ -1,0 +1,63 @@
+# weighted hybrid noise sampler 的範例實驗。
+experiment:
+  name: hybrid_spectrum_gaussian
+  description: Weighted hybrid noise experiment using spectrum and Gaussian components.
+
+runtime:
+  seed: 73
+  device: auto
+  cudnn_benchmark: true
+
+data:
+  type: brats_healthy_slices
+  dataset_path: C:/ML/data/BraTS_2021
+  path_to_csv: C:/ML/ANDi/data/BraTS21/healthy_slices_train.csv
+  image_size: 128
+  channels: 4
+  batch_size: 2
+  workers: 0
+  shuffle: false
+
+model:
+  type: andi_unet
+  image_size: 128
+  in_channels: 4
+  out_channels: 4
+  time_dim: 256
+
+diffusion:
+  steps: 1000
+  beta_start: 1.0e-4
+  beta_end: 0.02
+
+noise:
+  schedule:
+    type: static
+    sampler:
+      type: hybrid
+      normalize: true
+      # 每個 component 都是一份普通 noise sampler config，再加上一個 weight。
+      components:
+        - type: spectrum
+          weight: 0.6
+          exponent: 1.0
+          low_frequency_bias: true
+          normalize: true
+        - type: gaussian
+          weight: 0.4
+
+training:
+  epochs: 233
+  learning_rate: 1.0e-4
+  ema_decay: 0.995
+  normalize_input: true
+
+anomaly:
+  t_lower: 75
+  t_upper: 200
+  aggregation: geometric
+  modality_pool: max
+  median_filter:
+    enabled: true
+    kernel_size: 5
+  threshold: yen

@@ -1,0 +1,86 @@
+# 新版 ANDi 可擴充框架的預設 training config。
+# 可對齊原版 ANDi 的地方，預設值會刻意維持相容。
+experiment:
+  name: andi_rewrite_train_default
+
+# runtime 只控制 script 執行行為，不影響 model/diffusion 數學。
+runtime:
+  seed: 73
+  device: auto
+  cudnn_benchmark: true
+  accelerate: false
+  find_unused_parameters: true
+
+# training data 可透過 type 替換；預設直接從 raw BraTS root 讀 healthy slices。
+data:
+  type: brats_healthy_slices
+  dataset_path: C:/ML/data/BraTS_2021
+  path_to_csv: C:/ML/ANDi/data/BraTS21/healthy_slices_train.csv
+  image_size: 128
+  channels: 4
+  batch_size: 52
+  workers: 0
+  shuffle: false
+
+# 原版相容實驗建議使用 andi_unet。
+model:
+  type: andi_unet
+  image_size: 128
+  in_channels: 4
+  out_channels: 4
+  time_dim: 256
+
+diffusion:
+  steps: 1000
+  beta_start: 1.0e-4
+  beta_end: 0.02
+
+# noise 完全由 config 驅動。trainer 只看到 NoisePlan，
+# 不會對具體 noise implementation 寫死分支。
+noise:
+  schedule:
+    type: static
+    sampler:
+      type: pyramid
+      discount: 0.8
+      levels: 10
+      normalize: true
+
+# training 區塊負責 optimizer/scheduler/EMA/checkpointing/sample 圖輸出。
+training:
+  run_name: andi_rewrite_train_default
+  epochs: 233
+  start_lr: 2.0e-5
+  target_lr: 1.0e-4
+  scheduler:
+    type: warmup_cosine
+    warmup_steps: 0.05
+    start_lr: 2.0e-5
+    target_lr: 1.0e-4
+  ema:
+    enabled: true
+    decay: 0.995
+    step_start: 2000
+  normalize_input: true
+  progress:
+    enabled: true
+  checkpoint:
+    dir: outputs/checkpoints
+    start_epoch: 120
+    save_every_epochs: 4
+    resume:
+  # training 中可將 DDPM reverse samples 存成 image grid。
+  # 若只想存 checkpoint，可把 enabled 設成 false。
+  samples:
+    enabled: true
+    output_dir: outputs/samples
+    start_epoch: 120
+    every_epochs: 4
+    num_images: 3
+    channels: 4
+    image_size: 128
+    mode: L
+    nrow:
+    use_ema: true
+    dtype: float32
+    clip_denoised: true

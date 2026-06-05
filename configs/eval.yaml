@@ -1,0 +1,103 @@
+# 預設 full-volume ANDi evaluation config。
+experiment:
+  name: andi_rewrite_eval_default
+
+# 使用 accelerate 啟動 distributed eval 時，將 accelerate 設成 true。
+runtime:
+  seed: 73
+  device: auto
+  accelerate: false
+  find_unused_parameters: true
+
+# volume data 預期每個 subject 一個資料夾，且 modality 檔名為：
+# <subject>_flair.nii.gz、<subject>_t1.nii.gz、<subject>_t1ce.nii.gz、
+# <subject>_t2.nii.gz，以及 <subject>_seg.nii.gz。
+data:
+  type: volume
+  dataset_path: ./data/BraTS21
+  path_to_csv: ./splits/BraTS21/scans_test.csv
+  image_size: 128
+  channels: 4
+  batch_size: 1
+  workers: 4
+  size_splits: 155
+  modalities: [flair, t1, t1ce, t2]
+  histogram_normalization: false
+  shift_naming: false
+
+# checkpoint 可指向 train.py 產出的 framework checkpoint。
+# use_ema=true 時，若 checkpoint 內有 ema_model 會優先載入。
+model:
+  type: andi_unet
+  image_size: 128
+  in_channels: 4
+  out_channels: 4
+  time_dim: 256
+  checkpoint:
+  use_ema: true
+
+diffusion:
+  steps: 1000
+  beta_start: 1.0e-4
+  beta_end: 0.02
+
+noise:
+  schedule:
+    type: static
+    sampler:
+      type: gaussian
+
+# ANDi detector 控制 transition deviation 計算與 anomaly map 聚合方式。
+anomaly:
+  t_lower: 75
+  t_upper: 200
+  aggregation:
+    type: geometric_mean
+    eps: 1.0e-8
+  modality_pool:
+    type: max
+  median_filter:
+    enabled: true
+    kernel_size: 5
+  threshold: yen
+
+# metrics 控制 CSV 輸出、threshold sweep 與後處理 pipelines。
+metrics:
+  output_csv: outputs/metrics/ANDi.csv
+  output_mf_csv: outputs/metrics/ANDi_mf.csv
+  thr_start: 0.01
+  thr_end: 0.3
+  thr_step: 0.001
+  threshold: 0.5
+  size_splits: 155
+  kernel_size: 5
+  rank: 3
+  connectivity: 1
+  median_filter:
+    enabled: true
+    kernel_size: 5
+    mode: 3d
+  # postprocess 是有順序且可擴充的 pipeline。
+  # 若要新增 step，先在 anomaly/postprocess.py 註冊，再於此以 type 引用。
+  postprocess:
+    score:
+      pipeline:
+        - type: normalize
+    score_mf:
+      pipeline:
+        - type: median_filter
+          kernel_size: 5
+          mode: 3d
+        - type: normalize
+    threshold_mask:
+      pipeline: []
+    yen_mask:
+      pipeline:
+        - type: binary_dilation
+          rank: 3
+          connectivity: 1
+          iterations: 1
+
+evaluation:
+  progress:
+    enabled: true
