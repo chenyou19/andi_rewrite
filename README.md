@@ -407,6 +407,30 @@ noise:
 - Recommended sweep: `strength = 0.25, 0.5, 0.75, 1.0`.
 - Spectrum statistics crop around the nonzero foreground before FFT, which avoids contaminating the spectrum with outer black-background boundaries.
 
+Compare one or more spectrum `.npz` files against the same LMDB MRI slice:
+
+```powershell
+python compare_npz_spectra.py `
+  --spectrum-stats-paths `
+    data/BraTS21/healthy_slices/healthy_spectrum_stats.npz `
+    results/exp_a/spectrum_stats.npz `
+    results/exp_b/spectrum_stats.npz `
+  --labels healthy exp_a exp_b `
+  --dataset-path data/BraTS21/healthy_slices `
+  --index 100 `
+  --channel 0 `
+  --timestep 150 `
+  --output-dir results/npz_spectrum_compare
+```
+
+This writes:
+
+- `radial_spectrum_compare.png`
+- `noise_compare_grid.png`
+- `noised_mri_compare_grid.png`
+- `npz_spectrum_compare_dashboard.png`
+- `metadata.json`
+
 ### Hybrid
 
 ```yaml

@@ -192,6 +192,51 @@ def final_checkpoint_path(train_config: dict[str, Any], run_name: str) -> str:
     return str(checkpoint_dir / run_name / f"epoch_{epoch:04d}.pt")
 
 
+def iter_empirical_spectrum_samplers(node: Any) -> list[dict[str, Any]]:
+    matches: list[dict[str, Any]] = []
+    if isinstance(node, dict):
+        if str(node.get("type", "")).lower() == "empirical_spectrum":
+            matches.append(node)
+        for value in node.values():
+            matches.extend(iter_empirical_spectrum_samplers(value))
+    elif isinstance(node, list):
+        for item in node:
+            matches.extend(iter_empirical_spectrum_samplers(item))
+    return matches
+
+
+def compute_fold_empirical_spectrum(
+    args: argparse.Namespace,
+    fold: int,
+    fold_lmdb_path: Path,
+    out_path: Path,
+) -> None:
+    command = [
+        args.python,
+        "scripts/compute_lmdb_spectrum.py",
+        "--lmdb-path",
+        str(fold_lmdb_path),
+        "--out",
+        str(out_path),
+        "--overwrite",
+    ]
+    if args.no_progress:
+        command.append("--no-progress")
+    print(f"Fold {fold} empirical spectrum command:")
+    print(" ".join(command))
+    subprocess.run(command, cwd=Path(__file__).resolve().parents[1], check=True)
+
+
+def apply_fold_empirical_spectrum(
+    config: dict[str, Any],
+    stats_path: Path,
+) -> bool:
+    samplers = iter_empirical_spectrum_samplers(config.get("noise", {}))
+    for sampler in samplers:
+        sampler["stats_path"] = str(stats_path)
+    return bool(samplers)
+
+
 def build_fold_configs(args: argparse.Namespace) -> list[tuple[int, Path, Path]]:
     base_train = load_config(args.base_train_config)
     base_eval = load_config(args.base_eval_config)
@@ -206,11 +251,12 @@ def build_fold_configs(args: argparse.Namespace) -> list[tuple[int, Path, Path]]
     for fold in fold_numbers:
         fold_name = f"fold_{fold}"
         run_name = f"{run_prefix}_{fold_name}"
+        fold_lmdb_path = Path(args.lmdb_root) / fold_name
         train_config = copy.deepcopy(base_train)
         eval_config = copy.deepcopy(base_eval)
 
         train_config.setdefault("experiment", {})["name"] = run_name
-        train_config.setdefault("data", {})["path"] = str(Path(args.lmdb_root) / fold_name)
+        train_config.setdefault("data", {})["path"] = str(fold_lmdb_path)
         training = train_config.setdefault("training", {})
         training["run_name"] = run_name
         training.setdefault("checkpoint", {})["dir"] = args.checkpoint_dir
@@ -232,6 +278,14 @@ def build_fold_configs(args: argparse.Namespace) -> list[tuple[int, Path, Path]]
         fold_metric_dir = Path(args.metric_dir) / fold_name
         metrics["output_csv"] = str(fold_metric_dir / "ANDi.csv")
         metrics["output_mf_csv"] = str(fold_metric_dir / "ANDi_mf.csv")
+
+        train_uses_empirical = bool(iter_empirical_spectrum_samplers(train_config.get("noise", {})))
+        eval_uses_empirical = bool(iter_empirical_spectrum_samplers(eval_config.get("noise", {})))
+        if train_uses_empirical or eval_uses_empirical:
+            stats_path = Path("outputs") / "spectrum" / "5fold" / f"{run_name}.npz"
+            compute_fold_empirical_spectrum(args, fold, fold_lmdb_path, stats_path)
+            apply_fold_empirical_spectrum(train_config, stats_path)
+            apply_fold_empirical_spectrum(eval_config, stats_path)
 
         write_yaml(train_config_path, train_config)
         write_yaml(eval_config_path, eval_config)

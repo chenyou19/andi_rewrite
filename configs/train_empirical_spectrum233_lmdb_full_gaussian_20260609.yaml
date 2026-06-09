@@ -1,6 +1,6 @@
 # Train DDPM for 233 epochs with empirical MRI spectrum noise, then run full Gaussian-noise evaluation.
 experiment:
-  name: empirical_spectrum233_lmdb_full_gaussian
+  name: empirical_spectrum233_lmdb_full_gaussian_20260609
 
 runtime:
   seed: 73
@@ -45,7 +45,7 @@ noise:
       eps: 1.0e-8
 
 training:
-  run_name: empirical_spectrum233_lmdb_full_gaussian
+  run_name: empirical_spectrum233_lmdb_full_gaussian_20260609
   epochs: 233
   start_lr: 2.0e-5
   target_lr: 1.0e-4
@@ -63,7 +63,7 @@ training:
     enabled: true
   eval_after_fit:
     enabled: true
-    config: configs/eval_full_gaussian_from_empirical_spectrum233_lmdb.yaml
+    config: configs/eval_full_gaussian_from_empirical_spectrum233_lmdb_20260609.yaml
   checkpoint:
     dir: outputs/checkpoints
     start_epoch: 19

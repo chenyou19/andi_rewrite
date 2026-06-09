@@ -67,6 +67,7 @@ class Trainer:
         self.checkpoint_dir = Path(checkpoint_config.get("dir", config.get("checkpoint_dir", "outputs/checkpoints")))
         self.save_every_epochs = int(checkpoint_config.get("save_every_epochs", config.get("save_ckpt", 0)))
         self.save_start_epoch = int(checkpoint_config.get("start_epoch", config.get("start_ckpt", 0)))
+        self.save_last_checkpoint = bool(checkpoint_config.get("save_last", False))
         sample_config = config.get("samples", config.get("sample", {}))
         self.sample_enabled = bool(sample_config.get("enabled", False))
         self.sample_every_epochs = int(sample_config.get("every_epochs", self.save_every_epochs or 1))
@@ -207,11 +208,13 @@ class Trainer:
             epoch_bar.close()
 
     def should_save(self, epoch: int) -> bool:
+        if not self.is_main_process or self.save_every_epochs <= 0:
+            return False
+        if self.save_last_checkpoint and epoch == self.epochs - 1:
+            return True
         return (
-            self.save_every_epochs > 0
-            and epoch >= self.save_start_epoch
-            and epoch % self.save_every_epochs == 0
-            and self.is_main_process
+            epoch >= self.save_start_epoch
+            and (epoch - self.save_start_epoch) % self.save_every_epochs == 0
         )
 
     def save(self, epoch: int) -> Path:
@@ -236,7 +239,7 @@ class Trainer:
             self.sample_enabled
             and self.sample_every_epochs > 0
             and epoch >= self.sample_start_epoch
-            and epoch % self.sample_every_epochs == 0
+            and (epoch - self.sample_start_epoch) % self.sample_every_epochs == 0
             and self.is_main_process
         )
 
