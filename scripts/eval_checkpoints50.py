@@ -16,7 +16,7 @@ bootstrap()
 
 from andi_rewrite.data import build_dataloader
 from andi_rewrite.engine import VolumeEvaluator
-from andi_rewrite.scripts.eval import build_detector_from_config
+from andi_rewrite.runtime.builders import build_detector_from_config
 from andi_rewrite.utils import load_config, print_config
 from andi_rewrite.utils.reporting import save_inference_report
 
