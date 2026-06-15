@@ -481,6 +481,12 @@ mask postprocess 支援：
 - `binary_dilation`
 - `connected_components`
 
+`yen_threshold` 不是 mask postprocess step。Yen Dice 會在
+`VolumeEvaluator._yen_metrics()` 內先把 anomaly map threshold 成 binary
+mask；`metrics.postprocess.yen_mask.pipeline` 只放 binary mask 後處理，例如
+`binary_dilation` 或 `connected_components`。若不需要 Yen mask 後處理，請使用
+`pipeline: []`。
+
 score map 範例：
 
 ```yaml

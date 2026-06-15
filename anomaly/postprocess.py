@@ -336,6 +336,7 @@ def build_postprocess_pipeline(
     config: dict[str, Any] | None,
     registry: dict[str, type[BasePostprocessor]],
     legacy_builder,
+    step_kind: str | None = None,
 ) -> list[BasePostprocessor]:
     if not config:
         return []
@@ -353,7 +354,19 @@ def build_postprocess_pipeline(
             continue
         step_type = str(step_config.get("type")).lower()
         if step_type not in registry:
-            raise ValueError(f"Unknown postprocess step: {step_type}")
+            supported = ", ".join(registry.keys())
+            label = f"{step_kind} postprocess" if step_kind else "postprocess"
+            message = (
+                f"Unknown {label} step: {step_type}.\n"
+                f"Supported {label} steps: {supported}."
+            )
+            if step_kind == "mask" and step_type == "yen_threshold":
+                message += (
+                    "\nNote: yen_threshold is applied inside "
+                    "VolumeEvaluator._yen_metrics() and should not be configured "
+                    "as a mask postprocess step."
+                )
+            raise ValueError(message)
         kwargs = {
             key: value
             for key, value in step_config.items()
@@ -394,7 +407,7 @@ def apply_score_postprocess(tensor: torch.Tensor, config: dict[str, Any] | None)
 
     return apply_postprocess_pipeline(
         tensor,
-        build_postprocess_pipeline(config, SCORE_POSTPROCESSORS, _legacy_score_pipeline),
+        build_postprocess_pipeline(config, SCORE_POSTPROCESSORS, _legacy_score_pipeline, "score-map"),
     )
 
 
@@ -403,6 +416,6 @@ def apply_mask_postprocess(tensor: torch.Tensor, config: dict[str, Any] | None) 
 
     output = apply_postprocess_pipeline(
         tensor.bool(),
-        build_postprocess_pipeline(config, MASK_POSTPROCESSORS, _legacy_mask_pipeline),
+        build_postprocess_pipeline(config, MASK_POSTPROCESSORS, _legacy_mask_pipeline, "mask"),
     )
     return output.bool()

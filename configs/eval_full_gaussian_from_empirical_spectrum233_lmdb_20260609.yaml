@@ -87,7 +87,4 @@ metrics:
           connectivity: 1
           iterations: 1
     yen_mask:
-      pipeline:
-        - type: yen_threshold
-          from_score_key: score_mf
-          threshold_key: threshold
+      pipeline: []

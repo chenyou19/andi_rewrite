@@ -237,6 +237,27 @@ def apply_fold_empirical_spectrum(
     return bool(samplers)
 
 
+def remove_yen_threshold_from_metric_postprocess(config: dict[str, Any]) -> None:
+    postprocess = config.get("metrics", {}).get("postprocess", {})
+    if not isinstance(postprocess, dict):
+        return
+    for postprocess_config in postprocess.values():
+        if not isinstance(postprocess_config, dict):
+            continue
+        pipeline = postprocess_config.get("pipeline")
+        if isinstance(pipeline, dict):
+            pipeline_items = [pipeline]
+        elif isinstance(pipeline, list):
+            pipeline_items = pipeline
+        else:
+            continue
+        postprocess_config["pipeline"] = [
+            step
+            for step in pipeline_items
+            if not (isinstance(step, dict) and str(step.get("type", "")).lower() == "yen_threshold")
+        ]
+
+
 def build_fold_configs(args: argparse.Namespace) -> list[tuple[int, Path, Path]]:
     base_train = load_config(args.base_train_config)
     base_eval = load_config(args.base_eval_config)
@@ -278,6 +299,7 @@ def build_fold_configs(args: argparse.Namespace) -> list[tuple[int, Path, Path]]
         fold_metric_dir = Path(args.metric_dir) / fold_name
         metrics["output_csv"] = str(fold_metric_dir / "ANDi.csv")
         metrics["output_mf_csv"] = str(fold_metric_dir / "ANDi_mf.csv")
+        remove_yen_threshold_from_metric_postprocess(eval_config)
 
         train_uses_empirical = bool(iter_empirical_spectrum_samplers(train_config.get("noise", {})))
         eval_uses_empirical = bool(iter_empirical_spectrum_samplers(eval_config.get("noise", {})))
