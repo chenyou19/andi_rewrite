@@ -2,7 +2,8 @@
 
 trainer 與 detector 不應判斷「gaussian vs pyramid vs ...」。
 它們只接收 NoisePlan 並向它要求 noise。因此新增 noise family 時，只需要
-在 noise 模組新增 class，並在這個 factory 註冊即可。
+在 noise 模組新增 class，並用 @register_noise 註冊一個 builder 即可，
+不需要再修改 build_noise_sampler 的判斷分支。
 """
 
 from __future__ import annotations
@@ -17,6 +18,12 @@ from .empirical_spectrum import EmpiricalSpectrumNoise
 from .gaussian import GaussianNoise
 from .hybrid import HybridNoise
 from .pyramid import PyramidNoise
+from .registry import (
+    NOISE_REGISTRY,
+    SCHEDULE_REGISTRY,
+    register_noise,
+    register_schedule,
+)
 from .spectrum import SpectrumNoise
 
 
@@ -80,48 +87,81 @@ class EpochSwitchNoisePlan(NoisePlan):
         }
 
 
+@register_noise("gaussian")
+def _build_gaussian(config: dict[str, Any]) -> BaseNoise:
+    return GaussianNoise()
+
+
+@register_noise("pyramid")
+def _build_pyramid(config: dict[str, Any]) -> BaseNoise:
+    return PyramidNoise(
+        discount=float(config.get("discount", 0.8)),
+        levels=int(config.get("levels", 10)),
+        normalize=bool(config.get("normalize", True)),
+    )
+
+
+@register_noise("spectrum")
+def _build_spectrum(config: dict[str, Any]) -> BaseNoise:
+    return SpectrumNoise(
+        exponent=float(config.get("exponent", 1.0)),
+        low_frequency_bias=bool(config.get("low_frequency_bias", True)),
+        normalize=bool(config.get("normalize", True)),
+    )
+
+
+@register_noise("empirical_spectrum")
+def _build_empirical_spectrum(config: dict[str, Any]) -> BaseNoise:
+    if "stats_path" not in config:
+        raise ValueError("noise sampler type 'empirical_spectrum' requires stats_path.")
+    return EmpiricalSpectrumNoise(
+        stats_path=config["stats_path"],
+        mode=str(config.get("mode", "radial")),
+        spectrum_key=str(config.get("spectrum_key", "mean_amplitude")),
+        radial_key=str(config.get("radial_key", "radial_amplitude")),
+        per_channel=bool(config.get("per_channel", True)),
+        strength=float(config.get("strength", 1.0)),
+        normalize=bool(config.get("normalize", True)),
+        eps=float(config.get("eps", 1.0e-8)),
+    )
+
+
+@register_noise("hybrid")
+def _build_hybrid(config: dict[str, Any]) -> BaseNoise:
+    components = []
+    for item in config.get("components", []):
+        weight = float(item.get("weight", 1.0))
+        # component config 本身也是一般 noise config，因此 hybrid 可以巢狀組合，
+        # training loop 不需要新增任何特殊分支。
+        component_config = {key: value for key, value in item.items() if key != "weight"}
+        components.append((build_noise_sampler(component_config), weight))
+    return HybridNoise(components, normalize=bool(config.get("normalize", True)))
+
+
 def build_noise_sampler(config: dict[str, Any]) -> BaseNoise:
     """從 config 建立 sampler；呼叫端不需要也不應該判斷 sampler type。"""
 
     noise_type = str(config.get("type", "gaussian")).lower()
-    if noise_type == "gaussian":
-        return GaussianNoise()
-    if noise_type == "pyramid":
-        return PyramidNoise(
-            discount=float(config.get("discount", 0.8)),
-            levels=int(config.get("levels", 10)),
-            normalize=bool(config.get("normalize", True)),
-        )
-    if noise_type == "spectrum":
-        return SpectrumNoise(
-            exponent=float(config.get("exponent", 1.0)),
-            low_frequency_bias=bool(config.get("low_frequency_bias", True)),
-            normalize=bool(config.get("normalize", True)),
-        )
-    if noise_type == "empirical_spectrum":
-        if "stats_path" not in config:
-            raise ValueError("noise sampler type 'empirical_spectrum' requires stats_path.")
-        return EmpiricalSpectrumNoise(
-            stats_path=config["stats_path"],
-            mode=str(config.get("mode", "radial")),
-            spectrum_key=str(config.get("spectrum_key", "mean_amplitude")),
-            radial_key=str(config.get("radial_key", "radial_amplitude")),
-            per_channel=bool(config.get("per_channel", True)),
-            strength=float(config.get("strength", 1.0)),
-            normalize=bool(config.get("normalize", True)),
-            eps=float(config.get("eps", 1.0e-8)),
-        )
-    if noise_type == "hybrid":
-        components = []
-        for item in config.get("components", []):
-            weight = float(item.get("weight", 1.0))
-            # component config 本身也是一般 noise config，因此 hybrid 可以巢狀組合，
-            # training loop 不需要新增任何特殊分支。
-            component_config = {key: value for key, value in item.items() if key != "weight"}
-            components.append((build_noise_sampler(component_config), weight))
-        return HybridNoise(components, normalize=bool(config.get("normalize", True)))
+    builder = NOISE_REGISTRY.get(noise_type)
+    if builder is None:
+        raise ValueError(f"Unknown noise type: {noise_type}")
+    return builder(config)
 
-    raise ValueError(f"Unknown noise type: {noise_type}")
+
+@register_schedule("static")
+def _build_static_plan(schedule_config: dict[str, Any]) -> NoisePlan:
+    sampler_config = schedule_config.get("sampler", schedule_config)
+    return StaticNoisePlan(build_noise_sampler(sampler_config))
+
+
+@register_schedule("epoch_switch")
+def _build_epoch_switch_plan(schedule_config: dict[str, Any]) -> NoisePlan:
+    return EpochSwitchNoisePlan(
+        before=build_noise_sampler(schedule_config["before"]),
+        after=build_noise_sampler(schedule_config["after"]),
+        switch_epoch=schedule_config.get("switch_epoch"),
+        switch_fraction=schedule_config.get("switch_epoch_fraction", 0.5),
+    )
 
 
 def build_noise_plan(config: dict[str, Any]) -> NoisePlan:
@@ -129,15 +169,7 @@ def build_noise_plan(config: dict[str, Any]) -> NoisePlan:
 
     schedule_config = config.get("schedule", config)
     schedule_type = str(schedule_config.get("type", "static")).lower()
-    if schedule_type == "static":
-        sampler_config = schedule_config.get("sampler", schedule_config)
-        return StaticNoisePlan(build_noise_sampler(sampler_config))
-    if schedule_type == "epoch_switch":
-        return EpochSwitchNoisePlan(
-            before=build_noise_sampler(schedule_config["before"]),
-            after=build_noise_sampler(schedule_config["after"]),
-            switch_epoch=schedule_config.get("switch_epoch"),
-            switch_fraction=schedule_config.get("switch_epoch_fraction", 0.5),
-        )
-
-    raise ValueError(f"Unknown noise schedule: {schedule_type}")
+    builder = SCHEDULE_REGISTRY.get(schedule_type)
+    if builder is None:
+        raise ValueError(f"Unknown noise schedule: {schedule_type}")
+    return builder(schedule_config)

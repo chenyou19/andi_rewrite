@@ -17,6 +17,8 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms
 
+from .registry import DATASET_REGISTRY, register_dataset
+
 
 class LMDBSliceDataset(Dataset):
     """讀取原版 ANDi healthy-slice LMDB 格式。"""
@@ -237,36 +239,45 @@ class MRIDataVolume(Dataset):
         return resized, mask
 
 
+@register_dataset("lmdb")
+def _build_lmdb_dataset(config: dict[str, Any]) -> Dataset:
+    if "path" not in config:
+        raise ValueError("data.path is required when data.type is 'lmdb'.")
+    return LMDBSliceDataset(config["path"], image_size=int(config.get("image_size", 128)))
+
+
+@register_dataset("brats_healthy_slices", "healthy_slices")
+def _build_brats_healthy_slices(config: dict[str, Any]) -> Dataset:
+    return BraTSHealthySliceDataset(
+        csv_path=config["path_to_csv"],
+        dataset_path=config["dataset_path"],
+        image_size=int(config.get("image_size", 128)),
+        modalities=config.get("modalities"),
+        slice_column=str(config.get("slice_column", "Slice")),
+    )
+
+
+@register_dataset("volume", "mri_volume", "brats_volume")
+def _build_mri_volume(config: dict[str, Any]) -> Dataset:
+    return MRIDataVolume(
+        csv_path=config["path_to_csv"],
+        dataset_path=config["dataset_path"],
+        image_size=int(config.get("image_size", 128)),
+        modalities=config.get("modalities"),
+        segmentation_suffix=str(config.get("segmentation_suffix", "seg")),
+        histogram_normalization=bool(config.get("histogram_normalization", False)),
+        shift_naming=bool(config.get("shift_naming", "shifts" in str(config.get("dataset_path", "")).lower())),
+    )
+
+
 def build_dataset(config: dict[str, Any]) -> Dataset:
     """從 config 建立 dataset，避免上層 trainer/evaluator 寫死 dataset type 判斷。"""
 
     data_type = str(config.get("type", "lmdb")).lower()
-    image_size = int(config.get("image_size", 128))
-
-    if data_type == "lmdb":
-        if "path" not in config:
-            raise ValueError("data.path is required when data.type is 'lmdb'.")
-        return LMDBSliceDataset(config["path"], image_size=image_size)
-    if data_type in {"brats_healthy_slices", "healthy_slices"}:
-        return BraTSHealthySliceDataset(
-            csv_path=config["path_to_csv"],
-            dataset_path=config["dataset_path"],
-            image_size=image_size,
-            modalities=config.get("modalities"),
-            slice_column=str(config.get("slice_column", "Slice")),
-        )
-    if data_type in {"volume", "mri_volume", "brats_volume"}:
-        return MRIDataVolume(
-            csv_path=config["path_to_csv"],
-            dataset_path=config["dataset_path"],
-            image_size=image_size,
-            modalities=config.get("modalities"),
-            segmentation_suffix=str(config.get("segmentation_suffix", "seg")),
-            histogram_normalization=bool(config.get("histogram_normalization", False)),
-            shift_naming=bool(config.get("shift_naming", "shifts" in str(config.get("dataset_path", "")).lower())),
-        )
-
-    raise ValueError(f"Unknown dataset type: {data_type}")
+    builder = DATASET_REGISTRY.get(data_type)
+    if builder is None:
+        raise ValueError(f"Unknown dataset type: {data_type}")
+    return builder(config)
 
 
 def build_dataloader(config: dict[str, Any]) -> DataLoader:
