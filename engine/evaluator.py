@@ -27,12 +27,15 @@ class VolumeEvaluator:
         config: dict[str, Any],
         accelerator: Any = None,
     ):
+        # detector 同時當作 SliceAnomalyScorer；保留 self.detector 供 report 與
+        # 外部程式使用，collector 則只透過 scorer 介面互動。
         self.detector = detector
+        self.scorer = detector
         self.raw_config = config
         self.config = VolumeEvaluationConfig.from_dict(config)
         self.accelerator = accelerator
         self.collector = VolumeScoreCollector(
-            detector=detector,
+            scorer=self.scorer,
             config=self.config,
             accelerator=accelerator,
             progress_enabled_fn=self._progress_enabled,

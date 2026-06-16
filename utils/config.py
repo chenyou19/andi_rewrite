@@ -7,14 +7,25 @@ from typing import Any
 
 import yaml
 
+from .config_schema import validate_config
 
-def load_config(path: str | Path) -> dict[str, Any]:
-    """載入 YAML，並記錄來源路徑以利重現實驗。"""
+
+def load_config(path: str | Path, *, validate: bool = True, mode: str | None = None) -> dict[str, Any]:
+    """載入 YAML，並記錄來源路徑以利重現實驗。
+
+    預設會做輕量 schema validation（validate=True）；回傳仍是 dict，現有
+    builder / trainer / evaluator 的使用方式完全不變。需要跳過驗證時可傳
+    validate=False。
+    """
 
     config_path = Path(path)
     with config_path.open("r", encoding="utf-8") as handle:
         data = yaml.safe_load(handle) or {}
+    if not isinstance(data, dict):
+        raise ValueError("Config root must be a mapping/dict.")
     data["_config_path"] = str(config_path)
+    if validate:
+        data = validate_config(data, mode=mode)
     return data
 
 

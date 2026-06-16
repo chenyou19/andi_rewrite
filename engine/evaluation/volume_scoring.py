@@ -11,23 +11,32 @@ from typing import Any, Callable, Iterable
 
 import torch
 
-from andi_rewrite.anomaly import ANDiDetector
+from andi_rewrite.anomaly.interfaces import SliceAnomalyScorer
 from andi_rewrite.utils.progress import ProgressReporter
 
 from .config import VolumeEvaluationConfig
 
 
 class VolumeScoreCollector:
-    """逐 volume 計算 raw anomaly map，並 collect 成單一張量。"""
+    """逐 volume 計算 raw anomaly map，並 collect 成單一張量。
+
+    只依賴 SliceAnomalyScorer 介面（score_slices / device），不再知道 ANDiDetector
+    的內部流程，之後換成 autoencoder / latent / ensemble scorer 都不需要改這裡。
+    """
 
     def __init__(
         self,
-        detector: ANDiDetector,
-        config: VolumeEvaluationConfig,
+        scorer: SliceAnomalyScorer | None = None,
+        config: VolumeEvaluationConfig | None = None,
         accelerator: Any = None,
         progress_enabled_fn: Callable[[], bool] | None = None,
+        *,
+        detector: SliceAnomalyScorer | None = None,
     ):
-        self.detector = detector
+        # detector= 為舊參數名的相容別名；新程式請用 scorer=。
+        self.scorer = scorer if scorer is not None else detector
+        if self.scorer is None:
+            raise TypeError("VolumeScoreCollector requires a 'scorer' (legacy alias 'detector').")
         self.config = config
         self.accelerator = accelerator
         self._progress_enabled_fn = progress_enabled_fn if progress_enabled_fn is not None else (lambda: False)
@@ -51,14 +60,14 @@ class VolumeScoreCollector:
         )
         try:
             for chunk_index, chunk in enumerate(chunks, start=1):
-                deviations = self.detector.compute_deviation_stack(
-                    chunk,
-                    progress=progress_enabled,
-                    progress_description=f"{volume_label} chunk {chunk_index} timesteps",
-                    progress_leave=False,
+                scores.append(
+                    self.scorer.score_slices(
+                        chunk,
+                        progress=progress_enabled,
+                        progress_description=f"{volume_label} chunk {chunk_index} timesteps",
+                        progress_leave=False,
+                    ).detach()
                 )
-                per_modality = self.detector.aggregate_time(deviations)
-                scores.append(self.detector.pool_modalities(per_modality).detach())
                 chunk_bar.update()
         finally:
             chunk_bar.close()
@@ -67,7 +76,7 @@ class VolumeScoreCollector:
     def volume_scores(self, image: torch.Tensor, volume_index: int | None = None) -> torch.Tensor:
         """將 [B, C, H, W, Z] 轉成 raw anomaly maps [B, H, W, Z]。"""
 
-        image = image.to(self.detector.device)
+        image = image.to(self.scorer.device)
         if self.config.normalize_input:
             image = image * 2.0 - 1.0
         batch_size, _, height, width, slices = image.shape

@@ -116,6 +116,28 @@ class ANDiDetector:
     def pool_modalities(self, scores: torch.Tensor) -> torch.Tensor:
         return self.modality_aggregator(scores, dim=1)
 
+    def score_slices(
+        self,
+        images: torch.Tensor,
+        progress: bool = False,
+        progress_description: str = "ANDi timesteps",
+        progress_leave: bool = False,
+    ) -> torch.Tensor:
+        """SliceAnomalyScorer 介面：把 [N, C, H, W] slices 變成 raw anomaly map [N, H, W]。
+
+        只是把既有的 compute_deviation_stack -> aggregate_time -> pool_modalities
+        串起來；DDPM scoring math 完全不變。
+        """
+
+        deviations = self.compute_deviation_stack(
+            images,
+            progress=progress,
+            progress_description=progress_description,
+            progress_leave=progress_leave,
+        )
+        per_modality = self.aggregate_time(deviations)
+        return self.pool_modalities(per_modality)
+
     def postprocess(self, anomaly_map: torch.Tensor) -> dict[str, torch.Tensor]:
         anomaly_map = normalize_minmax(anomaly_map)
         anomaly_map = apply_score_postprocess(anomaly_map, self.score_postprocess)
