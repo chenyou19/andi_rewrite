@@ -1,0 +1,103 @@
+# Evaluate 250 BraTS23 volumes using epoch 0010 of empirical_spectrum_radial40_lmdb.
+experiment:
+  name: brats23_250_empirical_spectrum_radial40_epoch0010_full_gaussian
+
+runtime:
+  seed: 73
+  device: auto
+  accelerate: false
+  find_unused_parameters: true
+
+data:
+  type: volume
+  dataset_path: C:/ML/data/BraTS23
+  path_to_csv: C:/ML/andi_test/Test/andi_rewrite/splits/BraTS23/scans_test_250.csv
+  image_size: 128
+  channels: 4
+  batch_size: 1
+  workers: 0
+  size_splits: 155
+  # BraTS23 names these modalities t2f/t1n/t1c/t2w, matching flair/t1/t1ce/t2.
+  modalities: [t2f, t1n, t1c, t2w]
+  segmentation_suffix: seg
+  filename_separator: "-"
+  histogram_normalization: false
+  shift_naming: false
+
+model:
+  type: andi_unet
+  image_size: 128
+  in_channels: 4
+  out_channels: 4
+  time_dim: 256
+  checkpoint: C:/ML/andi_test/Test/andi_rewrite/outputs/checkpoints/empirical_spectrum_radial40_lmdb/epoch_0010.pt
+  use_ema: true
+
+diffusion:
+  steps: 1000
+  beta_start: 1.0e-4
+  beta_end: 0.02
+
+noise:
+  schedule:
+    type: static
+    sampler:
+      type: gaussian
+
+anomaly:
+  t_lower: 75
+  t_upper: 200
+  aggregation:
+    type: geometric_mean
+    eps: 1.0e-8
+  modality_pool:
+    type: max
+  median_filter:
+    enabled: true
+    kernel_size: 5
+  threshold: yen
+
+metrics:
+  output_csv: outputs/metrics/brats23_250_empirical_spectrum_radial40_epoch0010_full_gaussian/ANDi.csv
+  output_mf_csv: outputs/metrics/brats23_250_empirical_spectrum_radial40_epoch0010_full_gaussian/ANDi_mf.csv
+  thr_start: 0.01
+  thr_end: 0.3
+  thr_step: 0.001
+  threshold: 0.5
+  compute_auprc: true
+  auprc_max_samples: 5000000
+  auprc_seed: 73
+  size_splits: 155
+  kernel_size: 5
+  rank: 3
+  connectivity: 1
+  median_filter:
+    enabled: true
+    kernel_size: 5
+    mode: 3d
+  postprocess:
+    score:
+      pipeline:
+        - type: normalize
+    score_mf:
+      pipeline:
+        - type: median_filter
+          kernel_size: 5
+          mode: 3d
+        - type: normalize
+    threshold_mask:
+      pipeline:
+        - type: binary_dilation
+          rank: 3
+          connectivity: 1
+          iterations: 1
+    yen_mask:
+      pipeline:
+        - type: binary_dilation
+          rank: 3
+          connectivity: 1
+          iterations: 1
+
+evaluation:
+  progress:
+    enabled: true

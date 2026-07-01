@@ -43,6 +43,10 @@ class VolumeEvaluator:
         self.threshold_end = float(config.get("thr_end", config.get("threshold_end", 0.3)))
         self.threshold_step = float(config.get("thr_step", config.get("threshold_step", 0.001)))
         self.metric_threshold = float(config.get("threshold", 0.5))
+        self.compute_auprc = bool(config.get("compute_auprc", True))
+        auprc_max_samples = config.get("auprc_max_samples")
+        self.auprc_max_samples = int(auprc_max_samples) if auprc_max_samples not in (None, "", 0, False) else None
+        self.auprc_seed = int(config.get("auprc_seed", 73))
         self.rank = int(config.get("rank", 3))
         self.connectivity = int(config.get("connectivity", 1))
         median_config = config.get("median_filter", {})
@@ -241,9 +245,24 @@ class VolumeEvaluator:
             scores_mf["yensen"] = yen_metrics_mf["sensitivity"]
             scores_mf["yenpre"] = yen_metrics_mf["precision"]
             summary_bar.update(postfix="yen")
-            scores["AUPRC"] = auprc(anomaly_map, labels)
-            scores_mf["AUPRC"] = auprc(anomaly_map_mf, labels)
-            summary_bar.update(postfix="AUPRC")
+            if self.compute_auprc:
+                scores["AUPRC"] = auprc(
+                    anomaly_map,
+                    labels,
+                    max_samples=self.auprc_max_samples,
+                    seed=self.auprc_seed,
+                )
+                scores_mf["AUPRC"] = auprc(
+                    anomaly_map_mf,
+                    labels,
+                    max_samples=self.auprc_max_samples,
+                    seed=self.auprc_seed,
+                )
+                if self.auprc_max_samples is not None:
+                    sampled = min(int(anomaly_map.numel()), self.auprc_max_samples)
+                    scores["AUPRC_samples"] = sampled
+                    scores_mf["AUPRC_samples"] = sampled
+                summary_bar.update(postfix="AUPRC")
 
             rates = self._binary_rates(anomaly_map > self.metric_threshold, labels)
             rates_mf = self._binary_rates(anomaly_map_mf > self.metric_threshold, labels)
@@ -285,8 +304,8 @@ class VolumeEvaluator:
         return {
             "output": str(self.output_csv),
             "output_mf": str(self.output_mf_csv),
-            "AUPRC": scores["AUPRC"],
-            "AUPRC_mf": scores_mf["AUPRC"],
+            "AUPRC": scores.get("AUPRC"),
+            "AUPRC_mf": scores_mf.get("AUPRC"),
             "DiceYen": scores["yen"],
             "DiceYen_mf": scores_mf["yen"],
             "YenThr": scores["yenthr"],

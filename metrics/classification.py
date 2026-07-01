@@ -20,11 +20,21 @@ def _to_numpy(tensor: torch.Tensor | np.ndarray) -> np.ndarray:
     return np.asarray(tensor)
 
 
-def auprc(scores: torch.Tensor | np.ndarray, target: torch.Tensor | np.ndarray) -> float:
+def auprc(
+    scores: torch.Tensor | np.ndarray,
+    target: torch.Tensor | np.ndarray,
+    max_samples: int | None = None,
+    seed: int = 73,
+) -> float:
     """在所有 voxel/pixel 上計算 average precision。"""
 
     y_score = _to_numpy(scores).reshape(-1)
     y_true = _to_numpy(target).astype(bool).reshape(-1)
+    if max_samples is not None and max_samples > 0 and y_score.shape[0] > max_samples:
+        rng = np.random.default_rng(seed)
+        sample_indices = rng.integers(0, y_score.shape[0], size=int(max_samples), dtype=np.int64)
+        y_score = y_score[sample_indices]
+        y_true = y_true[sample_indices]
     try:
         from sklearn.metrics import average_precision_score
 
