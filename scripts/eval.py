@@ -63,7 +63,16 @@ def load_model_if_configured(model: torch.nn.Module, config: dict, device: torch
     payload = torch.load(checkpoint_path, map_location=device)
     key = "ema_model" if config.get("model", {}).get("use_ema", False) and "ema_model" in payload else "model"
     state = payload[key] if isinstance(payload, dict) and key in payload else payload
-    unwrap_model(model).load_state_dict(state)
+    try:
+        unwrap_model(model).load_state_dict(state)
+    except RuntimeError as exc:
+        model_config = config.get("model", {})
+        raise RuntimeError(
+            "Checkpoint is not compatible with the configured model. "
+            f"checkpoint={checkpoint_path}, state_key={key}, "
+            f"in_channels={model_config.get('in_channels', model_config.get('channels'))}, "
+            f"out_channels={model_config.get('out_channels', model_config.get('channels'))}."
+        ) from exc
 
 
 def build_detector_from_config(config: dict) -> tuple[ANDiDetector, object | None]:
@@ -105,7 +114,14 @@ def main() -> None:
         dataloader = build_dataloader(config.get("data", {}))
         evaluator = VolumeEvaluator(
             detector=detector,
-            config={**config.get("data", {}), **config.get("metrics", {}), **config.get("evaluation", {})},
+            config={
+                **config.get("data", {}),
+                **config.get("metrics", {}),
+                **config.get("evaluation", {}),
+                "prediction_output": config.get("prediction_output", {}),
+                "model": config.get("model", {}),
+                "anomaly": config.get("anomaly", {}),
+            },
             accelerator=accelerator,
         )
         dataloader = evaluator.prepare(dataloader)

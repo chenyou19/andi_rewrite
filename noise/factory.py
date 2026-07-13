@@ -104,8 +104,11 @@ def build_noise_sampler(config: dict[str, Any]) -> BaseNoise:
         return EmpiricalSpectrumNoise(
             stats_path=config["stats_path"],
             mode=str(config.get("mode", "radial")),
+            generation_method=str(config.get("generation_method", "fixed_magnitude")),
             spectrum_key=str(config.get("spectrum_key", "mean_amplitude")),
             radial_key=str(config.get("radial_key", "radial_amplitude")),
+            spectrum_power_key=str(config.get("spectrum_power_key", "mean_power")),
+            radial_power_key=str(config.get("radial_power_key", "radial_power")),
             per_channel=bool(config.get("per_channel", True)),
             strength=float(config.get("strength", 1.0)),
             normalize=bool(config.get("normalize", True)),

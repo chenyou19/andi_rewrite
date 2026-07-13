@@ -394,18 +394,67 @@ noise:
     type: static
     sampler:
       type: empirical_spectrum
+      generation_method: fixed_magnitude
       stats_path: outputs/spectrum/brats21_healthy_empirical_spectrum.npz
       mode: radial
+      radial_key: radial_amplitude
       strength: 1.0
       normalize: true
       per_channel: true
 ```
 
+- `generation_method: fixed_magnitude` is the backward-compatible default. Each noise draw uses the empirical MRI FFT magnitude and a random phase:
+
+  ```text
+  F_i = A_MRI * exp(j * phi_i)
+  ```
+
+  At `strength: 1`, different draws therefore have an almost fixed FFT magnitude even though their phases differ. The aliases `fixed` and `phase_randomized` resolve to the canonical name `fixed_magnitude`.
+
+- `generation_method: filtered_gaussian` treats the empirical MRI power spectrum as a frequency-domain filter while retaining the white Gaussian FFT's random magnitude and phase:
+
+  ```text
+  F_i = FFT(W_i) * H_MRI
+  H_MRI = sqrt(S_MRI)
+  ```
+
+  The aliases `gaussian_filter` and `legacy_filter` resolve to `filtered_gaussian`. A radial example is:
+
+  ```yaml
+  noise:
+    schedule:
+      type: static
+      sampler:
+        type: empirical_spectrum
+        generation_method: filtered_gaussian
+        stats_path: outputs/spectrum/brats21_healthy_empirical_spectrum.npz
+        mode: radial
+        radial_power_key: radial_power
+        spectrum_power_key: mean_power
+        strength: 1.0
+        normalize: true
+        per_channel: true
+        eps: 1.0e-8
+  ```
+
+- For `filtered_gaussian`, the RMS-normalized amplitude filter is raised to `strength`: `H_effective = H_MRI ** strength`. Thus `0` is white Gaussian noise, `0.5` is the square root of the full normalized amplitude filter, and `1` is full empirical-spectrum filtering.
+- The two generation methods can have similar mean spectra but deliberately differ in sample-to-sample spectrum variation. `fixed_magnitude` nearly fixes every draw's FFT magnitude; `filtered_gaussian` retains the draw-specific Gaussian FFT magnitude.
 - `mode: radial` uses a radial averaged spectrum, so it is less likely to learn fixed direction or position bias.
 - `mode: 2d` or `mode: full2d` uses the full 2D spectrum and preserves directional frequency structure; use it as an ablation.
-- `strength: 0` is Gaussian noise, `strength: 1` is fully empirical-spectrum-shaped noise.
+- `normalize: true` applies zero mean and population unit standard deviation independently to every sample and channel.
 - Recommended sweep: `strength = 0.25, 0.5, 0.75, 1.0`.
 - Spectrum statistics crop around the nonzero foreground before FFT, which avoids contaminating the spectrum with outer black-background boundaries.
+
+Compare the two production generation methods without starting training:
+
+```powershell
+python scripts\compare_noise_statistics.py `
+  --synthetic `
+  --method-a fixed_magnitude `
+  --method-b filtered_gaussian `
+  --num-samples 1000 `
+  --no-plots
+```
 
 Compare one or more spectrum `.npz` files against the same LMDB MRI slice:
 

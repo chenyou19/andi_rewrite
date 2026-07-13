@@ -1,0 +1,85 @@
+# A/B control: 40 epochs with the backward-compatible fixed-magnitude method.
+experiment:
+  name: empirical_fixed_magnitude40_lmdb_zbalanced
+
+runtime:
+  seed: 73
+  device: auto
+  cudnn_benchmark: true
+  accelerate: false
+  find_unused_parameters: true
+
+data:
+  type: lmdb
+  path: C:/ML/data/BraTS_2021_healthy_lmdb_zbalanced
+  image_size: 128
+  channels: 4
+  batch_size: 52
+  workers: 0
+  shuffle: true
+
+model:
+  type: andi_unet
+  image_size: 128
+  in_channels: 4
+  out_channels: 4
+  time_dim: 256
+
+diffusion:
+  steps: 1000
+  beta_start: 1.0e-4
+  beta_end: 0.02
+
+noise:
+  schedule:
+    type: static
+    sampler:
+      type: empirical_spectrum
+      generation_method: fixed_magnitude
+      stats_path: C:/ML/andi_test/Test/andi_rewrite/outputs/spectrum/brats21_healthy_zbalanced_empirical_spectrum.npz
+      mode: radial
+      spectrum_power_key: mean_power
+      radial_power_key: radial_power
+      strength: 1.0
+      normalize: true
+      per_channel: true
+      eps: 1.0e-8
+
+training:
+  run_name: empirical_fixed_magnitude40_lmdb_zbalanced
+  epochs: 40
+  start_lr: 2.0e-5
+  target_lr: 1.0e-4
+  scheduler:
+    type: warmup_cosine
+    warmup_steps: 0.05
+    start_lr: 2.0e-5
+    target_lr: 1.0e-4
+  ema:
+    enabled: true
+    decay: 0.995
+    step_start: 2000
+  normalize_input: true
+  progress:
+    enabled: true
+  eval_after_fit:
+    enabled: false
+  checkpoint:
+    dir: outputs/checkpoints
+    start_epoch: 1
+    save_every_epochs: 2
+    save_last: true
+    resume:
+  samples:
+    enabled: true
+    output_dir: outputs/samples
+    start_epoch: 19
+    every_epochs: 20
+    num_images: 3
+    channels: 4
+    image_size: 128
+    mode: L
+    nrow:
+    use_ema: true
+    dtype: float32
+    clip_denoised: true

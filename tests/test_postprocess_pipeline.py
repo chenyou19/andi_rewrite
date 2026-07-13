@@ -10,6 +10,7 @@ import yaml
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
+from andi_rewrite.engine.evaluator import VolumeEvaluator  # noqa: E402
 from andi_rewrite.anomaly.postprocess import (  # noqa: E402
     MASK_POSTPROCESSORS,
     _legacy_mask_pipeline,
@@ -112,6 +113,31 @@ class PostprocessPipelineTest(unittest.TestCase):
                     offenders.append(str(path.relative_to(REPO_ROOT)))
 
         self.assertEqual(offenders, [])
+
+    def test_volume_evaluator_without_labels_reports_na_metrics(self) -> None:
+        class DummyDetector:
+            t_lower = 1
+            t_upper = 2
+            device = torch.device("cpu")
+
+        evaluator = VolumeEvaluator(
+            DummyDetector(),  # type: ignore[arg-type]
+            {
+                "thr_start": 0.1,
+                "thr_end": 0.3,
+                "thr_step": 0.1,
+                "compute_auprc": True,
+                "postprocess": {"score": {"pipeline": []}, "score_mf": {"pipeline": []}},
+                "progress": False,
+            },
+        )
+
+        scores, scores_mf = evaluator.summarize(torch.rand(1, 8, 8, 3), labels=None)
+
+        self.assertEqual(scores["AUPRC"], "N/A")
+        self.assertEqual(scores["yen"], "N/A")
+        self.assertEqual(scores[0.1]["dice"], "N/A")
+        self.assertEqual(scores_mf["yenpre"], "N/A")
 
 
 if __name__ == "__main__":

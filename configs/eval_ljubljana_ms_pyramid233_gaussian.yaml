@@ -1,0 +1,127 @@
+# Full-volume Shifts MS / Ljubljana-style evaluation using the z-balanced
+# 233-epoch pyramid checkpoint with Gaussian inference noise.
+experiment:
+  name: ljubljana_ms_pyramid233_gaussian
+
+runtime:
+  seed: 73
+  device: auto
+  accelerate: false
+  find_unused_parameters: true
+
+data:
+  type: ljubljana_ms_volume
+  dataset_path: C:/ML/data/shifts_ms_pt2
+  image_size: 128
+  channels: 4
+  batch_size: 1
+  workers: 0
+  size_splits: 155
+  # Model channel order stays aligned with the BraTS-trained checkpoint.
+  modalities: [flair, t1, t1ce, t2]
+  # The local Shifts MS part2 archive has PD instead of T1Post/T1CE; the
+  # metadata and inventory record the actual source folder for every channel.
+  modality_mapping:
+    flair: [flair, FLAIR]
+    t1: [t1, T1]
+    t1ce: [t1ce, T1Post, t1post, pd, PD]
+    t2: [t2, T2]
+    segmentation: [Gold_Standard, gold_standard, gt]
+    brain_mask: [fg_mask, brain_mask, mask]
+  location: auto
+  preferred_locations: [ljubljana, best, msseg]
+  splits: [dev_out, dev_in, eval_in]
+  reference_modality: flair
+  require_segmentation: true
+  require_modalities: true
+  resample_to_reference: true
+  histogram_normalization: false
+  return_metadata: true
+
+model:
+  type: andi_unet
+  image_size: 128
+  in_channels: 4
+  out_channels: 4
+  time_dim: 256
+  checkpoint: outputs/checkpoints/pyramid233_lmdb_zbalanced_save20/epoch_0232.pt
+  use_ema: true
+
+diffusion:
+  steps: 1000
+  beta_start: 1.0e-4
+  beta_end: 0.02
+
+noise:
+  schedule:
+    type: static
+    sampler:
+      type: gaussian
+
+anomaly:
+  t_lower: 75
+  t_upper: 200
+  aggregation:
+    type: geometric_mean
+    eps: 1.0e-8
+  modality_pool:
+    type: max
+  median_filter:
+    enabled: true
+    kernel_size: 5
+    mode: 3d
+  threshold: yen
+
+metrics:
+  output_csv: outputs/metrics/ljubljana_ms_pyramid233_gaussian/ANDi.csv
+  output_mf_csv: outputs/metrics/ljubljana_ms_pyramid233_gaussian/ANDi_mf.csv
+  compute_auprc: true
+  thr_start: 0.01
+  thr_end: 0.3
+  thr_step: 0.001
+  threshold: 0.5
+  size_splits: 155
+  kernel_size: 5
+  rank: 3
+  connectivity: 1
+  median_filter:
+    enabled: true
+    kernel_size: 5
+    mode: 3d
+  postprocess:
+    score:
+      pipeline:
+        - type: normalize
+    score_mf:
+      pipeline:
+        - type: median_filter
+          kernel_size: 5
+          mode: 3d
+        - type: normalize
+    threshold_mask:
+      pipeline:
+        - type: binary_dilation
+          rank: 3
+          connectivity: 1
+          iterations: 1
+    yen_mask:
+      pipeline:
+        - type: binary_dilation
+          rank: 3
+          connectivity: 1
+          iterations: 1
+
+prediction_output:
+  enabled: true
+  directory: outputs/predictions/ljubljana_ms_pyramid233_gaussian
+  save_raw_score: true
+  save_median_filtered_score: true
+  save_yen_mask: true
+  save_threshold_mask: false
+  threshold: 0.5
+  threshold_source: score_mf
+  restore_native_grid: true
+
+evaluation:
+  progress:
+    enabled: true
