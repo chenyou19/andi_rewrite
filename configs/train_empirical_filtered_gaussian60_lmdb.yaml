@@ -1,6 +1,6 @@
-# Train DDPM for 200 epochs with empirical-spectrum filtered Gaussian noise.
+# Train DDPM for 60 epochs with empirical-spectrum filtered Gaussian noise.
 experiment:
-  name: empirical_filtered_gaussian200_lmdb
+  name: empirical_filtered_gaussian60_lmdb
 
 runtime:
   seed: 73
@@ -46,8 +46,8 @@ noise:
       eps: 1.0e-8
 
 training:
-  run_name: empirical_filtered_gaussian200_lmdb
-  epochs: 200
+  run_name: empirical_filtered_gaussian60_lmdb
+  epochs: 60
   start_lr: 2.0e-5
   target_lr: 1.0e-4
   scheduler:

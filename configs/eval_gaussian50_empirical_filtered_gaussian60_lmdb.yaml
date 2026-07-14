@@ -1,0 +1,101 @@
+# Evaluate all filtered-Gaussian empirical-spectrum training checkpoints on 50 BraTS21 volumes.
+experiment:
+  name: gaussian50_from_empirical_filtered_gaussian60_lmdb
+
+runtime:
+  seed: 73
+  device: auto
+  accelerate: false
+  find_unused_parameters: true
+
+data:
+  type: volume
+  dataset_path: C:/ML/data/BraTS_2021
+  path_to_csv: C:/ML/andi_test/Test/andi_rewrite/splits/BraTS21/scans_test_50.csv
+  image_size: 128
+  channels: 4
+  batch_size: 1
+  workers: 0
+  size_splits: 155
+  modalities: [flair, t1, t1ce, t2]
+  histogram_normalization: false
+  shift_naming: false
+
+model:
+  type: andi_unet
+  image_size: 128
+  in_channels: 4
+  out_channels: 4
+  time_dim: 256
+  # eval_checkpoints50.py replaces this path for each checkpoint.
+  checkpoint: outputs/checkpoints/empirical_filtered_gaussian60_lmdb/epoch_0059.pt
+  use_ema: true
+
+diffusion:
+  steps: 1000
+  beta_start: 1.0e-4
+  beta_end: 0.02
+
+# Keep inference Gaussian so all three training checkpoints are compared under
+# the same standard evaluation noise distribution.
+noise:
+  schedule:
+    type: static
+    sampler:
+      type: gaussian
+
+anomaly:
+  t_lower: 75
+  t_upper: 200
+  aggregation:
+    type: geometric_mean
+    eps: 1.0e-8
+  modality_pool:
+    type: max
+  median_filter:
+    enabled: true
+    kernel_size: 5
+  threshold: yen
+
+metrics:
+  # eval_checkpoints50.py rewrites these into one directory per checkpoint.
+  output_csv: outputs/metrics/empirical_filtered_gaussian60_lmdb_gaussian50/ANDi.csv
+  output_mf_csv: outputs/metrics/empirical_filtered_gaussian60_lmdb_gaussian50/ANDi_mf.csv
+  thr_start: 0.01
+  thr_end: 0.3
+  thr_step: 0.001
+  threshold: 0.5
+  size_splits: 155
+  kernel_size: 5
+  rank: 3
+  connectivity: 1
+  median_filter:
+    enabled: true
+    kernel_size: 5
+    mode: 3d
+  postprocess:
+    score:
+      pipeline:
+        - type: normalize
+    score_mf:
+      pipeline:
+        - type: median_filter
+          kernel_size: 5
+          mode: 3d
+        - type: normalize
+    threshold_mask:
+      pipeline:
+        - type: binary_dilation
+          rank: 3
+          connectivity: 1
+          iterations: 1
+    yen_mask:
+      pipeline:
+        - type: binary_dilation
+          rank: 3
+          connectivity: 1
+          iterations: 1
+
+evaluation:
+  progress:
+    enabled: true
