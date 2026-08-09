@@ -38,6 +38,7 @@ def resolve_device(name: str) -> torch.device:
 
 def configure_training_backend(runtime: dict) -> None:
     torch.backends.cudnn.benchmark = bool(runtime.get("cudnn_benchmark", True))
+    torch.backends.cudnn.deterministic = bool(runtime.get("deterministic", False))
 
 
 def build_accelerator(config: dict):

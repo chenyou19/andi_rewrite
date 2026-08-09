@@ -63,6 +63,11 @@ anomaly:
 
 # metrics 控制 CSV 輸出、threshold sweep 與後處理 pipelines。
 metrics:
+  # rewrite 保留目前可組合 pipeline；original_andi 精確重現原版 eval.py。
+  # 舊 config 未指定此欄位時仍走 legacy-compatible rewrite，並顯示遷移警告。
+  postprocess_mode: rewrite
+  # yen 為向後相容預設；也可設為 otsu，兩者都對每個完整 3D volume 執行。
+  threshold_method: yen
   output_csv: outputs/metrics/ANDi.csv
   output_mf_csv: outputs/metrics/ANDi_mf.csv
   thr_start: 0.01
@@ -77,6 +82,20 @@ metrics:
     enabled: true
     kernel_size: 5
     mode: 3d
+  # 原版模式固定先對 raw map 做 3D median filter，再讓 raw/MF 兩分支
+  # 各自使用完整測試集的 Min-Max；自適應 threshold 則逐 subject 計算。
+  original_andi:
+    normalization_scope: dataset
+    median_filter:
+      enabled: true
+      kernel_size: 5
+      mode: 3d
+    binary_mask:
+      binary_dilation:
+        enabled: true
+        rank: 3
+        connectivity: 1
+        iterations: 1
   # postprocess 是有順序且可擴充的 pipeline。
   # 若要新增 step，先在 anomaly/postprocess.py 註冊，再於此以 type 引用。
   postprocess:
@@ -91,12 +110,26 @@ metrics:
         - type: normalize
     threshold_mask:
       pipeline: []
-    yen_mask:
+    binary_mask:
       pipeline:
         - type: binary_dilation
           rank: 3
           connectivity: 1
           iterations: 1
+
+# mode-specific scope 讓 rewrite 保留舊版 per-subject export，切換成
+# original_andi 時自動使用 dataset scope，與 metrics 共用同一 processed tensor。
+prediction_output:
+  enabled: false
+  directory: outputs/predictions
+  normalization_scope:
+    rewrite: subject
+    original_andi: dataset
+  restore_native_grid: true
+  save_raw_score: true
+  save_median_filtered_score: true
+  binary_mask_source: score_mf
+  save_binary_mask: true
 
 evaluation:
   progress:

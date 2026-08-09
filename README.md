@@ -13,7 +13,7 @@
 - checkpoint save/resume 與 sample image export
 - BraTS healthy-slice raw loader 與 LMDB loader
 - full-volume evaluation，輸出 raw 與 median-filtered metrics CSV
-- ANDi anomaly map time aggregation、modality pooling、Yen threshold 與 postprocess pipeline
+- ANDi anomaly map time aggregation、modality pooling、Yen/Otsu threshold 與 postprocess pipeline
 - optional Accelerate distributed training/evaluation
 
 ## 專案結構
@@ -25,7 +25,7 @@ andi_rewrite/
   data/         BraTS/LMDB/volume datasets、healthy-slice preprocessing、registration helpers
   diffusion/    DDPM scheduler 與 transition math
   engine/       Trainer、VolumeEvaluator、EMA、checkpoint、LR scheduler
-  metrics/      AUPRC、Dice、DiceYen、sensitivity、specificity、CSV writer
+  metrics/      AUPRC、Dice、DiceYen/DiceOtsu、sensitivity、specificity、CSV writer
   models/       ANDiUNet 與 model factory
   noise/        Gaussian/Pyramid/Spectrum/Hybrid noise sampler 與 noise schedule
   scripts/      CLI entrypoints
@@ -283,9 +283,24 @@ python scripts\eval.py --config configs\eval_full_gaussian_from_pyramid233.yaml
 python scripts\eval.py --config configs\eval_full_gaussian_from_pyramid233.yaml --run-eval
 ```
 
+以 CLI 選擇 anomaly-map 二值化方法（預設仍為 Yen）：
+
+```powershell
+python scripts\eval.py --config configs\eval_full_gaussian_from_pyramid233.yaml --run-eval --threshold-method yen
+python scripts\eval.py --config configs\eval_full_gaussian_from_pyramid233.yaml --run-eval --threshold-method otsu
+```
+
+也可直接在 YAML 設定：
+
+```yaml
+metrics:
+  threshold_method: yen  # yen 或 otsu
+```
+
 常用 evaluation configs：
 
 - `configs/eval.yaml`：evaluation template
+- `configs/eval_original_andi.yaml`：重現原版 ANDi dataset-level 後處理的 standalone config
 - `configs/eval_gaussian50_pyramid20.yaml`：用 20-epoch pyramid checkpoint，搭配 Gaussian noise 評估 50 個 BraTS volumes
 - `configs/eval_full_gaussian_from_pyramid233.yaml`：用 233-epoch pyramid checkpoint，搭配 Gaussian noise 做 full evaluation
 
@@ -296,7 +311,30 @@ outputs/metrics/<run_name>/ANDi.csv
 outputs/metrics/<run_name>/ANDi_mf.csv
 ```
 
-`ANDi.csv` 使用 raw/postprocessed anomaly map；`ANDi_mf.csv` 使用 median-filtered anomaly map。兩者都會包含 threshold sweep、`yen`、`AUPRC`、`sensitivity`、`specificity`。
+`ANDi.csv` 使用 raw/postprocessed anomaly map；`ANDi_mf.csv` 使用 median-filtered anomaly map。兩者都會包含 threshold sweep、所選方法（`yen` 或 `otsu`）、`AUPRC`、`sensitivity`、`specificity`。自適應 threshold 是逐 subject、完整 3D volume 計算，兩種方法都沿用既有嚴格 `score > threshold` 判定；常數 volume 會記錄常數值為 threshold、產生空 mask 並發出 warning，而不會中止整批評估。
+
+`metrics.postprocess_mode` 可明確切換 `rewrite` 與 `original_andi`。兩者的 median-filter 順序、normalization scope、自適應 threshold/dilation、prediction export 對齊方式與向後相容規則，詳見 [`docs/postprocessing.md`](docs/postprocessing.md)。
+
+### 大型評估的磁碟串流與 AUPRC 模式
+
+完整資料集可使用 `evaluation.memory_mode: disk_streaming`，將每個 subject 的 raw anomaly map、label 與 median-filtered score 寫入 `evaluation.cache.directory`。`cache.resume: true` 會在重跑時驗證 manifest 並跳過已完成的 model inference；設定 fingerprint 不一致時會停止，不會混用舊快取。
+
+```yaml
+evaluation:
+  memory_mode: disk_streaming
+  cache:
+    directory: outputs/eval_cache/my_full_evaluation
+    resume: true
+    keep_on_success: true
+  compute_auprc: true
+  auprc_mode: sampled       # sampled 或 exact
+  auprc_max_samples: 5000000
+  auprc_seed: 73
+  external_sort:
+    chunk_bytes: 268435456  # exact 模式使用
+```
+
+`sampled` 維持既有的均勻有放回抽樣；若 voxel 總數不超過上限則使用全部資料。`exact` 使用磁碟外部排序計算全部 voxels，並且不可同時設定 `auprc_max_samples`。舊 config 未指定 `auprc_mode` 時，有 `auprc_max_samples` 會推定為 `sampled`，否則維持 `exact`。
 
 ## ANDi anomaly 設定
 
@@ -530,10 +568,10 @@ mask postprocess 支援：
 - `binary_dilation`
 - `connected_components`
 
-`yen_threshold` 不是 mask postprocess step。Yen Dice 會在
-`VolumeEvaluator._yen_metrics()` 內先把 anomaly map threshold 成 binary
-mask；`metrics.postprocess.yen_mask.pipeline` 只放 binary mask 後處理，例如
-`binary_dilation` 或 `connected_components`。若不需要 Yen mask 後處理，請使用
+`yen_threshold` 與 `otsu_threshold` 都不是 mask postprocess step。共用 `PostprocessPolicy` 會依
+`metrics.threshold_method` 把 continuous anomaly score threshold 成 binary mask；`metrics.postprocess.binary_mask.pipeline`
+只放 binary mask 後處理，例如
+`binary_dilation` 或 `connected_components`。若不需要 binary mask 後處理，請使用
 `pipeline: []`。
 
 score map 範例：
@@ -563,7 +601,7 @@ metrics:
           rank: 3
           connectivity: 1
           iterations: 1
-    yen_mask:
+    binary_mask:
       pipeline:
         - type: binary_dilation
           rank: 3
@@ -576,7 +614,7 @@ metrics:
 ```yaml
 metrics:
   postprocess:
-    yen_mask:
+    binary_mask:
       pipeline:
         - type: connected_components
           min_size: 20
@@ -719,7 +757,7 @@ metrics:
 5. 用 `--fit` 訓練 DDPM
 6. 修改 evaluation config 的 `data.dataset_path`、`data.path_to_csv`、`model.checkpoint`
 7. 用 `scripts/eval.py --run-eval` 產生 `ANDi.csv` 與 `ANDi_mf.csv`
-8. 比較 `AUPRC`、`yen`、threshold sweep Dice、sensitivity、specificity
+8. 比較 `AUPRC`、所選 threshold method、threshold sweep Dice、sensitivity、specificity
 
 ## 注意事項
 

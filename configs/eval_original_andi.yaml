@@ -1,0 +1,89 @@
+# Standalone reference-compatible ANDi evaluation config.
+experiment:
+  name: andi_rewrite_eval_original_andi
+
+runtime:
+  seed: 73
+  device: auto
+  accelerate: false
+  find_unused_parameters: true
+
+data:
+  type: volume
+  dataset_path: ./data/BraTS21
+  path_to_csv: ./splits/BraTS21/scans_test.csv
+  image_size: 128
+  channels: 4
+  batch_size: 1
+  workers: 4
+  size_splits: 155
+  modalities: [flair, t1, t1ce, t2]
+  histogram_normalization: false
+  shift_naming: false
+
+model:
+  type: andi_unet
+  image_size: 128
+  in_channels: 4
+  out_channels: 4
+  time_dim: 256
+  checkpoint:
+  use_ema: true
+
+diffusion:
+  steps: 1000
+  beta_start: 1.0e-4
+  beta_end: 0.02
+
+noise:
+  schedule:
+    type: static
+    sampler:
+      type: gaussian
+
+anomaly:
+  t_lower: 75
+  t_upper: 200
+  aggregation:
+    type: geometric_mean
+    eps: 1.0e-8
+  modality_pool:
+    type: max
+  threshold: yen
+
+metrics:
+  postprocess_mode: original_andi
+  threshold_method: yen
+  output_csv: outputs/metrics/ANDi.csv
+  output_mf_csv: outputs/metrics/ANDi_mf.csv
+  thr_start: 0.01
+  thr_end: 0.3
+  thr_step: 0.001
+  threshold: 0.5
+  size_splits: 155
+  original_andi:
+    normalization_scope: dataset
+    median_filter:
+      enabled: true
+      kernel_size: 5
+      mode: 3d
+    binary_mask:
+      binary_dilation:
+        enabled: true
+        rank: 3
+        connectivity: 1
+        iterations: 1
+
+prediction_output:
+  enabled: false
+  directory: outputs/predictions
+  normalization_scope: dataset
+  restore_native_grid: true
+  save_raw_score: true
+  save_median_filtered_score: true
+  binary_mask_source: score_mf
+  save_binary_mask: true
+
+evaluation:
+  progress:
+    enabled: true

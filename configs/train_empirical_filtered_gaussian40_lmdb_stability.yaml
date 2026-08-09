@@ -1,0 +1,76 @@
+# Controlled 40-epoch stability run using empirical-spectrum filtered Gaussian noise.
+experiment:
+  name: empirical_filtered_gaussian40_lmdb_stability_run01
+
+runtime:
+  seed: 73
+  device: auto
+  cudnn_benchmark: false
+  deterministic: true
+  accelerate: false
+  find_unused_parameters: true
+
+data:
+  type: lmdb
+  path: C:/ML/data/BraTS_2021_healthy_lmdb
+  image_size: 128
+  channels: 4
+  batch_size: 52
+  workers: 0
+  shuffle: true
+
+model:
+  type: andi_unet
+  image_size: 128
+  in_channels: 4
+  out_channels: 4
+  time_dim: 256
+
+diffusion:
+  steps: 1000
+  beta_start: 1.0e-4
+  beta_end: 0.02
+
+noise:
+  schedule:
+    type: static
+    sampler:
+      type: empirical_spectrum
+      generation_method: filtered_gaussian
+      stats_path: C:/ML/andi_test/Test/andi_rewrite/outputs/spectrum/brats21_healthy_lmdb_empirical_spectrum_stability.npz
+      mode: radial
+      radial_power_key: radial_power
+      spectrum_power_key: mean_power
+      strength: 1.0
+      normalize: true
+      per_channel: true
+      eps: 1.0e-8
+
+training:
+  run_name: empirical_filtered_gaussian40_lmdb_stability_run01
+  epochs: 40
+  start_lr: 2.0e-5
+  target_lr: 1.0e-4
+  scheduler:
+    type: warmup_cosine
+    warmup_steps: 0.05
+    start_lr: 2.0e-5
+    target_lr: 1.0e-4
+  ema:
+    enabled: true
+    decay: 0.995
+    step_start: 2000
+  normalize_input: true
+  progress:
+    enabled: true
+  eval_after_fit:
+    enabled: false
+  checkpoint:
+    dir: outputs/checkpoints
+    # Stored zero-based epochs 19/29/39 are completed epochs 20/30/40.
+    start_epoch: 19
+    save_every_epochs: 10
+    save_last: true
+    resume:
+  samples:
+    enabled: false

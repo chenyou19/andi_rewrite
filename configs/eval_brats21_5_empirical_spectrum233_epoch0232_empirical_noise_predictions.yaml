@@ -1,0 +1,120 @@
+# Five-case comparison run: empirical-spectrum checkpoint with matched
+# fixed-magnitude empirical-spectrum inference noise.
+experiment:
+  name: brats21_5_empirical_spectrum233_epoch0232_empirical_noise_predictions
+
+runtime:
+  seed: 73
+  device: auto
+  cudnn_benchmark: true
+  accelerate: false
+  find_unused_parameters: true
+
+data:
+  type: volume
+  dataset_path: C:/ML/data/BraTS_2021
+  path_to_csv: C:/ML/andi_test/Test/andi_rewrite/splits/BraTS21/scans_test_5_comparison.csv
+  image_size: 128
+  channels: 4
+  batch_size: 1
+  workers: 0
+  size_splits: 155
+  modalities: [flair, t1, t1ce, t2]
+  segmentation_suffix: seg
+  filename_separator: "_"
+  histogram_normalization: false
+  shift_naming: false
+  return_metadata: true
+
+model:
+  type: andi_unet
+  image_size: 128
+  in_channels: 4
+  out_channels: 4
+  time_dim: 256
+  checkpoint: C:/ML/andi_test/Test/andi_rewrite/outputs/checkpoints/empirical_spectrum233_lmdb_full_gaussian_20260609/epoch_0232.pt
+  use_ema: true
+
+diffusion:
+  steps: 1000
+  beta_start: 1.0e-4
+  beta_end: 0.02
+
+noise:
+  schedule:
+    type: static
+    sampler:
+      type: empirical_spectrum
+      stats_path: C:/ML/andi_test/Test/andi_rewrite/outputs/spectrum/brats21_healthy_empirical_spectrum.npz
+      generation_method: fixed_magnitude
+      mode: radial
+      spectrum_key: mean_amplitude
+      radial_key: radial_amplitude
+      strength: 1.0
+      normalize: true
+      per_channel: true
+      eps: 1.0e-8
+
+anomaly:
+  t_lower: 75
+  t_upper: 200
+  aggregation:
+    type: geometric_mean
+    eps: 1.0e-8
+  modality_pool:
+    type: max
+  median_filter:
+    enabled: true
+    kernel_size: 5
+  threshold: yen
+
+metrics:
+  postprocess_mode: rewrite
+  output_csv: outputs/metrics/brats21_5_checkpoint_comparison/empirical_spectrum233_empirical_noise/ANDi.csv
+  output_mf_csv: outputs/metrics/brats21_5_checkpoint_comparison/empirical_spectrum233_empirical_noise/ANDi_mf.csv
+  compute_auprc: false
+  thr_start: 0.01
+  thr_end: 0.3
+  thr_step: 0.001
+  threshold: 0.5
+  size_splits: 155
+  kernel_size: 5
+  rank: 3
+  connectivity: 1
+  median_filter:
+    enabled: true
+    kernel_size: 5
+    mode: 3d
+  postprocess:
+    score:
+      pipeline:
+        - type: normalize
+    score_mf:
+      pipeline:
+        - type: median_filter
+          kernel_size: 5
+          mode: 3d
+        - type: normalize
+    threshold_mask:
+      pipeline: []
+    yen_mask:
+      pipeline: []
+
+prediction_output:
+  enabled: true
+  directory: outputs/predictions/brats21_5_empirical_spectrum233_epoch0232_empirical_noise
+  # Match the Evaluator metric tensor so exported masks and CSV metrics share
+  # exactly the same processed result.
+  normalization_scope: dataset
+  yen_source: score_mf
+  save_raw_score: true
+  save_median_filtered_score: true
+  save_yen_mask: true
+  save_threshold_mask: false
+  threshold: 0.5
+  threshold_source: score_mf
+  restore_native_grid: true
+
+evaluation:
+  progress:
+    enabled: true

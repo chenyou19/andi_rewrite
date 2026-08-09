@@ -1,0 +1,76 @@
+# Resume empirical_filtered_gaussian60_lmdb from completed epoch 60 and train
+# until a total of 233 epochs. Model, optimizer, and EMA are restored from the
+# checkpoint. The completed 60-epoch cosine scheduler is intentionally disabled
+# so the continuation keeps its final learning rate (2e-5) without cycling.
+experiment:
+  name: empirical_filtered_gaussian233_lmdb_resume_epoch0059
+
+runtime:
+  seed: 73
+  device: auto
+  cudnn_benchmark: true
+  accelerate: false
+  find_unused_parameters: true
+
+data:
+  type: lmdb
+  path: C:/ML/data/BraTS_2021_healthy_lmdb
+  image_size: 128
+  channels: 4
+  batch_size: 52
+  workers: 0
+  shuffle: true
+
+model:
+  type: andi_unet
+  image_size: 128
+  in_channels: 4
+  out_channels: 4
+  time_dim: 256
+
+diffusion:
+  steps: 1000
+  beta_start: 1.0e-4
+  beta_end: 0.02
+
+noise:
+  schedule:
+    type: static
+    sampler:
+      type: empirical_spectrum
+      generation_method: filtered_gaussian
+      stats_path: C:/ML/andi_test/Test/andi_rewrite/outputs/spectrum/brats21_healthy_empirical_spectrum.npz
+      mode: radial
+      radial_power_key: radial_power
+      spectrum_power_key: mean_power
+      strength: 1.0
+      normalize: true
+      per_channel: true
+      eps: 1.0e-8
+
+training:
+  # Total target epoch count, not the number of additional epochs.
+  epochs: 233
+  learning_rate: 2.0e-5
+  scheduler:
+    type: none
+  ema:
+    enabled: true
+    decay: 0.995
+    step_start: 2000
+  normalize_input: true
+  progress:
+    enabled: true
+  eval_after_fit:
+    enabled: false
+  checkpoint:
+    dir: outputs/checkpoints
+    # Continue writing epoch_0079 ... epoch_0219 and the final epoch_0232
+    # into the original run directory.
+    start_epoch: 19
+    save_every_epochs: 20
+    save_last: true
+    resume: C:/ML/andi_test/Test/andi_rewrite/outputs/checkpoints/empirical_filtered_gaussian60_lmdb/epoch_0059.pt
+  run_name: empirical_filtered_gaussian60_lmdb
+  samples:
+    enabled: false

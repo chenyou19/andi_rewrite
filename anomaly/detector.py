@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import warnings
 from typing import Any
 
 import torch
@@ -7,10 +8,9 @@ import torch.nn as nn
 
 from andi_rewrite.anomaly.aggregation import build_aggregator
 from andi_rewrite.anomaly.postprocess import (
-    apply_mask_postprocess,
-    apply_score_postprocess,
-    normalize_minmax,
-    yen_threshold,
+    PostprocessPolicy,
+    SUPPORTED_THRESHOLD_METHODS,
+    build_postprocess_policy,
 )
 from andi_rewrite.diffusion import DDPMDiffusion
 from andi_rewrite.noise import NoisePlan
@@ -32,7 +32,9 @@ class ANDiDetector:
         noise_plan: NoisePlan,
         config: dict[str, Any],
         device: torch.device | str,
+        postprocess_policy: PostprocessPolicy | None = None,
     ):
+        self.config = dict(config)
         self.model = model
         self.diffusion = diffusion
         self.noise_plan = noise_plan
@@ -47,26 +49,29 @@ class ANDiDetector:
         self.median_mode = str(median_config.get("mode", "3d"))
         self.threshold = str(config.get("threshold", "yen")).lower()
         self.eps = float(config.get("eps", 1.0e-8))
-        postprocess_config = config.get("postprocess", {})
-        self.score_postprocess = postprocess_config.get("score", {})
-        self.filtered_score_postprocess = postprocess_config.get("score_mf")
-        if self.filtered_score_postprocess is None:
-            # 保留原版「median-filtered output」路徑；若需要新的 MF 流程，
-            # 可以直接在 postprocess.score_mf 指定任意 score pipeline 取代。
-            self.filtered_score_postprocess = (
-                {
-                    "pipeline": [
-                        {
-                            "type": "median_filter",
-                            "kernel_size": self.median_kernel_size,
-                            "mode": self.median_mode,
-                        }
-                    ]
-                }
-                if self.median_enabled
-                else {}
+        resolved_policy = postprocess_policy or build_postprocess_policy(
+            config,
+            anomaly_config=config,
+            legacy_profile="detector",
+        )
+        self.set_postprocess_policy(resolved_policy)
+
+    def set_postprocess_policy(self, policy: PostprocessPolicy) -> None:
+        """Share the exact policy instance used by an evaluator."""
+
+        self.postprocess_policy = policy
+        if self.threshold in SUPPORTED_THRESHOLD_METHODS:
+            # Adaptive threshold selection belongs to the shared policy.
+            self.threshold = policy.threshold_method
+        elif policy.mode == "original_andi":
+            warnings.warn(
+                "original_andi uses per-subject adaptive thresholding; ignoring "
+                f"anomaly.threshold={self.threshold!r} in favor of "
+                f"threshold_method={policy.threshold_method!r}.",
+                UserWarning,
+                stacklevel=2,
             )
-        self.mask_postprocess = postprocess_config.get("mask", {})
+            self.threshold = policy.threshold_method
 
     def compute_deviation_stack(
         self,
@@ -116,25 +121,51 @@ class ANDiDetector:
     def pool_modalities(self, scores: torch.Tensor) -> torch.Tensor:
         return self.modality_aggregator(scores, dim=1)
 
-    def postprocess(self, anomaly_map: torch.Tensor) -> dict[str, torch.Tensor]:
-        anomaly_map = normalize_minmax(anomaly_map)
-        anomaly_map = apply_score_postprocess(anomaly_map, self.score_postprocess)
-        filtered = apply_score_postprocess(anomaly_map, self.filtered_score_postprocess)
-        if self.threshold == "yen":
-            segmentation, thresholds = yen_threshold(filtered)
+    def postprocess(self, anomaly_map: torch.Tensor) -> dict[str, Any]:
+        processed = self.postprocess_policy.process(anomaly_map)
+        if self.threshold in SUPPORTED_THRESHOLD_METHODS:
+            segmentation = processed.binary_mask_mf_postprocessed
+            thresholds = processed.thresholds_mf
         else:
             threshold = float(self.threshold)
-            segmentation = filtered > threshold
-            thresholds = torch.full((filtered.shape[0],), threshold, device=filtered.device)
-        segmentation = apply_mask_postprocess(segmentation, self.mask_postprocess)
-        return {
-            "anomaly_map": anomaly_map,
-            "anomaly_map_filtered": filtered,
+            segmentation = self.postprocess_policy.fixed_threshold_mask(processed.score_mf, threshold)
+            thresholds = torch.full(
+                (processed.score_mf.shape[0],),
+                threshold,
+                device=processed.score_mf.device,
+                dtype=processed.score_mf.dtype,
+            )
+        output: dict[str, Any] = {
+            # Existing aliases remain stable for downstream callers.
+            "anomaly_map": processed.score_raw,
+            "anomaly_map_filtered": processed.score_mf,
             "segmentation": segmentation,
             "thresholds": thresholds,
+            "threshold_method": processed.threshold_method,
+            # Explicit products make raw/MF and pre/post-mask stages auditable.
+            "score_raw": processed.score_raw,
+            "score_mf": processed.score_mf,
+            "thresholds_raw": processed.thresholds_raw,
+            "thresholds_mf": processed.thresholds_mf,
+            "binary_mask_raw": processed.binary_mask_raw,
+            "binary_mask_mf": processed.binary_mask_mf,
+            "binary_mask_raw_postprocessed": processed.binary_mask_raw_postprocessed,
+            "binary_mask_mf_postprocessed": processed.binary_mask_mf_postprocessed,
         }
+        if processed.threshold_method == "yen":
+            output.update(
+                {
+                    "yen_thresholds_raw": processed.thresholds_raw,
+                    "yen_thresholds_mf": processed.thresholds_mf,
+                    "yen_mask_raw": processed.binary_mask_raw,
+                    "yen_mask_mf": processed.binary_mask_mf,
+                    "yen_mask_raw_postprocessed": processed.binary_mask_raw_postprocessed,
+                    "yen_mask_mf_postprocessed": processed.binary_mask_mf_postprocessed,
+                }
+            )
+        return output
 
-    def detect(self, images: torch.Tensor) -> dict[str, torch.Tensor]:
+    def detect(self, images: torch.Tensor) -> dict[str, Any]:
         deviations = self.compute_deviation_stack(images)
         per_modality = self.aggregate_time(deviations)
         anomaly_map = self.pool_modalities(per_modality)
@@ -144,14 +175,19 @@ class ANDiDetector:
         return output
 
     def describe(self) -> dict:
+        postprocessing = self.postprocess_policy.describe()
+        resolved_median = postprocessing.get("median_filter_settings", {})
         return {
             "t_lower": self.t_lower,
             "t_upper": self.t_upper,
             "aggregation": self.time_aggregator.describe(),
             "modality_pool": self.modality_aggregator.describe(),
             "median_filter": {
-                "enabled": self.median_enabled,
-                "kernel_size": self.median_kernel_size,
+                "enabled": resolved_median.get("enabled", self.median_enabled),
+                "kernel_size": resolved_median.get("kernel_size", self.median_kernel_size),
+                "mode": resolved_median.get("mode", self.median_mode),
             },
             "threshold": self.threshold,
+            "threshold_method": self.postprocess_policy.threshold_method,
+            "postprocessing": postprocessing,
         }

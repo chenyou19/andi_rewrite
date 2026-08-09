@@ -18,6 +18,15 @@ SUMMARY_COLUMNS = [
     "bestpre",
     "yensen",
     "yenpre",
+    "otsudice",
+    "otsuthr",
+    "otsusen",
+    "otsupre",
+    "adaptive_method",
+    "adaptive_dice",
+    "adaptive_threshold",
+    "adaptive_sensitivity",
+    "adaptive_precision",
 ]
 
 
@@ -251,8 +260,32 @@ def _build_inference_report(
     anomaly = config.get("anomaly", {})
     metrics = config.get("metrics", {})
     median_filter = _first_dict(metrics.get("median_filter"), anomaly.get("median_filter"), {})
-    yen_mask = safe_get(metrics, "postprocess.yen_mask", {})
-    dilation = _find_pipeline_step(yen_mask, "binary_dilation")
+    binary_mask = _first_dict(
+        safe_get(metrics, "postprocess.binary_mask"),
+        safe_get(metrics, "postprocess.yen_mask"),
+        {},
+    )
+    dilation = _find_pipeline_step(binary_mask, "binary_dilation")
+    described_policy = _describe(_get_attr(evaluator, "postprocess_policy"))
+    policy_description = (
+        described_policy
+        if isinstance(described_policy, dict)
+        else _first_dict(result.get("postprocessing"), {})
+    )
+    policy_median = _first_dict(policy_description.get("median_filter_settings"), {})
+    policy_dilation = _first_dict(policy_description.get("dilation_settings"), {})
+    export_normalization_scope = _first_present(
+        _get_attr(evaluator, "prediction_normalization_scope"),
+        safe_get(config, "prediction_output.normalization_scope"),
+    )
+    threshold_method = _first_present(
+        policy_description.get("threshold_method"),
+        result.get("threshold_method"),
+        metrics.get("threshold_method"),
+        anomaly.get("threshold_method"),
+        anomaly.get("threshold"),
+        "yen",
+    )
 
     return {
         "basic_info": {
@@ -279,23 +312,74 @@ def _build_inference_report(
             "noise_steps": diffusion.get("steps"),
             "aggregation_method": safe_get(anomaly, "aggregation.type"),
             "anomaly_map_method": _first_present(safe_get(anomaly, "modality_pool.type"), anomaly.get("map_method")),
-            "threshold_method": anomaly.get("threshold"),
+            "threshold_method": threshold_method,
             "threshold_search_start": _first_present(metrics.get("thr_start"), metrics.get("threshold_start")),
             "threshold_search_end": _first_present(metrics.get("thr_end"), metrics.get("threshold_end")),
             "threshold_search_step": _first_present(metrics.get("thr_step"), metrics.get("threshold_step")),
-            "yen_threshold_enabled": _yen_enabled(config),
+            "adaptive_threshold_enabled": True,
+            "yen_threshold_enabled": threshold_method == "yen" and _yen_enabled(config),
             "raw_metrics_csv": str(raw_csv) if raw_csv else None,
             "median_filter_metrics_csv": str(mf_csv) if mf_csv else None,
         },
         "post_processing_settings": {
-            "median_filter_enabled": median_filter.get("enabled"),
-            "median_filter_kernel_size": median_filter.get("kernel_size", metrics.get("kernel_size")),
-            "median_filter_mode": median_filter.get("mode"),
-            "dilation_enabled": _first_present(dilation.get("enabled") if dilation else None, bool(dilation) if dilation else None),
-            "dilation_rank": _first_present(dilation.get("rank") if dilation else None, metrics.get("rank")),
-            "connectivity": _first_present(dilation.get("connectivity") if dilation else None, metrics.get("connectivity")),
+            "postprocess_mode": _first_present(
+                policy_description.get("postprocess_mode"),
+                metrics.get("postprocess_mode"),
+                "rewrite",
+            ),
+            "normalization_scope": _first_present(
+                policy_description.get("normalization_scope"),
+                result.get("normalization_scope"),
+            ),
+            "raw_score_pipeline": policy_description.get("raw_score_pipeline"),
+            "mf_score_pipeline": policy_description.get("mf_score_pipeline"),
+            "threshold_method": threshold_method,
+            "threshold_strategy": _first_present(
+                policy_description.get("threshold_strategy"),
+                policy_description.get("yen_threshold_strategy"),
+            ),
+            "threshold_comparator": policy_description.get("threshold_comparator"),
+            "binary_mask_pipeline": _first_present(
+                policy_description.get("binary_mask_pipeline"),
+                policy_description.get("yen_mask_pipeline"),
+            ),
+            "yen_threshold_strategy": policy_description.get("yen_threshold_strategy"),
+            "yen_mask_pipeline": policy_description.get("yen_mask_pipeline"),
+            "dilation_settings": policy_dilation,
+            "export_normalization_scope": export_normalization_scope,
+            "median_filter_enabled": _first_present(
+                policy_median.get("enabled"),
+                median_filter.get("enabled"),
+            ),
+            "median_filter_kernel_size": _first_present(
+                policy_median.get("kernel_size"),
+                median_filter.get("kernel_size"),
+                metrics.get("kernel_size"),
+            ),
+            "median_filter_mode": _first_present(
+                policy_median.get("mode"),
+                median_filter.get("mode"),
+            ),
+            "dilation_enabled": _first_present(
+                policy_dilation.get("enabled"),
+                dilation.get("enabled") if dilation else None,
+                bool(dilation) if dilation else None,
+            ),
+            "dilation_rank": _first_present(
+                policy_dilation.get("rank"),
+                dilation.get("rank") if dilation else None,
+                metrics.get("rank"),
+            ),
+            "connectivity": _first_present(
+                policy_dilation.get("connectivity"),
+                dilation.get("connectivity") if dilation else None,
+                metrics.get("connectivity"),
+            ),
             "threshold_mask_postprocess": safe_get(metrics, "postprocess.threshold_mask"),
-            "yen_mask_postprocess": yen_mask,
+            "binary_mask_postprocess": binary_mask,
+            "yen_mask_postprocess": (
+                binary_mask if threshold_method == "yen" else safe_get(metrics, "postprocess.yen_mask")
+            ),
             "score_postprocess": safe_get(metrics, "postprocess.score"),
             "score_mf_postprocess": safe_get(metrics, "postprocess.score_mf"),
         },
@@ -339,6 +423,21 @@ def _summarize_one_metrics_csv(path: str | Path | None) -> dict[str, Any]:
             summary["bestsen"] = best.get("sensitivity")
         if best.get("precision") is not None:
             summary["bestpre"] = best.get("precision")
+
+    adaptive_method = None
+    adaptive_prefix = None
+    if any(summary.get(key) is not None for key in ("otsudice", "otsuthr", "otsusen", "otsupre")):
+        adaptive_method = "otsu"
+        adaptive_prefix = "otsu"
+    elif any(summary.get(key) is not None for key in ("yendice", "yenthr", "yensen", "yenpre")):
+        adaptive_method = "yen"
+        adaptive_prefix = "yen"
+    if adaptive_prefix is not None:
+        summary["adaptive_method"] = adaptive_method
+        summary["adaptive_dice"] = summary.get(f"{adaptive_prefix}dice")
+        summary["adaptive_threshold"] = summary.get(f"{adaptive_prefix}thr")
+        summary["adaptive_sensitivity"] = summary.get(f"{adaptive_prefix}sen")
+        summary["adaptive_precision"] = summary.get(f"{adaptive_prefix}pre")
 
     return summary
 
@@ -426,6 +525,15 @@ def _metric_alias(name: Any) -> str | None:
         "yunpre": "yenpre",
         "yenprecision": "yenpre",
         "yunprecision": "yenpre",
+        "otsudice": "otsudice",
+        "diceotsu": "otsudice",
+        "otsu": "otsudice",
+        "otsuthr": "otsuthr",
+        "otsuthreshold": "otsuthr",
+        "otsusen": "otsusen",
+        "otsusensitivity": "otsusen",
+        "otsupre": "otsupre",
+        "otsuprecision": "otsupre",
     }
     return aliases.get(key)
 
@@ -482,14 +590,15 @@ def _metrics_markdown_table(summary: dict[str, dict[str, Any]]) -> str:
         "AUPRC",
         "bestdice",
         "bestthr",
-        "Yen Dice",
-        "Yen Thr",
+        "Threshold method",
+        "Adaptive Dice",
+        "Adaptive Thr",
         "bestsen",
         "bestpre",
-        "Yen Sensitivity",
-        "Yen Precision",
+        "Adaptive Sensitivity",
+        "Adaptive Precision",
     ]
-    rows = ["| " + " | ".join(headers) + " |", "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|"]
+    rows = ["| " + " | ".join(headers) + " |", "|---|---:|---:|---:|---|---:|---:|---:|---:|---:|---:|"]
     for version in ["raw", "median_filter"]:
         metrics = summary.get(version, {})
         values = [
@@ -497,12 +606,13 @@ def _metrics_markdown_table(summary: dict[str, dict[str, Any]]) -> str:
             _format_value(metrics.get("AUPRC")),
             _format_value(metrics.get("bestdice")),
             _format_value(metrics.get("bestthr")),
-            _format_value(metrics.get("yendice")),
-            _format_value(metrics.get("yenthr")),
+            _format_value(metrics.get("adaptive_method")),
+            _format_value(metrics.get("adaptive_dice")),
+            _format_value(metrics.get("adaptive_threshold")),
             _format_value(metrics.get("bestsen")),
             _format_value(metrics.get("bestpre")),
-            _format_value(metrics.get("yensen")),
-            _format_value(metrics.get("yenpre")),
+            _format_value(metrics.get("adaptive_sensitivity")),
+            _format_value(metrics.get("adaptive_precision")),
         ]
         rows.append("| " + " | ".join(values) + " |")
     return "\n".join(rows)

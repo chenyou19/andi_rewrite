@@ -20,7 +20,11 @@ bootstrap()
 
 import torch
 
-from andi_rewrite.anomaly import ANDiDetector
+from andi_rewrite.anomaly import (
+    ANDiDetector,
+    SUPPORTED_THRESHOLD_METHODS,
+    build_postprocess_policy,
+)
 from andi_rewrite.data import build_dataloader
 from andi_rewrite.diffusion.ddpm import build_diffusion
 from andi_rewrite.engine import VolumeEvaluator
@@ -35,6 +39,13 @@ def resolve_device(name: str) -> torch.device:
     if name == "auto":
         return torch.device("cuda" if torch.cuda.is_available() else "cpu")
     return torch.device(name)
+
+
+def configure_evaluation_backend(runtime: dict) -> None:
+    """Apply the same explicit cuDNN policy used by controlled training runs."""
+
+    torch.backends.cudnn.benchmark = bool(runtime.get("cudnn_benchmark", False))
+    torch.backends.cudnn.deterministic = bool(runtime.get("deterministic", False))
 
 
 def build_accelerator(config: dict):
@@ -80,30 +91,71 @@ def build_detector_from_config(config: dict) -> tuple[ANDiDetector, object | Non
 
     seed = int(config.get("runtime", {}).get("seed", 73))
     set_seed(seed)
+    configure_evaluation_backend(config.get("runtime", {}))
     accelerator = build_accelerator(config)
     device = accelerator.device if accelerator is not None else resolve_device(str(config.get("runtime", {}).get("device", "auto")))
     model = build_model(config.get("model", {}), device=device)
     load_model_if_configured(model, config, device)
     diffusion = build_diffusion(config.get("diffusion", {}), device=device)
     noise_plan = build_noise_plan(config.get("noise", {}))
+    postprocess_policy = build_postprocess_policy(
+        config.get("metrics", {}),
+        anomaly_config=config.get("anomaly", {}),
+    )
     detector = ANDiDetector(
         model=model,
         diffusion=diffusion,
         noise_plan=noise_plan,
         config=config.get("anomaly", {}),
         device=device,
+        postprocess_policy=postprocess_policy,
     )
     return detector, accelerator
 
 
-def main() -> None:
+def build_parser() -> argparse.ArgumentParser:
     default_config = Path(__file__).resolve().parents[1] / "configs" / "eval.yaml"
     parser = argparse.ArgumentParser(description="Build the rewritten ANDi evaluation pipeline.")
     parser.add_argument("--config", default=str(default_config), help="Path to a YAML eval config.")
     parser.add_argument("--run-eval", action="store_true", help="Run full volume evaluation and write CSV files.")
-    args = parser.parse_args()
+    parser.add_argument(
+        "--threshold-method",
+        choices=SUPPORTED_THRESHOLD_METHODS,
+        default=None,
+        help="Override metrics.threshold_method (YAML and built-in default: yen).",
+    )
+    return parser
+
+
+def apply_threshold_method_override(config: dict, method: str | None) -> dict:
+    """Apply the CLI threshold choice through the existing config structure."""
+
+    if method is None:
+        return config
+    normalized = str(method).strip().lower()
+    if normalized not in SUPPORTED_THRESHOLD_METHODS:
+        supported = ", ".join(SUPPORTED_THRESHOLD_METHODS)
+        raise ValueError(f"Unknown threshold method: {method!r}. Supported methods: {supported}.")
+    metrics = config.setdefault("metrics", {})
+    if not isinstance(metrics, dict):
+        raise TypeError("metrics must be a mapping before applying --threshold-method.")
+    metrics["threshold_method"] = normalized
+
+    # Keep the legacy detector-facing adaptive setting coherent in config
+    # snapshots. Numeric fixed thresholds remain untouched.
+    anomaly = config.get("anomaly")
+    if isinstance(anomaly, dict):
+        legacy_threshold = str(anomaly.get("threshold", "yen")).strip().lower()
+        if legacy_threshold in SUPPORTED_THRESHOLD_METHODS:
+            anomaly["threshold"] = normalized
+    return config
+
+
+def main() -> None:
+    args = build_parser().parse_args()
 
     config = load_config(args.config)
+    apply_threshold_method_override(config, args.threshold_method)
     detector, accelerator = build_detector_from_config(config)
     print("Loaded eval config:")
     print_config(config)
@@ -121,6 +173,7 @@ def main() -> None:
                 "prediction_output": config.get("prediction_output", {}),
                 "model": config.get("model", {}),
                 "anomaly": config.get("anomaly", {}),
+                "_run_config": config,
             },
             accelerator=accelerator,
         )

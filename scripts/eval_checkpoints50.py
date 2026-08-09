@@ -7,6 +7,8 @@ import copy
 from datetime import datetime
 from pathlib import Path
 
+import torch
+
 try:
     from _bootstrap import bootstrap
 except ImportError:
@@ -47,11 +49,21 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--only", nargs="*", help="Optional checkpoint stems or filenames to run.")
     parser.add_argument("--skip-existing", action="store_true", help="Skip epochs whose ANDi.csv already exists.")
     parser.add_argument("--progress", action="store_true", help="Show per-volume and per-timestep progress bars.")
+    parser.add_argument(
+        "--label-completed-epoch",
+        action="store_true",
+        help="Name each output directory from payload epoch + 1 (for example completed_epoch_20).",
+    )
     return parser.parse_args()
 
 
-def checkpoint_label(path: Path) -> str:
-    return path.stem
+def checkpoint_label(path: Path, completed_epoch: bool = False) -> str:
+    if not completed_epoch:
+        return path.stem
+    payload = torch.load(path, map_location="cpu")
+    if not isinstance(payload, dict) or "epoch" not in payload:
+        raise ValueError(f"Checkpoint does not contain a stored epoch: {path}")
+    return f"completed_epoch_{int(payload['epoch']) + 1}"
 
 
 def selected_checkpoints(args: argparse.Namespace) -> list[Path]:
@@ -67,7 +79,7 @@ def selected_checkpoints(args: argparse.Namespace) -> list[Path]:
 
 def config_for_checkpoint(base_config: dict, checkpoint: Path, args: argparse.Namespace) -> dict:
     config = copy.deepcopy(base_config)
-    label = checkpoint_label(checkpoint)
+    label = checkpoint_label(checkpoint, completed_epoch=args.label_completed_epoch)
     output_dir = Path(args.output_root) / label
 
     config.setdefault("experiment", {})["name"] = f"{config.get('experiment', {}).get('name', 'eval')}_{label}_50"

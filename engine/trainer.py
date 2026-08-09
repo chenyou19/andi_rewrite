@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import time
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -177,6 +178,9 @@ class Trainer:
         )
         try:
             for epoch in range(self.start_epoch, self.epochs):
+                epoch_started = time.perf_counter()
+                if self.device.type == "cuda":
+                    torch.cuda.reset_peak_memory_stats(self.device)
                 last_result = {"loss": float("nan")}
                 batch_bar = ProgressReporter(
                     self.steps_per_epoch,
@@ -195,14 +199,28 @@ class Trainer:
                 finally:
                     batch_bar.close()
                 self.last_epoch = epoch
-                if self.is_main_process:
-                    print(f"Epoch {epoch}: loss={last_result['loss']:.6f}")
+                checkpoint_path = None
                 if self.should_save(epoch):
-                    self.save(epoch)
+                    checkpoint_path = self.save(epoch)
                 if self.should_sample(epoch):
                     path = self.save_samples(epoch)
                     if self.is_main_process:
                         print(f"Saved samples: {path}")
+                if self.is_main_process:
+                    elapsed = time.perf_counter() - epoch_started
+                    learning_rate = float(self.optimizer.param_groups[0]["lr"])
+                    peak_memory = (
+                        int(torch.cuda.max_memory_allocated(self.device))
+                        if self.device.type == "cuda"
+                        else None
+                    )
+                    print(
+                        "Epoch "
+                        f"index={epoch} completed={epoch + 1} "
+                        f"loss={last_result['loss']:.6f} lr={learning_rate:.10g} "
+                        f"elapsed_seconds={elapsed:.3f} "
+                        f"gpu_peak_bytes={peak_memory} checkpoint={checkpoint_path}"
+                    )
                 epoch_bar.update(postfix={"loss": f"{last_result['loss']:.6f}"})
         finally:
             epoch_bar.close()

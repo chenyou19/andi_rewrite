@@ -1,0 +1,138 @@
+# Full-volume inference/evaluation on Shifts MS Ljubljana dev_out using
+# epoch 0232 of empirical_spectrum233_lmdb_full_gaussian_20260609 and
+# empirical-spectrum-filtered Gaussian inference noise.
+experiment:
+  name: ljubljana_ms_empirical_spectrum233_epoch0232_filtered_gaussian
+
+runtime:
+  seed: 73
+  device: auto
+  cudnn_benchmark: true
+  accelerate: false
+  find_unused_parameters: true
+
+data:
+  type: ljubljana_ms_volume
+  dataset_path: C:/ML/data/shifts_ms_pt2/shifts_ms_pt2
+  locations: [ljubljana]
+  splits: [dev_out]
+  image_size: 128
+  channels: 4
+  batch_size: 1
+  workers: 0
+  size_splits: 155
+  modalities: [flair, t1, t1ce, t2]
+  modality_mapping:
+    flair: [flair, FLAIR]
+    t1: [t1, T1]
+    t1ce: [t1ce, T1CE, T1Post, t1post, pd, PD]
+    t2: [t2, T2]
+    segmentation: [Gold_Standard, gold_standard, gt]
+    brain_mask: [fg_mask, brain_mask, mask]
+  reference_modality: flair
+  require_segmentation: true
+  require_modalities: true
+  resample_to_reference: true
+  histogram_normalization: false
+  return_metadata: true
+
+model:
+  type: andi_unet
+  image_size: 128
+  in_channels: 4
+  out_channels: 4
+  time_dim: 256
+  checkpoint: C:/ML/andi_test/Test/andi_rewrite/outputs/checkpoints/empirical_spectrum233_lmdb_full_gaussian_20260609/epoch_0232.pt
+  use_ema: true
+
+diffusion:
+  steps: 1000
+  beta_start: 1.0e-4
+  beta_end: 0.02
+
+noise:
+  schedule:
+    type: static
+    sampler:
+      type: empirical_spectrum
+      stats_path: C:/ML/andi_test/Test/andi_rewrite/outputs/spectrum/brats21_healthy_empirical_spectrum.npz
+      generation_method: filtered_gaussian
+      mode: radial
+      spectrum_key: mean_amplitude
+      radial_key: radial_amplitude
+      spectrum_power_key: mean_power
+      radial_power_key: radial_power
+      strength: 1.0
+      normalize: true
+      per_channel: true
+      eps: 1.0e-8
+
+anomaly:
+  t_lower: 75
+  t_upper: 200
+  aggregation:
+    type: geometric_mean
+    eps: 1.0e-8
+  modality_pool:
+    type: max
+  median_filter:
+    enabled: true
+    kernel_size: 5
+    mode: 3d
+  threshold: yen
+
+metrics:
+  output_csv: outputs/metrics/ljubljana_ms_empirical_spectrum233_epoch0232_filtered_gaussian/ANDi.csv
+  output_mf_csv: outputs/metrics/ljubljana_ms_empirical_spectrum233_epoch0232_filtered_gaussian/ANDi_mf.csv
+  compute_auprc: true
+  auprc_max_samples: 5000000
+  auprc_seed: 73
+  thr_start: 0.01
+  thr_end: 0.3
+  thr_step: 0.001
+  threshold: 0.5
+  size_splits: 155
+  kernel_size: 5
+  rank: 3
+  connectivity: 1
+  median_filter:
+    enabled: true
+    kernel_size: 5
+    mode: 3d
+  postprocess:
+    score:
+      pipeline:
+        - type: normalize
+    score_mf:
+      pipeline:
+        - type: median_filter
+          kernel_size: 5
+          mode: 3d
+        - type: normalize
+    threshold_mask:
+      pipeline:
+        - type: binary_dilation
+          rank: 3
+          connectivity: 1
+          iterations: 1
+    yen_mask:
+      pipeline:
+        - type: binary_dilation
+          rank: 3
+          connectivity: 1
+          iterations: 1
+
+prediction_output:
+  enabled: true
+  directory: outputs/predictions/ljubljana_ms_empirical_spectrum233_epoch0232_filtered_gaussian
+  save_raw_score: true
+  save_median_filtered_score: true
+  save_yen_mask: true
+  save_threshold_mask: false
+  threshold: 0.5
+  threshold_source: score_mf
+  restore_native_grid: true
+
+evaluation:
+  progress:
+    enabled: true

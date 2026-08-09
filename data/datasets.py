@@ -234,6 +234,7 @@ class MRIDataVolume(Dataset):
         histogram_normalization: bool = False,
         shift_naming: bool = False,
         filename_separator: str = "_",
+        return_metadata: bool = False,
     ):
         self.dataset_path = Path(dataset_path)
         self.df = pd.read_csv(csv_path) if csv_path else _subject_frame_from_directory(self.dataset_path)
@@ -243,6 +244,7 @@ class MRIDataVolume(Dataset):
         self.histogram_normalization = bool(histogram_normalization)
         self.shift_naming = bool(shift_naming)
         self.filename_separator = filename_separator
+        self.return_metadata = bool(return_metadata)
 
     def __len__(self) -> int:
         return self.df.shape[0]
@@ -262,19 +264,28 @@ class MRIDataVolume(Dataset):
             raise FileNotFoundError(path)
         return np.asarray(nib.load(str(path)).dataobj, dtype=dtype)
 
-    def __getitem__(self, idx: int) -> tuple[torch.Tensor, torch.Tensor]:
+    def __getitem__(
+        self,
+        idx: int,
+    ) -> tuple[torch.Tensor, torch.Tensor] | tuple[torch.Tensor, torch.Tensor, dict[str, Any]]:
         subject_id = str(self.df.loc[idx, self.df.columns[0]])
         file_stem = self._subject_file_stem(subject_id)
         subject_dir = self.dataset_path / subject_id
 
-        images = []
-        for modality in self.modalities:
-            images.append(self._load_nifti(_subject_file_path(subject_dir, file_stem, modality, self.filename_separator), dtype=float))
+        modality_paths = {
+            modality: _subject_file_path(subject_dir, file_stem, modality, self.filename_separator)
+            for modality in self.modalities
+        }
+        images = [self._load_nifti(path, dtype=float) for path in modality_paths.values()]
 
-        mask = self._load_nifti(
-            _subject_file_path(subject_dir, file_stem, self.segmentation_suffix, self.filename_separator),
-            dtype=float,
+        segmentation_path = _subject_file_path(
+            subject_dir,
+            file_stem,
+            self.segmentation_suffix,
+            self.filename_separator,
         )
+        mask = self._load_nifti(segmentation_path, dtype=float)
+        native_shape = tuple(int(value) for value in mask.shape)
         # 有些資料集的 mask 經 registration/interpolation 後會變成 float；
         # 因此先 threshold，再做 nearest-neighbor resize。
         mask = torch.from_numpy((mask > 0.5).astype(np.uint8)).bool()
@@ -302,7 +313,20 @@ class MRIDataVolume(Dataset):
         for slice_index in range(mask.shape[2]):
             resized[:, :, :, slice_index] = resize(volume[None, :, :, :, slice_index])[0]
 
-        return resized, mask
+        if not self.return_metadata:
+            return resized, mask
+        reference_modality = self.modalities[0]
+        metadata = {
+            "subject_id": subject_id,
+            "has_label": True,
+            "reference_modality": reference_modality,
+            "reference_path": str(modality_paths[reference_modality]),
+            "native_shape": _shape_text(native_shape),
+            "model_shape": _shape_text(tuple(mask.shape)),
+            "input_paths": {key: str(value) for key, value in modality_paths.items()},
+            "segmentation_path": str(segmentation_path),
+        }
+        return resized, mask, metadata
 
 
 class ShiftsMSVolumeDataset(Dataset):
@@ -645,6 +669,7 @@ def build_dataset(config: dict[str, Any]) -> Dataset:
             histogram_normalization=bool(config.get("histogram_normalization", False)),
             shift_naming=bool(config.get("shift_naming", "shifts" in str(config.get("dataset_path", "")).lower())),
             filename_separator=str(config.get("filename_separator", "_")),
+            return_metadata=bool(config.get("return_metadata", False)),
         )
     if data_type in {"ljubljana_ms_volume", "shifts_ms_volume", "shifts_volume"}:
         return ShiftsMSVolumeDataset(

@@ -3,7 +3,12 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
+import json
+import subprocess
+import sys
 import pickle
+from datetime import datetime
 from pathlib import Path
 from typing import Iterable
 
@@ -244,12 +249,44 @@ def compute(args: argparse.Namespace) -> None:
         window=np.array(args.window),
     )
 
+    digest = hashlib.sha256(out_path.read_bytes()).hexdigest()
+    try:
+        git_commit = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=Path(__file__).resolve().parents[1],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+    except Exception:
+        git_commit = None
+    metadata = {
+        "source_lmdb": str(lmdb_path.resolve()),
+        "source_lmdb_entry_count": int(seen),
+        "output_npz": str(out_path.resolve()),
+        "command": [sys.executable, str(Path(__file__).resolve()), *sys.argv[1:]],
+        "python_executable": sys.executable,
+        "git_commit": git_commit,
+        "window": args.window,
+        "crop_margin": int(args.crop_margin),
+        "radial_bins": int(radial_bin_count),
+        "max_slices": args.max_slices,
+        "num_slices_used": int(used),
+        "num_slices_skipped": int(skipped),
+        "timestamp": datetime.now().astimezone().isoformat(timespec="seconds"),
+        "npz_sha256": digest,
+    }
+    sidecar_path = out_path.with_suffix(out_path.suffix + ".metadata.json")
+    sidecar_path.write_text(json.dumps(metadata, indent=2), encoding="utf-8")
+
     print("Empirical spectrum summary:")
     print(f"  used slices: {used}")
     print(f"  skipped empty slices: {skipped}")
     print(f"  shape: C={channels}, H={height}, W={width}")
     print(f"  radial bins: {radial_bin_count}")
     print(f"  output: {out_path}")
+    print(f"  metadata: {sidecar_path}")
+    print(f"  SHA256: {digest}")
 
 
 def main() -> None:
