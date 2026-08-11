@@ -1,0 +1,134 @@
+# Full 251-volume UCSF-PDGM evaluation selected by CSV, using the
+# pyramid-noise-trained save20 checkpoint with Gaussian inference noise.
+experiment:
+  name: ucsf_pdgm_251_pyramid233_save20_gaussian
+
+runtime:
+  seed: 73
+  device: auto
+  cudnn_benchmark: true
+  accelerate: false
+  find_unused_parameters: true
+
+data:
+  type: ucsf_pdgm_volume
+  # This is a junction to F:/ML/DATA/UCSF-PDGM on the current machine.
+  dataset_path: C:/ML/data/UCSF-PDGM
+  path_to_csv: C:/ML/andi_test/Test/andi_rewrite/splits/UCSF-PDGM/scans_test_251.csv
+  image_size: 128
+  channels: 4
+  batch_size: 1
+  workers: 0
+  size_splits: 155
+  modalities: [flair, t1, t1ce, t2]
+  modality_mapping:
+    flair: FLAIR
+    t1: T1
+    t1ce: T1c
+    t2: T2
+  segmentation_suffix: tumor_segmentation
+  reference_modality: flair
+  model_orientation: LPS
+  duplicate_policy: error
+  histogram_normalization: false
+  return_metadata: true
+
+model:
+  type: andi_unet
+  image_size: 128
+  in_channels: 4
+  out_channels: 4
+  time_dim: 256
+  checkpoint: C:/ML/andi_test/Test/andi_rewrite/outputs/checkpoints/pyramid233_lmdb_full_gaussian_save20/epoch_0232.pt
+  use_ema: true
+
+diffusion:
+  steps: 1000
+  beta_start: 1.0e-4
+  beta_end: 0.02
+
+noise:
+  schedule:
+    type: static
+    sampler:
+      type: gaussian
+
+anomaly:
+  t_lower: 75
+  t_upper: 200
+  aggregation:
+    type: geometric_mean
+    eps: 1.0e-8
+  modality_pool:
+    type: max
+  median_filter:
+    enabled: true
+    kernel_size: 5
+  threshold: yen
+
+metrics:
+  postprocess_mode: rewrite
+  threshold_method: yen
+  normalization_scope: dataset
+  output_csv: outputs/metrics/ucsf_pdgm_251_pyramid233_save20_gaussian/ANDi.csv
+  output_mf_csv: outputs/metrics/ucsf_pdgm_251_pyramid233_save20_gaussian/ANDi_mf.csv
+  thr_start: 0.01
+  thr_end: 0.3
+  thr_step: 0.001
+  threshold: 0.5
+  size_splits: 155
+  kernel_size: 5
+  rank: 3
+  connectivity: 1
+  median_filter:
+    enabled: true
+    kernel_size: 5
+    mode: 3d
+  postprocess:
+    score:
+      pipeline:
+        - type: normalize
+    score_mf:
+      pipeline:
+        - type: median_filter
+          kernel_size: 5
+          mode: 3d
+        - type: normalize
+    threshold_mask:
+      pipeline:
+        - type: binary_dilation
+          rank: 3
+          connectivity: 1
+          iterations: 1
+    yen_mask:
+      pipeline:
+        - type: binary_dilation
+          rank: 3
+          connectivity: 1
+          iterations: 1
+
+prediction_output:
+  enabled: true
+  directory: outputs/predictions/ucsf_pdgm_251_pyramid233_save20_gaussian
+  normalization_scope: subject
+  restore_native_grid: true
+  save_raw_score: true
+  save_median_filtered_score: true
+  binary_mask_source: score_mf
+  save_binary_mask: true
+  save_threshold_mask: false
+
+evaluation:
+  memory_mode: disk_streaming
+  cache:
+    directory: outputs/eval_cache/ucsf_pdgm_251_pyramid233_save20_gaussian
+    resume: true
+    keep_on_success: true
+  compute_auprc: true
+  auprc_mode: sampled
+  auprc_max_samples: 5000000
+  auprc_seed: 73
+  external_sort:
+    chunk_bytes: 268435456
+  progress:
+    enabled: true
