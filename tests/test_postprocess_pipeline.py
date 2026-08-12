@@ -485,11 +485,11 @@ class OriginalANDiPostprocessPolicyTest(unittest.TestCase):
 
         with (
             mock.patch(
-                "andi_rewrite.anomaly.postprocess.median_filter_tensor",
+                "andi_rewrite.anomaly.postprocess.policies.median_filter_tensor",
                 side_effect=fake_median,
             ),
             mock.patch(
-                "andi_rewrite.anomaly.postprocess.normalize_minmax",
+                "andi_rewrite.anomaly.postprocess.policies.normalize_minmax",
                 side_effect=fake_normalize,
             ),
         ):
