@@ -1,6 +1,12 @@
-# UCSF-PDGM MRI dataset storage inspection report
+# UCSF-PDGM MRI dataset storage inspection report（2026-08-11 歷史快照）
 
-## 檢查範圍與方法
+> **快照狀態：**
+>
+> - 本文保留 2026-08-11 tracked version 對當時 245 個完整 case/timepoint 所做的 header、affine、label 與 intensity 掃描。
+> - 2026-08-12 以現行 adapter 的五檔 completeness 規則輕量重掃同一本機 root，得到 563 個 candidate folders、257 個完整 folders（251 standard + 6 follow-up）、0 個 duplicate complete ids；tracked 251-id split 也完全相符。
+> - 後來增加的 12 個 standard cases 沒有納入下方逐 voxel 統計，不能把 245-based 表格機械改成 257。現行程式契約與最新 inventory 請以 [`docs/datasets/ucsf-pdgm.md`](docs/datasets/ucsf-pdgm.md) 為準。
+
+## 檢查範圍與方法（原始快照）
 
 - 檢查根目錄：`C:\ML\data\UCSF-PDGM`
 - 全程唯讀；沒有修改、搬移、重新命名、轉檔、resampling、normalization、registration、cropping、padding 或 training。
@@ -9,9 +15,9 @@
 
 ## 先看結論
 
-1. 目前本機根目錄包含兩個資料樹：根目錄下 50 個完整 case，以及 `PKG - UCSF-PDGM Version 5\UCSF-PDGM-v5` 下的下載樹。
+1. 檢查當時的本機根目錄包含兩個資料樹：根目錄下 50 個完整 case，以及 `PKG - UCSF-PDGM Version 5\UCSF-PDGM-v5` 下的下載樹。
 2. package 樹有 501 個 case 目錄，但 299 個是空目錄、6 個只有 `.partial/.aspera-ckpt`、1 個部分完成；package 中真正完整可讀的是 195 個 case folder。
-3. 合併目前兩個資料樹後，有 245 個完整可讀的 case/timepoint folder：239 個一般 case、6 個 follow-up case。
+3. 合併檢查當時的兩個資料樹後，有 245 個完整可讀的 case/timepoint folder：239 個一般 case、6 個 follow-up case。
 4. 所有完整 case 都有獨立的 `T1`、`T1c`、`T2`、`FLAIR` 三維 NIfTI volume；不是一個 4-channel 檔案。
 5. 核心四模態以及其它已重採樣到主 grid 的 scalar map/mask 全部是 `(240, 240, 155)`、`1 mm` spacing、`LPS` orientation，且 affine 完全相同：
 
@@ -54,7 +60,7 @@ C:\ML\data\UCSF-PDGM\
 |---|---:|---:|---:|---:|---|
 | 根目錄直接子目錄 | 50 | 0 | 0 | 50 | 23 個 `.nii.gz` + 1 個 rotated bvec |
 | `PKG - ...\UCSF-PDGM-v5` | 501 | 299 | 7 | 195 | 一般 23 個 `.nii.gz` + bvec；6 個 FU case 多一個 `ASL_M0` |
-| 目前完整可讀資料合計 | 245 | — | — | 245 | 239 個一般 case + 6 個 FU case |
+| 快照中完整可讀資料合計 | 245 | — | — | 245 | 239 個一般 case + 6 個 FU case |
 
 package 中的 7 個未完成目錄是：
 
@@ -317,7 +323,7 @@ tumor mask 的 label set 分布：
 {0,1,2}:    3 cases
 ```
 
-因此不要把 `tumor_segmentation` 直接當成只有 `0/1` 的 binary mask；如果 pipeline 要 binary tumor mask，需要另外決定 label mapping，但本次沒有做任何 mapping。
+因此 storage 中的 `tumor_segmentation` 不能描述成原生 `0/1` mask。現行 `UCSFPDGMVolumeDataset` 以 `segmentation > 0` 明確轉為 whole-tumor binary mask；本次歷史 storage inspection 本身沒有改寫任何原始 labels。
 
 ## 7. MRI voxel intensity
 
@@ -349,7 +355,7 @@ import numpy as np
 case_dir = Path(r"C:\ML\data\UCSF-PDGM\UCSF-PDGM-0004_nifti")
 case_id = "UCSF-PDGM-0004"
 
-modality_order = ["T1", "T1c", "T2", "FLAIR"]
+modality_order = ["FLAIR", "T1", "T1c", "T2"]
 volumes = []
 
 for modality in modality_order:
@@ -370,15 +376,15 @@ seg = nib.load(
 根據本機資料確認的 channel mapping 是：
 
 ```text
-channel 0 = T1
-channel 1 = T1c       # contrast-enhanced T1；檔名實際是 T1c
-channel 2 = T2
-channel 3 = FLAIR
+channel 0 = FLAIR
+channel 1 = T1
+channel 2 = T1c       # logical t1ce；檔名實際是 T1c
+channel 3 = T2
 ```
 
 `np.stack` 的結果確實可形成 `(4, 240, 240, 155)`。如果目前 model 把陣列 index 軸命名成 `(C,D,H,W)`，可以直接視為 `(4,D,H,W)`；但 NIfTI 的原始陣列軸是 `(i,j,k)`，且 `aff2axcodes` 是 `LPS`，所以 `D/H/W` 的語意仍應依目前 pipeline 的 axis convention 明確處理，不能只靠變數名稱猜測。
 
-建議 default 4-channel input 只用 `T1/T1c/T2/FLAIR`；`*_bias`、ADC、DWI、ASL、SWI、DTI map 是另外的可選輸入，不應無意間混進四通道。`ASL_M0` 只在 6 個 FU case 存在，也不適合默認加入固定通道。
+目前專案的 default 4-channel logical order 是 `[flair,t1,t1ce,t2]`，因此 UCSF physical input 應為 `[FLAIR,T1,T1c,T2]`。`*_bias`、ADC、DWI、ASL、SWI、DTI map 是另外的可選資料，不應無意間混進四通道。`ASL_M0` 只在 6 個 FU case 存在，也不適合默認加入固定通道。
 
 另需在 split 時注意：`UCSF-PDGM-0391_nifti` 與 `UCSF-PDGM-0391_FU016d_nifti` 共享 base patient ID，但代表不同 timepoint；若它們要被視為同一患者，train/validation/test split 不應讓同一患者的不同 timepoint 跨 split。
 
@@ -395,7 +401,7 @@ Case/
 └── seg.nii.gz
 ```
 
-但目前資料不能直接用「只尋找 BraTS 固定檔名」的 loader，差異是：
+但本快照中的資料不能直接用「只尋找 BraTS 固定檔名」的 loader，差異是：
 
 1. 實際檔名帶完整 prefix，例如 `UCSF-PDGM-0004_T1.nii.gz`，不是 `t1.nii.gz`。
 2. contrast-enhanced T1 實際叫 `T1c`，不是 `t1ce`。
@@ -424,6 +430,6 @@ Case/
 | orientation | 核心 grid：`LPS`；raw DTI：`LAS`。 |
 | affine | 核心 245 個 case 完全相同；aligned masks/maps 也與 T1 相同。 |
 | 是否已配準 | 核心四模態及 aligned maps/masks 的 metadata 顯示已在同一 common grid；`DTI_eddy_noreg` 是未配準/原始 grid 例外。 |
-| 最自然 input | `np.stack([T1,T1c,T2,FLAIR], axis=0)`，得到 `(4,240,240,155)`，再依 pipeline axis convention 處理。 |
+| Native pre-resize stack | `np.stack([FLAIR,T1,T1c,T2], axis=0)` 得到 `(4,240,240,155)`；現行 adapter 隨後回傳 `(4,image_size,image_size,Z)`，default 是 `(4,128,128,155)`。 |
 
-本報告只做 dataset inspection + storage format analysis；沒有修改任何 dataset 檔案或現有程式碼。
+本報告只做 dataset inspection + storage format analysis；沒有修改任何 dataset 檔案或現有程式碼。下方 245-case 詳細數值應視為 2026-08-11 的 frozen snapshot；目前 adapter/runtime 行為請回到 source 與 [`docs/datasets/ucsf-pdgm.md`](docs/datasets/ucsf-pdgm.md) 查閱。
