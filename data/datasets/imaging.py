@@ -9,18 +9,7 @@ from __future__ import annotations
 import numpy as np
 import torch
 
-
-def normalize_volume(images: torch.Tensor, eps: float = 1.0e-8) -> torch.Tensor:
-    """Normalize each modality by its foreground 99th percentile."""
-
-    images = images.float()
-    for modality in range(images.shape[0]):
-        values = images[modality].reshape(-1)
-        foreground = values[values > 0]
-        if foreground.numel() == 0:
-            continue
-        images[modality] = images[modality] / torch.quantile(foreground, 0.99).clamp_min(eps)
-    return images
+from ..imaging import normalize_volume
 
 
 def histogram_normalize_volume(images: np.ndarray) -> torch.Tensor:
