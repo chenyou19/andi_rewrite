@@ -12,6 +12,7 @@ from .base import (
     register_mask_postprocessor,
     register_score_postprocessor,
 )
+from ._runtime import apply_median_filter_tensor, apply_normalize_minmax
 from .numerics import normalize_minmax
 
 
@@ -175,7 +176,7 @@ class NormalizePostprocessor(BasePostprocessor):
         self.eps = float(eps)
 
     def __call__(self, tensor: torch.Tensor, scope: str | None = None) -> torch.Tensor:
-        return normalize_minmax(tensor, eps=self.eps, scope=scope or "dataset")
+        return apply_normalize_minmax(tensor, eps=self.eps, scope=scope or "dataset")
 
     def describe(self) -> dict[str, Any]:
         return {"type": self.name, "eps": self.eps}
@@ -190,7 +191,11 @@ class MedianFilterPostprocessor(BasePostprocessor):
         self.mode = str(mode)
 
     def __call__(self, tensor: torch.Tensor) -> torch.Tensor:
-        return median_filter_tensor(tensor, kernel_size=self.kernel_size, mode=self.mode)
+        return apply_median_filter_tensor(
+            tensor,
+            kernel_size=self.kernel_size,
+            mode=self.mode,
+        )
 
     def describe(self) -> dict[str, Any]:
         return {"type": self.name, "kernel_size": self.kernel_size, "mode": self.mode}

@@ -168,6 +168,30 @@ class ReportingContractTest(unittest.TestCase):
         self.assertEqual(median_filter["adaptive_sensitivity"], 0.57)
         self.assertEqual(median_filter["adaptive_precision"], 0.47)
 
+    def test_parser_projects_registered_threshold_rows_into_generic_adaptive_fields(self) -> None:
+        for method in ("triangle", "learned_threshold"):
+            with self.subTest(method=method), tempfile.TemporaryDirectory() as directory:
+                path = Path(directory) / f"{method}.csv"
+                path.write_text(
+                    "thr,value,dice,sensitivity,precision\n"
+                    "0.1,,0.2,0.3,0.4\n"
+                    f"{method},0.71,,,\n"
+                    f"{method}thr,0.21,,,\n"
+                    f"{method}sen,0.61,,,\n"
+                    f"{method}pre,0.51,,,\n",
+                    encoding="utf-8",
+                )
+
+                summary = self.facade.summarize_eval_metrics(path, None)["raw"]
+
+            self.assertEqual(summary["adaptive_method"], method)
+            self.assertEqual(summary["adaptive_dice"], 0.71)
+            self.assertEqual(summary["adaptive_threshold"], 0.21)
+            self.assertEqual(summary["adaptive_sensitivity"], 0.61)
+            self.assertEqual(summary["adaptive_precision"], 0.51)
+            self.assertIsNone(summary["yendice"])
+            self.assertIsNone(summary["otsudice"])
+
     def test_training_report_has_stable_artifact_names_and_core_schema(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

@@ -1,6 +1,6 @@
 # Anomaly score 後處理與 threshold
 
-本文件描述 `anomaly/postprocess.py` 與 `engine/evaluator.py` 的目前行為。YAML section 的完整位置見 [configuration.md](configuration.md)。
+本文件描述 `anomaly/postprocess/` package 與 `engine/evaluation/` components 的目前行為；`engine/evaluator.py` 保留為相容 facade/orchestrator。YAML section 的完整位置見 [configuration.md](configuration.md)。
 
 ## 1. 核心概念
 

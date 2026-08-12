@@ -342,7 +342,12 @@ class VolumeEvaluator:
         return metrics.binary_rates(prediction, label)
 
     def _segmentation_metrics(self, segmentation: torch.Tensor, label: torch.Tensor) -> dict[str, float]:
-        return metrics.segmentation_metrics(segmentation, label)
+        rates = self._binary_rates(segmentation, label)
+        return {
+            "dice": self._dice_mean(segmentation, label),
+            "sensitivity": rates["sensitivity"],
+            "precision": rates["precision"],
+        }
 
     def _threshold_method_metrics(
         self,
@@ -350,7 +355,11 @@ class VolumeEvaluator:
         thresholds: torch.Tensor,
         label: torch.Tensor,
     ) -> dict[str, float]:
-        return metrics.threshold_method_metrics(segmentation, thresholds, label)
+        values = self._segmentation_metrics(segmentation, label)
+        values["threshold"] = (
+            float(thresholds.float().mean().item()) if thresholds.numel() else 0.0
+        )
+        return values
 
     def _summarize_without_labels(
         self,
@@ -388,6 +397,10 @@ class VolumeEvaluator:
             auprc_max_samples=self.auprc_max_samples,
             auprc_seed=self.auprc_seed,
             progress_enabled=self._progress_enabled(),
+            summarize_without_labels_callback=self._summarize_without_labels,
+            segmentation_metrics_callback=self._segmentation_metrics,
+            threshold_method_metrics_callback=self._threshold_method_metrics,
+            binary_rates_callback=self._binary_rates,
         )
 
     @staticmethod
@@ -444,6 +457,16 @@ class VolumeEvaluator:
             on_prediction_processed=lambda processed: setattr(
                 self, "last_prediction_processed", processed
             ),
+            callbacks=streaming.StreamingCallbacks(
+                streaming_pipeline_plans=self._streaming_pipeline_plans,
+                prepared_bounds=self._prepared_bounds,
+                raw_score_from_entry=self._raw_score_from_entry,
+                empty_stream_stats=self._empty_stream_stats,
+                update_stream_stats=self._update_stream_stats,
+                finalize_stream_stats=self._finalize_stream_stats,
+                processed_stream_entry=self._processed_stream_entry,
+                exact_auprc_chunks=self._exact_auprc_chunks,
+            ),
         )
 
     def _streaming_pipeline_plans(
@@ -462,8 +485,8 @@ class VolumeEvaluator:
     ) -> tuple[int, int]:
         return self._streaming_helper().collect_to_disk_cache(dataloader, cache)
 
-    @staticmethod
     def _raw_score_from_entry(
+        self,
         cache: DiskEvaluationCache,
         entry: dict[str, Any],
         raw_plan: _DatasetPipelinePlan,

@@ -5,9 +5,8 @@ from __future__ import annotations
 import warnings
 from typing import Any
 
-from .base import SUPPORTED_THRESHOLD_METHODS
 from .policies import OriginalANDiPostprocessPolicy, PostprocessPolicy, RewritePostprocessPolicy
-from .threshold import _validate_threshold_method
+from .threshold import _validate_threshold_method, supported_threshold_methods
 
 
 def build_postprocess_policy(
@@ -24,7 +23,7 @@ def build_postprocess_policy(
     legacy_anomaly_threshold = str(anomaly_config.get("threshold", "")).strip().lower()
     default_threshold_method = (
         legacy_anomaly_threshold
-        if legacy_anomaly_threshold in SUPPORTED_THRESHOLD_METHODS
+        if legacy_anomaly_threshold in supported_threshold_methods()
         else "yen"
     )
     threshold_method = _validate_threshold_method(

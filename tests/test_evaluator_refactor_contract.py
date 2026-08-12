@@ -31,6 +31,11 @@ from andi_rewrite.anomaly.postprocess import (  # noqa: E402
     RewritePostprocessPolicy,
 )
 from andi_rewrite.engine import VolumeEvaluator as EngineVolumeEvaluator  # noqa: E402
+from andi_rewrite.engine.evaluation.metrics import (  # noqa: E402
+    empty_stream_stats,
+    finalize_stream_stats,
+    update_stream_stats,
+)
 from andi_rewrite.engine.evaluator import VolumeEvaluator  # noqa: E402
 
 
@@ -59,6 +64,56 @@ class _RecordingScoreEvaluator(VolumeEvaluator):
     ) -> torch.Tensor:
         self.volume_score_calls.append((image.detach().clone(), volume_index))
         return image[:, 0].float().clone()
+
+
+class _MetricHookEvaluator(_RecordingScoreEvaluator):
+    """Freeze the subclass hooks historically invoked by metric orchestration."""
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self.metric_hook_calls = {
+            "segmentation": 0,
+            "threshold_method": 0,
+            "binary_rates": 0,
+            "without_labels": 0,
+        }
+
+    def _segmentation_metrics(
+        self,
+        segmentation: torch.Tensor,
+        label: torch.Tensor,
+    ) -> dict[str, float]:
+        self.metric_hook_calls["segmentation"] += 1
+        return {"dice": 0.11, "sensitivity": 0.22, "precision": 0.33}
+
+    def _threshold_method_metrics(
+        self,
+        segmentation: torch.Tensor,
+        thresholds: torch.Tensor,
+        label: torch.Tensor,
+    ) -> dict[str, float]:
+        self.metric_hook_calls["threshold_method"] += 1
+        return {
+            "dice": 0.44,
+            "sensitivity": 0.55,
+            "precision": 0.66,
+            "threshold": 0.77,
+        }
+
+    def _binary_rates(
+        self,
+        prediction: torch.Tensor,
+        label: torch.Tensor,
+    ) -> dict[str, float]:
+        self.metric_hook_calls["binary_rates"] += 1
+        return {"sensitivity": 0.88, "specificity": 0.89, "precision": 0.9}
+
+    def _summarize_without_labels(
+        self,
+        processed: PostprocessResult,
+    ) -> tuple[dict[Any, Any], dict[Any, Any]]:
+        self.metric_hook_calls["without_labels"] += 1
+        return {"hook": "raw"}, {"hook": "mf"}
 
 
 class _MethodSwitchingEvaluator(_RecordingScoreEvaluator):
@@ -246,6 +301,71 @@ class EvaluatorRefactorContractTest(unittest.TestCase):
         self.assertEqual(threshold_only._cache_fingerprints(), baseline_fingerprints)
         self.assertEqual(changed_pipeline._cache_fingerprints()[0], baseline_fingerprints[0])
         self.assertNotEqual(changed_pipeline._cache_fingerprints()[1], baseline_fingerprints[1])
+
+    def test_metric_orchestration_preserves_evaluator_subclass_hooks(self) -> None:
+        raw = torch.linspace(0.0, 1.0, 80, dtype=torch.float32).reshape(1, 1, 4, 4, 5)
+        labels = raw[:, 0] > 0.6
+        evaluator = _MetricHookEvaluator(_DummyDetector(), _evaluation_config())
+        processed = evaluator.process_raw_maps(raw[:, 0])
+
+        scores, scores_mf = evaluator.summarize_processed(processed, labels)
+
+        for threshold in evaluator.threshold_values():
+            self.assertEqual(
+                scores[threshold],
+                {"dice": 0.11, "sensitivity": 0.22, "precision": 0.33},
+            )
+            self.assertEqual(scores_mf[threshold], scores[threshold])
+        self.assertEqual(scores[processed.threshold_method], 0.44)
+        self.assertEqual(scores[f"{processed.threshold_method}thr"], 0.77)
+        self.assertEqual(scores[f"{processed.threshold_method}sen"], 0.55)
+        self.assertEqual(scores[f"{processed.threshold_method}pre"], 0.66)
+        self.assertEqual(
+            {key: scores[key] for key in ("sensitivity", "specificity", "precision")},
+            {"sensitivity": 0.88, "specificity": 0.89, "precision": 0.9},
+        )
+        self.assertEqual(evaluator.metric_hook_calls["segmentation"], 4)
+        self.assertEqual(evaluator.metric_hook_calls["threshold_method"], 2)
+        self.assertEqual(evaluator.metric_hook_calls["binary_rates"], 2)
+
+        unlabeled_raw, unlabeled_mf = evaluator.summarize_processed(processed, None)
+        self.assertEqual(unlabeled_raw, {"hook": "raw"})
+        self.assertEqual(unlabeled_mf, {"hook": "mf"})
+        self.assertEqual(evaluator.metric_hook_calls["without_labels"], 1)
+
+    def test_shared_streaming_metric_accumulator_preserves_legacy_reduction(self) -> None:
+        stats = empty_stream_stats()
+        update_stream_stats(
+            stats,
+            torch.tensor([[True, False], [True, False]]),
+            torch.tensor([[True, False], [False, True]]),
+        )
+        update_stream_stats(
+            stats,
+            torch.tensor([[False, True], [False, True]]),
+            torch.tensor([[False, True], [True, True]]),
+        )
+
+        self.assertEqual(
+            stats,
+            {
+                "dice_sum": 0.5 + 0.8,
+                "subjects": 2,
+                "tp": 3,
+                "tn": 2,
+                "fp": 1,
+                "fn": 2,
+            },
+        )
+        self.assertEqual(
+            finalize_stream_stats(stats),
+            {
+                "dice": 0.65,
+                "sensitivity": 0.6,
+                "specificity": 2.0 / 3.0,
+                "precision": 0.75,
+            },
+        )
 
 
 if __name__ == "__main__":

@@ -97,7 +97,7 @@ metrics:
         connectivity: 1
         iterations: 1
   # postprocess 是有順序且可擴充的 pipeline。
-  # 若要新增 step，先在 anomaly/postprocess.py 註冊，再於此以 type 引用。
+  # 若要新增 step，先以 anomaly/postprocess/base.py 的 decorator 在 transforms.py 註冊，再於此以 type 引用。
   postprocess:
     score:
       pipeline:

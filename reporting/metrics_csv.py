@@ -88,8 +88,67 @@ def _summarize_one_metrics_csv(path: str | Path | None) -> dict[str, Any]:
         summary["adaptive_threshold"] = summary.get(f"{adaptive_prefix}thr")
         summary["adaptive_sensitivity"] = summary.get(f"{adaptive_prefix}sen")
         summary["adaptive_precision"] = summary.get(f"{adaptive_prefix}pre")
+    else:
+        generic = _generic_adaptive_metrics(rows, fieldnames)
+        if generic is not None:
+            summary["adaptive_method"] = generic["method"]
+            summary["adaptive_dice"] = generic.get("dice")
+            summary["adaptive_threshold"] = generic.get("threshold")
+            summary["adaptive_sensitivity"] = generic.get("sensitivity")
+            summary["adaptive_precision"] = generic.get("precision")
 
     return summary
+
+
+def _generic_adaptive_metrics(
+    rows: list[dict[str, str]],
+    fieldnames: list[str],
+) -> dict[str, Any] | None:
+    """Parse registered threshold-method rows without assuming method suffixes."""
+
+    key_field = _first_present(
+        _matching_field(fieldnames, ["metric", "name", "key", "thr", "threshold"]),
+        fieldnames[0] if fieldnames else None,
+    )
+    value_field = _matching_field(fieldnames, ["value", "score", "metric_value", "dice"])
+    if key_field is None or value_field is None:
+        return None
+
+    values: dict[str, tuple[str, float]] = {}
+    for row in rows:
+        key = str(row.get(key_field, "")).strip().lower()
+        value = _to_float(row.get(value_field, ""))
+        canonical = "".join(ch for ch in key if ch.isalnum())
+        if value is None or not canonical:
+            continue
+        values.setdefault(canonical, (key, value))
+
+    reserved = {
+        "specificity",
+        "threshold",
+        "thresholdmethod",
+        "sourcecsv",
+        "warning",
+    }
+    # A base method row plus an exact sibling threshold row is the smallest
+    # unambiguous adaptive result. Looking for siblings first means method names
+    # such as ``learned_threshold`` are not split on their own suffix.
+    for base, (method, dice_value) in values.items():
+        if _metric_alias(base) is not None or base.startswith("auprc") or base in reserved:
+            continue
+        threshold_item = values.get(f"{base}thr") or values.get(f"{base}threshold")
+        if threshold_item is None:
+            continue
+        sensitivity_item = values.get(f"{base}sen") or values.get(f"{base}sensitivity")
+        precision_item = values.get(f"{base}pre") or values.get(f"{base}precision")
+        return {
+            "method": method,
+            "dice": dice_value,
+            "threshold": threshold_item[1],
+            "sensitivity": sensitivity_item[1] if sensitivity_item else None,
+            "precision": precision_item[1] if precision_item else None,
+        }
+    return None
 
 
 def _parse_metric_row(

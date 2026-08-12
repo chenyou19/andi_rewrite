@@ -8,6 +8,7 @@ import sys
 import unittest
 from pathlib import Path
 
+import numpy as np
 import torch
 
 
@@ -34,12 +35,15 @@ class PostprocessPackageContractTest(unittest.TestCase):
             "PostprocessPolicy",
             "PostprocessResult",
             "RewritePostprocessPolicy",
+            "ScorePipelineSpec",
             "SUPPORTED_THRESHOLD_METHODS",
             "build_postprocess_policy",
             "build_postprocess_pipeline",
             "otsu_threshold",
             "register_mask_postprocessor",
             "register_score_postprocessor",
+            "register_threshold_method",
+            "supported_threshold_methods",
             "threshold_anomaly_map",
             "yen_threshold",
         )
@@ -75,11 +79,14 @@ class PostprocessPackageContractTest(unittest.TestCase):
             "PostprocessPolicy",
             "PostprocessResult",
             "RewritePostprocessPolicy",
+            "ScorePipelineSpec",
             "otsu_threshold",
             "threshold_anomaly_map",
             "yen_threshold",
             "register_mask_postprocessor",
             "register_score_postprocessor",
+            "register_threshold_method",
+            "supported_threshold_methods",
         )
 
         missing = [name for name in names if not hasattr(self.postprocess, name)]
@@ -136,6 +143,175 @@ class PostprocessPackageContractTest(unittest.TestCase):
                     registry.pop(name, None)
                 else:
                     registry[name] = value
+
+    def test_threshold_registry_is_authoritative_extensible_and_restored(self) -> None:
+        threshold_module = importlib.import_module(f"{POSTPROCESS_MODULE}.threshold")
+        registry = self.postprocess.THRESHOLD_FUNCTION_LOADERS
+        self.assertIs(registry, threshold_module.THRESHOLD_FUNCTION_LOADERS)
+        self.assertEqual(self.postprocess.SUPPORTED_THRESHOLD_METHODS, ("yen", "otsu"))
+        self.assertEqual(self.postprocess.supported_threshold_methods(), tuple(registry))
+
+        direct_name = "phase2_contract_direct_threshold"
+        registered_name = "phase2_contract_registered_threshold"
+        sentinel = object()
+        previous = {
+            name: registry.get(name, sentinel)
+            for name in (direct_name, registered_name)
+        }
+        original_order = tuple(registry)
+
+        def mean_loader():
+            return lambda array: float(np.mean(array))
+
+        try:
+            registry[direct_name] = mean_loader
+            registered = self.postprocess.register_threshold_method(registered_name)(
+                mean_loader
+            )
+            self.assertIs(registered, mean_loader)
+            self.assertEqual(
+                self.postprocess.supported_threshold_methods(),
+                (*original_order, direct_name, registered_name),
+            )
+
+            scores = torch.tensor([[[[0.0, 1.0, 2.0, 3.0]]]])
+            mask, thresholds = self.postprocess.threshold_anomaly_map(
+                scores,
+                method=direct_name.upper(),
+            )
+            torch.testing.assert_close(thresholds, torch.tensor([1.5]))
+            self.assertTrue(
+                torch.equal(
+                    mask,
+                    torch.tensor([[[[False, False, True, True]]]]),
+                )
+            )
+
+            policy = self.postprocess.build_postprocess_policy(
+                {
+                    "postprocess_mode": "rewrite",
+                    "threshold_method": registered_name,
+                    "normalization_scope": "subject",
+                    "postprocess": {
+                        "score": {"pipeline": []},
+                        "score_mf": {"pipeline": []},
+                        "threshold_mask": {"pipeline": []},
+                        "binary_mask": {"pipeline": []},
+                    },
+                },
+                warn_legacy=False,
+            )
+            result = policy.process(scores)
+            self.assertEqual(result.threshold_method, registered_name)
+            torch.testing.assert_close(result.thresholds_raw, torch.tensor([1.5]))
+            self.assertTrue(torch.equal(result.binary_mask_raw, mask))
+
+            detector = object.__new__(self.anomaly.ANDiDetector)
+            detector.threshold = registered_name
+            detector.set_postprocess_policy(policy)
+            detector_output = detector.postprocess(scores)
+            self.assertEqual(detector.threshold, registered_name)
+            self.assertEqual(detector_output["threshold_method"], registered_name)
+            self.assertTrue(torch.equal(detector_output["segmentation"], mask))
+
+            eval_script = importlib.import_module("andi_rewrite.scripts.eval")
+            args = eval_script.build_parser().parse_args(
+                ["--threshold-method", registered_name]
+            )
+            cli_config = {
+                "metrics": {"postprocess_mode": "rewrite"},
+                "anomaly": {"threshold": direct_name},
+            }
+            eval_script.apply_threshold_method_override(
+                cli_config,
+                args.threshold_method,
+            )
+            self.assertEqual(
+                cli_config["metrics"]["threshold_method"],
+                registered_name,
+            )
+            self.assertEqual(cli_config["anomaly"]["threshold"], registered_name)
+        finally:
+            for name, value in previous.items():
+                if value is sentinel:
+                    registry.pop(name, None)
+                else:
+                    registry[name] = value
+
+        self.assertEqual(tuple(registry), original_order)
+        self.assertEqual(self.postprocess.supported_threshold_methods(), original_order)
+
+    def test_builtin_threshold_import_failures_keep_legacy_behavior(self) -> None:
+        registry = self.postprocess.THRESHOLD_FUNCTION_LOADERS
+        original_yen = registry["yen"]
+        original_otsu = registry["otsu"]
+
+        def missing_dependency_loader():
+            raise ImportError("synthetic missing dependency")
+
+        scores = torch.tensor([[[[0.0, 1.0, 3.0]]]])
+        try:
+            registry["yen"] = missing_dependency_loader
+            with self.assertWarnsRegex(
+                RuntimeWarning,
+                "legacy mean fallback for Yen thresholding",
+            ) as caught:
+                mask, thresholds = self.postprocess.yen_threshold(scores)
+            threshold_module = importlib.import_module(f"{POSTPROCESS_MODULE}.threshold")
+            self.assertEqual(
+                Path(caught.filename).resolve(),
+                Path(threshold_module.__file__).resolve(),
+            )
+            torch.testing.assert_close(thresholds, torch.tensor([4.0 / 3.0]))
+            self.assertTrue(
+                torch.equal(mask, torch.tensor([[[[False, False, True]]]]))
+            )
+
+            registry["otsu"] = missing_dependency_loader
+            with self.assertRaisesRegex(
+                ImportError,
+                "Otsu thresholding requires scikit-image",
+            ):
+                self.postprocess.otsu_threshold(scores)
+        finally:
+            registry["yen"] = original_yen
+            registry["otsu"] = original_otsu
+
+        self.assertEqual(tuple(registry)[:2], ("yen", "otsu"))
+
+    def test_builtin_streaming_specs_do_not_change_policy_descriptions(self) -> None:
+        original = self.postprocess.OriginalANDiPostprocessPolicy(
+            {
+                "median_filter": {"enabled": True, "kernel_size": 3, "mode": "3d"},
+                "binary_mask": {"binary_dilation": {"enabled": False}},
+            }
+        )
+        rewrite = self.postprocess.build_postprocess_policy(
+            {
+                "postprocess_mode": "rewrite",
+                "normalization_scope": "dataset",
+                "postprocess": {
+                    "score": {"pipeline": [{"type": "normalize"}]},
+                    "score_mf": {
+                        "pipeline": [
+                            {"type": "median_filter", "kernel_size": 3, "mode": "3d"},
+                            {"type": "normalize"},
+                        ]
+                    },
+                    "threshold_mask": {"pipeline": []},
+                    "binary_mask": {"pipeline": []},
+                },
+            },
+            warn_legacy=False,
+        )
+
+        for policy, expected_source in ((original, "raw"), (rewrite, "score_raw")):
+            with self.subTest(policy=policy.mode):
+                description = policy.describe()
+                spec = policy.score_pipeline_spec()
+                self.assertIsInstance(spec, self.postprocess.ScorePipelineSpec)
+                self.assertEqual(spec.mf_source, expected_source)
+                self.assertEqual(policy.describe(), description)
 
     @staticmethod
     def _result(threshold_method: str):

@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from typing import Any
 
 import torch
 
+from ._runtime import apply_median_filter_tensor, apply_normalize_minmax
 from .base import BasePostprocessor, MASK_POSTPROCESSORS, SCORE_POSTPROCESSORS
 from .numerics import _validate_normalization_scope, normalize_minmax, sanitize_scores
 from .pipeline import (
@@ -47,6 +49,26 @@ def _step_label(step: BasePostprocessor, normalization_scope: str) -> str:
 
 def _pipeline_labels(steps: list[BasePostprocessor], normalization_scope: str) -> list[str]:
     return [_step_label(step, normalization_scope) for step in steps]
+
+
+@dataclass(frozen=True)
+class ScorePipelineSpec:
+    """Engine-neutral description of dataset-normalized score preparation.
+
+    Policies that can split their score transforms around dataset-wide
+    normalization expose this small value object.  Evaluation backends remain
+    responsible for storage and range scans; the policy remains the sole owner
+    of transform order and of whether the MF branch consumes the raw map or the
+    processed raw score.
+    """
+
+    raw_steps: tuple[BasePostprocessor, ...]
+    mf_steps: tuple[BasePostprocessor, ...]
+    mf_source: str
+
+    def __post_init__(self) -> None:
+        if self.mf_source not in {"raw", "score_raw"}:
+            raise ValueError("score pipeline mf_source must be 'raw' or 'score_raw'.")
 
 
 class PostprocessPolicy(ABC):
@@ -126,6 +148,31 @@ class PostprocessPolicy(ABC):
             normalization_scope=normalization_scope,
         )
 
+    def complete_scores(
+        self,
+        score_raw: torch.Tensor,
+        score_mf: torch.Tensor,
+        normalization_scope: str,
+    ) -> PostprocessResult:
+        """Complete prepared score branches through the public policy contract.
+
+        Delegating to ``_complete`` intentionally preserves the historical
+        subclass override seam while keeping evaluation backends out of the
+        policy's protected implementation.
+        """
+
+        return self._complete(score_raw, score_mf, normalization_scope)
+
+    def score_pipeline_spec(self) -> ScorePipelineSpec | None:
+        """Describe dataset-streamable score transforms, when supported.
+
+        Subject-normalized execution only needs :meth:`process`.  A custom
+        policy opts into dataset-normalized streaming by overriding this hook;
+        returning ``None`` keeps existing custom policies source-compatible.
+        """
+
+        return None
+
     def fixed_threshold_mask(self, score: torch.Tensor, threshold: float) -> torch.Tensor:
         mask = sanitize_scores(score) > float(threshold)
         return apply_postprocess_pipeline(mask, self.threshold_mask_steps).bool()
@@ -202,7 +249,7 @@ class OriginalANDiPostprocessPolicy(PostprocessPolicy):
         scope = _validate_normalization_scope(normalization_scope or self.normalization_scope)
         raw_finite = sanitize_scores(raw_maps)
         raw_mf = (
-            median_filter_tensor(
+            apply_median_filter_tensor(
                 raw_finite,
                 kernel_size=self.median_kernel_size,
                 mode=self.median_mode,
@@ -212,9 +259,25 @@ class OriginalANDiPostprocessPolicy(PostprocessPolicy):
         )
         # The branches are intentionally normalized independently and only
         # after the MF branch has filtered the unnormalized raw anomaly map.
-        score_raw = normalize_minmax(raw_finite, eps=self.eps, scope=scope)
-        score_mf = normalize_minmax(raw_mf, eps=self.eps, scope=scope)
+        score_raw = apply_normalize_minmax(raw_finite, eps=self.eps, scope=scope)
+        score_mf = apply_normalize_minmax(raw_mf, eps=self.eps, scope=scope)
         return self._complete(score_raw, score_mf, scope)
+
+    def score_pipeline_spec(self) -> ScorePipelineSpec:
+        mf_steps: list[BasePostprocessor] = []
+        if self.median_enabled:
+            mf_steps.append(
+                MedianFilterPostprocessor(
+                    kernel_size=self.median_kernel_size,
+                    mode=self.median_mode,
+                )
+            )
+        mf_steps.append(NormalizePostprocessor(eps=self.eps))
+        return ScorePipelineSpec(
+            raw_steps=(NormalizePostprocessor(eps=self.eps),),
+            mf_steps=tuple(mf_steps),
+            mf_source="raw",
+        )
 
     def describe(self) -> dict[str, Any]:
         scope = self.normalization_scope
@@ -428,6 +491,13 @@ class RewritePostprocessPolicy(PostprocessPolicy):
             normalization_scope=scope,
         )
         return self._complete(score_raw, score_mf, scope)
+
+    def score_pipeline_spec(self) -> ScorePipelineSpec:
+        return ScorePipelineSpec(
+            raw_steps=tuple(self.raw_score_steps),
+            mf_steps=tuple(self.mf_score_steps),
+            mf_source="score_raw",
+        )
 
     def describe(self) -> dict[str, Any]:
         scope = self.normalization_scope

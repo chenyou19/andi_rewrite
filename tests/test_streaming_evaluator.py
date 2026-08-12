@@ -15,6 +15,14 @@ from sklearn.metrics import average_precision_score
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
+from andi_rewrite.anomaly.postprocess import (  # noqa: E402
+    NormalizePostprocessor,
+    PostprocessPolicy,
+    PostprocessResult,
+    ScorePipelineSpec,
+    apply_postprocess_pipeline,
+    sanitize_scores,
+)
 from andi_rewrite.engine.evaluator import VolumeEvaluator  # noqa: E402
 from andi_rewrite.metrics.classification import (  # noqa: E402
     external_auprc,
@@ -51,6 +59,117 @@ class _ScoreFromImageEvaluator(VolumeEvaluator):
         if self.fail_on_call is not None and self.score_calls >= self.fail_on_call:
             raise RuntimeError("intentional interruption")
         return image[:, 0].float().clone()
+
+
+class _StreamingHookEvaluator(_ScoreFromImageEvaluator):
+    """Freeze the private streaming override seams from the former monolith."""
+
+    HOOK_NAMES = (
+        "pipeline_plans",
+        "prepared_bounds",
+        "raw_score_from_entry",
+        "empty_stream_stats",
+        "update_stream_stats",
+        "finalize_stream_stats",
+        "processed_stream_entry",
+        "exact_auprc_chunks",
+    )
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        self.streaming_hook_calls = {name: 0 for name in self.HOOK_NAMES}
+        super().__init__(*args, **kwargs)
+
+    def _streaming_pipeline_plans(self):
+        self.streaming_hook_calls["pipeline_plans"] += 1
+        return super()._streaming_pipeline_plans()
+
+    def _prepared_bounds(self, tensor: torch.Tensor) -> tuple[float, float]:
+        self.streaming_hook_calls["prepared_bounds"] += 1
+        return super()._prepared_bounds(tensor)
+
+    def _raw_score_from_entry(self, cache, entry, raw_plan, raw_bounds):
+        self.streaming_hook_calls["raw_score_from_entry"] += 1
+        return super()._raw_score_from_entry(cache, entry, raw_plan, raw_bounds)
+
+    def _empty_stream_stats(self) -> dict[str, float | int]:
+        self.streaming_hook_calls["empty_stream_stats"] += 1
+        return super()._empty_stream_stats()
+
+    def _update_stream_stats(self, stats, prediction, label) -> None:
+        self.streaming_hook_calls["update_stream_stats"] += 1
+        super()._update_stream_stats(stats, prediction, label)
+
+    def _finalize_stream_stats(self, stats) -> dict[str, float]:
+        self.streaming_hook_calls["finalize_stream_stats"] += 1
+        return super()._finalize_stream_stats(stats)
+
+    def _processed_stream_entry(self, cache, entry, raw_plan, raw_bounds):
+        self.streaming_hook_calls["processed_stream_entry"] += 1
+        return super()._processed_stream_entry(cache, entry, raw_plan, raw_bounds)
+
+    def _exact_auprc_chunks(self, cache, branch, raw_plan, raw_bounds):
+        self.streaming_hook_calls["exact_auprc_chunks"] += 1
+        return super()._exact_auprc_chunks(cache, branch, raw_plan, raw_bounds)
+
+
+class _CustomStreamingPolicy(PostprocessPolicy):
+    """Third-party-style policy opting into dataset-normalized streaming."""
+
+    mode = "custom_streaming_contract"
+
+    def __init__(self) -> None:
+        super().__init__(
+            normalization_scope="dataset",
+            threshold_method="otsu",
+            threshold_mask_config={"pipeline": []},
+            binary_mask_config={"pipeline": []},
+        )
+        self.raw_steps = [NormalizePostprocessor()]
+        self.mf_steps = [NormalizePostprocessor()]
+        self.complete_calls = 0
+
+    def score_pipeline_spec(self) -> ScorePipelineSpec:
+        return ScorePipelineSpec(
+            raw_steps=tuple(self.raw_steps),
+            mf_steps=tuple(self.mf_steps),
+            mf_source="score_raw",
+        )
+
+    def process(
+        self,
+        raw_maps: torch.Tensor,
+        normalization_scope: str | None = None,
+    ) -> PostprocessResult:
+        scope = normalization_scope or self.normalization_scope
+        score_raw = apply_postprocess_pipeline(
+            sanitize_scores(raw_maps),
+            self.raw_steps,
+            normalization_scope=scope,
+        )
+        score_mf = apply_postprocess_pipeline(
+            score_raw,
+            self.mf_steps,
+            normalization_scope=scope,
+        )
+        return self.complete_scores(score_raw, score_mf, scope)
+
+    def _complete(
+        self,
+        score_raw: torch.Tensor,
+        score_mf: torch.Tensor,
+        normalization_scope: str,
+    ) -> PostprocessResult:
+        self.complete_calls += 1
+        return super()._complete(score_raw, score_mf, normalization_scope)
+
+    def describe(self) -> dict[str, Any]:
+        return {
+            "postprocess_mode": self.mode,
+            "normalization_scope": self.normalization_scope,
+            "raw_score_pipeline": ["nan_to_num", "dataset_minmax"],
+            "mf_score_pipeline": ["dataset_minmax"],
+            "threshold_method": self.threshold_method,
+        }
 
 
 class StreamingEvaluatorTest(unittest.TestCase):
@@ -136,6 +255,80 @@ class StreamingEvaluatorTest(unittest.TestCase):
             rtol=1.0e-6,
             atol=1.0e-7,
         )
+
+    @staticmethod
+    def _install_policy(
+        evaluator: VolumeEvaluator,
+        policy: PostprocessPolicy,
+    ) -> None:
+        evaluator.postprocess_policy = policy
+        evaluator.detector.set_postprocess_policy(policy)
+        evaluator.metric_normalization_scope = policy.normalization_scope
+        evaluator.threshold_method = policy.threshold_method
+
+    def test_custom_policy_can_opt_into_dataset_streaming_via_public_hooks(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            in_memory = _ScoreFromImageEvaluator(
+                _DummyDetector(),
+                self._config(root, memory_mode="in_memory", auprc_mode="sampled"),
+            )
+            in_memory_policy = _CustomStreamingPolicy()
+            self._install_policy(in_memory, in_memory_policy)
+            expected = in_memory.evaluate(self._batches())
+
+            streaming = _ScoreFromImageEvaluator(
+                _DummyDetector(),
+                self._config(
+                    root,
+                    memory_mode="disk_streaming",
+                    auprc_mode="sampled",
+                    cache_name="custom_policy_cache",
+                ),
+            )
+            streaming_policy = _CustomStreamingPolicy()
+            description_before = streaming_policy.describe()
+            self._install_policy(streaming, streaming_policy)
+            actual = streaming.evaluate(self._batches())
+
+            self.assertEqual(streaming_policy.describe(), description_before)
+            self.assertEqual(in_memory_policy.complete_calls, 1)
+            self.assertEqual(streaming_policy.complete_calls, len(self._batches()))
+            self.assertEqual(actual["threshold_method"], expected["threshold_method"])
+            self.assertAlmostEqual(actual["AUPRC"], expected["AUPRC"], places=12)
+            self.assertAlmostEqual(actual["AUPRC_mf"], expected["AUPRC_mf"], places=12)
+            self._assert_csv_equivalent(
+                Path(streaming.output_csv),
+                Path(in_memory.output_csv),
+            )
+            self._assert_csv_equivalent(
+                Path(streaming.output_mf_csv),
+                Path(in_memory.output_mf_csv),
+            )
+
+    def test_disk_streaming_preserves_facade_subclass_hooks(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            evaluator = _StreamingHookEvaluator(
+                _DummyDetector(),
+                self._config(
+                    root,
+                    memory_mode="disk_streaming",
+                    auprc_mode="exact",
+                    cache_name="hook_cache",
+                ),
+            )
+
+            result = evaluator.evaluate(self._batches())
+
+        self.assertEqual(result["subjects"], 2)
+        self.assertEqual(
+            set(evaluator.streaming_hook_calls),
+            set(_StreamingHookEvaluator.HOOK_NAMES),
+        )
+        for name, calls in evaluator.streaming_hook_calls.items():
+            with self.subTest(hook=name):
+                self.assertGreater(calls, 0)
 
     def test_sampled_disk_streaming_matches_in_memory_and_resumes(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

@@ -1,8 +1,8 @@
 """ANDi evaluation 的 CLI 入口。
 
 此 script 負責建立 detector 並執行會寫出 CSV 的完整 volume evaluation。
-metric 與 postprocess 邏輯刻意不放在這裡，而是放在 engine/evaluator.py
-與 anomaly/postprocess.py。
+metric 與 postprocess 邏輯刻意不放在這裡，而是由 engine/evaluation/
+與 anomaly/postprocess/ 的責任模組擁有；engine/evaluator.py 保留為 facade。
 """
 
 from __future__ import annotations
@@ -22,8 +22,8 @@ import torch
 
 from andi_rewrite.anomaly import (
     ANDiDetector,
-    SUPPORTED_THRESHOLD_METHODS,
     build_postprocess_policy,
+    supported_threshold_methods,
 )
 from andi_rewrite.data import build_dataloader
 from andi_rewrite.diffusion.ddpm import build_diffusion
@@ -120,9 +120,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--run-eval", action="store_true", help="Run full volume evaluation and write CSV files.")
     parser.add_argument(
         "--threshold-method",
-        choices=SUPPORTED_THRESHOLD_METHODS,
+        choices=supported_threshold_methods(),
         default=None,
-        help="Override metrics.threshold_method (YAML and built-in default: yen).",
+        help=(
+            "Override metrics.threshold_method "
+            f"(registered: {', '.join(supported_threshold_methods())}; built-in default: yen)."
+        ),
     )
     return parser
 
@@ -133,8 +136,9 @@ def apply_threshold_method_override(config: dict, method: str | None) -> dict:
     if method is None:
         return config
     normalized = str(method).strip().lower()
-    if normalized not in SUPPORTED_THRESHOLD_METHODS:
-        supported = ", ".join(SUPPORTED_THRESHOLD_METHODS)
+    methods = supported_threshold_methods()
+    if normalized not in methods:
+        supported = ", ".join(methods)
         raise ValueError(f"Unknown threshold method: {method!r}. Supported methods: {supported}.")
     metrics = config.setdefault("metrics", {})
     if not isinstance(metrics, dict):
@@ -146,7 +150,7 @@ def apply_threshold_method_override(config: dict, method: str | None) -> dict:
     anomaly = config.get("anomaly")
     if isinstance(anomaly, dict):
         legacy_threshold = str(anomaly.get("threshold", "yen")).strip().lower()
-        if legacy_threshold in SUPPORTED_THRESHOLD_METHODS:
+        if legacy_threshold in methods:
             anomaly["threshold"] = normalized
     return config
 

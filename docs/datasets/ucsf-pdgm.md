@@ -1,6 +1,6 @@
 # UCSF-PDGM adapter 與資料契約
 
-本文件描述 `data/datasets.py::UCSFPDGMVolumeDataset` 的現行程式契約，並把本機 storage inventory 與可重用的 adapter semantics 分開。較早的完整 header/intensity 掃描保留在 [UCSF-PDGM MRI dataset storage inspection report](../../UCSF_PDGM_storage_inspection_report.md)，但其中 case counts 是歷史快照。
+本文件描述 `data/datasets/ucsf_pdgm.py::UCSFPDGMVolumeDataset` 的現行程式契約；舊的 `andi_rewrite.data.datasets` import 由 package facade 保持相容。本文把本機 storage inventory 與可重用的 adapter semantics 分開。較早的完整 header/intensity 掃描保留在 [UCSF-PDGM MRI dataset storage inspection report](../../UCSF_PDGM_storage_inspection_report.md)，但其中 case counts 是歷史快照。
 
 ## 1. 用途與 logical channel order
 

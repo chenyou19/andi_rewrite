@@ -177,10 +177,10 @@ Detector inference 目前不提供 epoch；需要在 inference 選擇 switch bra
 
 ### 新增 dataset adapter
 
-1. 在 `data/datasets.py` 實作 PyTorch Dataset。
+1. 在 `data/datasets/` 新增或擴充對應資料來源的 adapter module，讓 dataset-specific discovery、命名與 geometry 規則留在該 adapter。
 2. Training slice 回傳 `[C,H,W]`；volume evaluation 可回傳 `(image, mask)`、`(image, mask, metadata)` 或 evaluator 支援的 dict batch。
 3. Volume image/mask contract 分別是 `[C,H,W,Z]` / `[H,W,Z]`。
-4. 在 `build_dataset` 加 type/aliases，視需要從 `data/__init__.py` export。
+4. 在 `data/datasets/factory.py` 的 `DATASET_BUILDERS` 註冊 type/aliases；若是 public class，再視需要從 `data/datasets/__init__.py` 與 `data/__init__.py` export。
 5. 測試 discovery、channel semantics、missing files、geometry、metadata、native restore。
 
 若 adapter 支援 unlabeled data，metadata 的 label availability 必須一致；混合 labeled/unlabeled subjects 會使整次 label metrics unavailable。
@@ -219,7 +219,7 @@ Detector inference 目前不提供 epoch；需要在 inference 選擇 switch bra
 - noise/diagnostic/stability inventory reports under `outputs/`
 - `.pytest_cache/README.md`
 
-`outputs/**` 可能包含 generator 產生的 reports，也可能包含 frozen/manual historical captures；整個目錄都被忽略並視為 runtime artifacts。可重建的內容應從 `utils/reporting.py` 或對應 diagnostic script、同層 JSON/CSV、frozen config 與 checkpoint regenerate；人工快照只應 archive。舊 report schema 可能與目前 generator 不同，兩者都不能當成 current API contract。
+`outputs/**` 可能包含 generator 產生的 reports，也可能包含 frozen/manual historical captures；整個目錄都被忽略並視為 runtime artifacts。可重建的內容應從 `reporting/`（舊 import 由 `utils/reporting.py` facade 保持相容）或對應 diagnostic script、同層 JSON/CSV、frozen config 與 checkpoint regenerate；人工快照只應 archive。舊 report schema 可能與目前 generator 不同，兩者都不能當成 current API contract。
 
 `outputs/outputs_report.md` 是一份沒有可追溯 generator 的舊 static inventory，其 counts/paths 已過時；`outputs/reports/ucsf_pdgm_integration_report.md` 也只是歷史 integration artifact。兩者都被忽略且不應取代本文件或現行 source。
 

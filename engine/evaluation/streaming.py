@@ -16,18 +16,22 @@ import torch
 
 from andi_rewrite.anomaly.postprocess import (
     BasePostprocessor,
-    MedianFilterPostprocessor,
     NormalizePostprocessor,
-    OriginalANDiPostprocessPolicy,
     PostprocessPolicy,
     PostprocessResult,
-    RewritePostprocessPolicy,
     apply_postprocess_pipeline,
     sanitize_scores,
 )
 from ..evaluation_cache import DiskEvaluationCache
 from andi_rewrite.metrics.classification import auprc, dice, external_auprc
 from andi_rewrite.utils.progress import ProgressReporter
+from .metrics import (
+    empty_stream_stats,
+    finalize_stream_stats,
+    fixed_rate_row,
+    sweep_metric_row,
+    update_stream_stats,
+)
 
 
 @dataclass(frozen=True)
@@ -91,6 +95,45 @@ class DatasetPipelinePlan:
         return self.finish(self.prepare(tensor), bounds)
 
 
+@dataclass(frozen=True)
+class StreamingCallbacks:
+    """Facade-owned compatibility seams used by streaming orchestration."""
+
+    streaming_pipeline_plans: Callable[
+        [], tuple[DatasetPipelinePlan, DatasetPipelinePlan, str] | None
+    ]
+    prepared_bounds: Callable[[torch.Tensor], tuple[float, float]]
+    raw_score_from_entry: Callable[
+        [DiskEvaluationCache, dict[str, Any], DatasetPipelinePlan, tuple[float, float] | None],
+        tuple[torch.Tensor, torch.Tensor],
+    ]
+    empty_stream_stats: Callable[[], dict[str, float | int]]
+    update_stream_stats: Callable[
+        [dict[str, float | int], torch.Tensor, torch.Tensor], None
+    ]
+    finalize_stream_stats: Callable[
+        [dict[str, float | int]], dict[str, float]
+    ]
+    processed_stream_entry: Callable[
+        [
+            DiskEvaluationCache,
+            dict[str, Any],
+            DatasetPipelinePlan | None,
+            tuple[float, float] | None,
+        ],
+        tuple[torch.Tensor, PostprocessResult],
+    ]
+    exact_auprc_chunks: Callable[
+        [
+            DiskEvaluationCache,
+            str,
+            DatasetPipelinePlan | None,
+            tuple[float, float] | None,
+        ],
+        Iterable[tuple[np.ndarray, np.ndarray]],
+    ]
+
+
 class StreamingEvaluator:
     """Cohesive disk-cache evaluator without a dependency on the facade class."""
 
@@ -120,6 +163,7 @@ class StreamingEvaluator:
         export_predictions: Callable[..., None],
         on_processed: Callable[[PostprocessResult], None],
         on_prediction_processed: Callable[[PostprocessResult], None],
+        callbacks: StreamingCallbacks,
     ) -> None:
         self.policy = policy
         self.metric_normalization_scope = metric_normalization_scope
@@ -144,45 +188,24 @@ class StreamingEvaluator:
         self.export_predictions = export_predictions
         self.on_processed = on_processed
         self.on_prediction_processed = on_prediction_processed
+        self.callbacks = callbacks
 
     def streaming_pipeline_plans(
         self,
     ) -> tuple[DatasetPipelinePlan, DatasetPipelinePlan, str] | None:
         if self.metric_normalization_scope == "subject":
             return None
-        if isinstance(self.policy, RewritePostprocessPolicy):
-            return (
-                DatasetPipelinePlan.from_steps(
-                    self.policy.raw_score_steps,
-                    branch="score_raw",
-                ),
-                DatasetPipelinePlan.from_steps(
-                    self.policy.mf_score_steps,
-                    branch="score_mf",
-                ),
-                "score_raw",
+        spec = self.policy.score_pipeline_spec()
+        if spec is None:
+            raise TypeError(
+                "dataset-normalized disk_streaming requires the postprocess policy "
+                "to provide score_pipeline_spec(); "
+                f"{type(self.policy).__name__} did not opt in."
             )
-        if isinstance(self.policy, OriginalANDiPostprocessPolicy):
-            mf_steps: list[BasePostprocessor] = []
-            if self.policy.median_enabled:
-                mf_steps.append(
-                    MedianFilterPostprocessor(
-                        kernel_size=self.policy.median_kernel_size,
-                        mode=self.policy.median_mode,
-                    )
-                )
-            mf_steps.append(NormalizePostprocessor(eps=self.policy.eps))
-            return (
-                DatasetPipelinePlan.from_steps(
-                    [NormalizePostprocessor(eps=self.policy.eps)],
-                    branch="score_raw",
-                ),
-                DatasetPipelinePlan.from_steps(mf_steps, branch="score_mf"),
-                "raw",
-            )
-        raise TypeError(
-            "disk_streaming does not support this postprocess policy type: "
-            f"{type(self.policy).__name__}."
+        return (
+            DatasetPipelinePlan.from_steps(list(spec.raw_steps), branch="score_raw"),
+            DatasetPipelinePlan.from_steps(list(spec.mf_steps), branch="score_mf"),
+            spec.mf_source,
         )
 
     @staticmethod
@@ -290,7 +313,7 @@ class StreamingEvaluator:
         str | None,
         tuple[float, float] | None,
     ]:
-        plans = self.streaming_pipeline_plans()
+        plans = self.callbacks.streaming_pipeline_plans()
         if plans is None:
             progress = ProgressReporter(
                 len(cache.entries),
@@ -324,7 +347,7 @@ class StreamingEvaluator:
                 for entry in cache.entries:
                     raw = sanitize_scores(cache.load_raw(entry)[None])
                     prepared = raw_plan.prepare(raw)
-                    item_minimum, item_maximum = self.prepared_bounds(prepared)
+                    item_minimum, item_maximum = self.callbacks.prepared_bounds(prepared)
                     minimum = min(minimum, item_minimum)
                     maximum = max(maximum, item_maximum)
                     progress.update()
@@ -345,7 +368,7 @@ class StreamingEvaluator:
             try:
                 for entry in cache.entries:
                     if not cache.has_mf(entry):
-                        raw, score_raw = self.raw_score_from_entry(
+                        raw, score_raw = self.callbacks.raw_score_from_entry(
                             cache,
                             entry,
                             raw_plan,
@@ -375,7 +398,7 @@ class StreamingEvaluator:
             try:
                 for entry in cache.entries:
                     if not cache.has_mf_pre(entry):
-                        raw, score_raw = self.raw_score_from_entry(
+                        raw, score_raw = self.callbacks.raw_score_from_entry(
                             cache,
                             entry,
                             raw_plan,
@@ -419,45 +442,11 @@ class StreamingEvaluator:
             progress.close()
         return raw_plan, mf_plan, mf_source, raw_bounds
 
-    @staticmethod
-    def empty_stream_stats() -> dict[str, float | int]:
-        return {
-            "dice_sum": 0.0,
-            "subjects": 0,
-            "tp": 0,
-            "tn": 0,
-            "fp": 0,
-            "fn": 0,
-        }
-
-    @staticmethod
-    def update_stream_stats(
-        stats: dict[str, float | int],
-        prediction: torch.Tensor,
-        label: torch.Tensor,
-    ) -> None:
-        prediction = prediction.bool()
-        label = label.bool()
-        stats["dice_sum"] = float(stats["dice_sum"]) + dice(prediction, label)
-        stats["subjects"] = int(stats["subjects"]) + 1
-        stats["tp"] = int(stats["tp"]) + int(torch.logical_and(prediction, label).sum().item())
-        stats["tn"] = int(stats["tn"]) + int(torch.logical_and(~prediction, ~label).sum().item())
-        stats["fp"] = int(stats["fp"]) + int(torch.logical_and(prediction, ~label).sum().item())
-        stats["fn"] = int(stats["fn"]) + int(torch.logical_and(~prediction, label).sum().item())
-
-    @staticmethod
-    def finalize_stream_stats(stats: dict[str, float | int]) -> dict[str, float]:
-        subjects = int(stats["subjects"])
-        tp = int(stats["tp"])
-        tn = int(stats["tn"])
-        fp = int(stats["fp"])
-        fn = int(stats["fn"])
-        return {
-            "dice": float(stats["dice_sum"]) / max(subjects, 1),
-            "sensitivity": float(tp / max(tp + fn, 1)),
-            "specificity": float(tn / max(tn + fp, 1)),
-            "precision": float(tp / max(tp + fp, 1)),
-        }
+    # Keep the historical class-level helper seams while the formulas have one
+    # owner shared with the in-memory metric module.
+    empty_stream_stats = staticmethod(empty_stream_stats)
+    update_stream_stats = staticmethod(update_stream_stats)
+    finalize_stream_stats = staticmethod(finalize_stream_stats)
 
     def processed_stream_entry(
         self,
@@ -471,7 +460,7 @@ class StreamingEvaluator:
             return raw, self.process_raw_maps(raw, normalization_scope="subject")
         score_raw = raw_plan.process(sanitize_scores(raw), raw_bounds)
         score_mf = cache.load_product(entry, "mf")[None]
-        processed = self.policy._complete(
+        processed = self.policy.complete_scores(
             score_raw,
             score_mf,
             self.metric_normalization_scope,
@@ -506,12 +495,16 @@ class StreamingEvaluator:
         raw_bounds: tuple[float, float] | None,
     ) -> tuple[dict[Any, Any], dict[Any, Any]]:
         labels_available = cache.labels_available
-        raw_sweep = {threshold: self.empty_stream_stats() for threshold in self.thresholds}
-        mf_sweep = {threshold: self.empty_stream_stats() for threshold in self.thresholds}
-        raw_adaptive = self.empty_stream_stats()
-        mf_adaptive = self.empty_stream_stats()
-        raw_fixed = self.empty_stream_stats()
-        mf_fixed = self.empty_stream_stats()
+        raw_sweep = {
+            threshold: self.callbacks.empty_stream_stats() for threshold in self.thresholds
+        }
+        mf_sweep = {
+            threshold: self.callbacks.empty_stream_stats() for threshold in self.thresholds
+        }
+        raw_adaptive = self.callbacks.empty_stream_stats()
+        mf_adaptive = self.callbacks.empty_stream_stats()
+        raw_fixed = self.callbacks.empty_stream_stats()
+        mf_fixed = self.callbacks.empty_stream_stats()
         raw_threshold_values: list[float] = []
         mf_threshold_values: list[float] = []
 
@@ -547,7 +540,12 @@ class StreamingEvaluator:
         )
         try:
             for entry in cache.entries:
-                raw, processed = self.processed_stream_entry(cache, entry, raw_plan, raw_bounds)
+                raw, processed = self.callbacks.processed_stream_entry(
+                    cache,
+                    entry,
+                    raw_plan,
+                    raw_bounds,
+                )
                 self.on_processed(processed)
                 if self.prediction_enabled:
                     prediction_processed = self.prediction_postprocess(raw, processed)
@@ -570,24 +568,28 @@ class StreamingEvaluator:
                             processed.score_mf,
                             threshold,
                         )
-                        self.update_stream_stats(raw_sweep[threshold], raw_segmentation, label_batch)
-                        self.update_stream_stats(mf_sweep[threshold], mf_segmentation, label_batch)
-                    self.update_stream_stats(
+                        self.callbacks.update_stream_stats(
+                            raw_sweep[threshold], raw_segmentation, label_batch
+                        )
+                        self.callbacks.update_stream_stats(
+                            mf_sweep[threshold], mf_segmentation, label_batch
+                        )
+                    self.callbacks.update_stream_stats(
                         raw_adaptive,
                         processed.binary_mask_raw_postprocessed,
                         label_batch,
                     )
-                    self.update_stream_stats(
+                    self.callbacks.update_stream_stats(
                         mf_adaptive,
                         processed.binary_mask_mf_postprocessed,
                         label_batch,
                     )
-                    self.update_stream_stats(
+                    self.callbacks.update_stream_stats(
                         raw_fixed,
                         processed.score_raw > self.metric_threshold,
                         label_batch,
                     )
-                    self.update_stream_stats(
+                    self.callbacks.update_stream_stats(
                         mf_fixed,
                         processed.score_mf > self.metric_threshold,
                         label_batch,
@@ -623,18 +625,14 @@ class StreamingEvaluator:
         scores_mf: dict[Any, Any] = {}
         if labels_available:
             for threshold in self.thresholds:
-                raw_values = self.finalize_stream_stats(raw_sweep[threshold])
-                mf_values = self.finalize_stream_stats(mf_sweep[threshold])
-                scores[threshold] = {
-                    key: raw_values[key] for key in ("dice", "sensitivity", "precision")
-                }
-                scores_mf[threshold] = {
-                    key: mf_values[key] for key in ("dice", "sensitivity", "precision")
-                }
-            raw_method = self.finalize_stream_stats(raw_adaptive)
-            mf_method = self.finalize_stream_stats(mf_adaptive)
-            fixed_raw = self.finalize_stream_stats(raw_fixed)
-            fixed_mf = self.finalize_stream_stats(mf_fixed)
+                raw_values = self.callbacks.finalize_stream_stats(raw_sweep[threshold])
+                mf_values = self.callbacks.finalize_stream_stats(mf_sweep[threshold])
+                scores[threshold] = sweep_metric_row(raw_values)
+                scores_mf[threshold] = sweep_metric_row(mf_values)
+            raw_method = self.callbacks.finalize_stream_stats(raw_adaptive)
+            mf_method = self.callbacks.finalize_stream_stats(mf_adaptive)
+            fixed_raw = self.callbacks.finalize_stream_stats(raw_fixed)
+            fixed_mf = self.callbacks.finalize_stream_stats(mf_fixed)
         else:
             for threshold in self.thresholds:
                 scores[threshold] = {
@@ -682,13 +680,17 @@ class StreamingEvaluator:
             else:
                 print("Computing exact raw AUPRC with external sorting...")
                 scores["AUPRC"] = external_auprc(
-                    self.exact_auprc_chunks(cache, "raw", raw_plan, raw_bounds),
+                    self.callbacks.exact_auprc_chunks(
+                        cache, "raw", raw_plan, raw_bounds
+                    ),
                     cache.sort_directory / "raw",
                     chunk_bytes=self.external_sort_chunk_bytes,
                 )
                 print("Computing exact MF AUPRC with external sorting...")
                 scores_mf["AUPRC"] = external_auprc(
-                    self.exact_auprc_chunks(cache, "mf", raw_plan, raw_bounds),
+                    self.callbacks.exact_auprc_chunks(
+                        cache, "mf", raw_plan, raw_bounds
+                    ),
                     cache.sort_directory / "mf",
                     chunk_bytes=self.external_sort_chunk_bytes,
                 )
@@ -700,10 +702,6 @@ class StreamingEvaluator:
                 scores["AUPRC_seed"] = self.auprc_seed
                 scores_mf["AUPRC_seed"] = self.auprc_seed
 
-        scores.update(
-            {key: fixed_raw[key] for key in ("sensitivity", "specificity", "precision")}
-        )
-        scores_mf.update(
-            {key: fixed_mf[key] for key in ("sensitivity", "specificity", "precision")}
-        )
+        scores.update(fixed_rate_row(fixed_raw))
+        scores_mf.update(fixed_rate_row(fixed_mf))
         return scores, scores_mf

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Any
 
 import numpy as np
@@ -10,6 +11,10 @@ import torch
 from andi_rewrite.anomaly.postprocess import PostprocessPolicy, PostprocessResult
 from andi_rewrite.metrics.classification import auprc, dice
 from andi_rewrite.utils.progress import ProgressReporter
+
+
+SWEEP_METRIC_KEYS = ("dice", "sensitivity", "precision")
+FIXED_RATE_KEYS = ("sensitivity", "specificity", "precision")
 
 
 def threshold_values(start: float, end: float, step: float) -> list[float]:
@@ -53,6 +58,64 @@ def segmentation_metrics(segmentation: torch.Tensor, label: torch.Tensor) -> dic
         "sensitivity": rates["sensitivity"],
         "precision": rates["precision"],
     }
+
+
+def empty_stream_stats() -> dict[str, float | int]:
+    """Create the legacy streaming accumulator used by every mask branch."""
+
+    return {
+        "dice_sum": 0.0,
+        "subjects": 0,
+        "tp": 0,
+        "tn": 0,
+        "fp": 0,
+        "fn": 0,
+    }
+
+
+def update_stream_stats(
+    stats: dict[str, float | int],
+    prediction: torch.Tensor,
+    label: torch.Tensor,
+) -> None:
+    """Accumulate per-subject Dice and micro confusion counts in legacy order."""
+
+    prediction = prediction.bool()
+    label = label.bool()
+    stats["dice_sum"] = float(stats["dice_sum"]) + dice(prediction, label)
+    stats["subjects"] = int(stats["subjects"]) + 1
+    stats["tp"] = int(stats["tp"]) + int(torch.logical_and(prediction, label).sum().item())
+    stats["tn"] = int(stats["tn"]) + int(torch.logical_and(~prediction, ~label).sum().item())
+    stats["fp"] = int(stats["fp"]) + int(torch.logical_and(prediction, ~label).sum().item())
+    stats["fn"] = int(stats["fn"]) + int(torch.logical_and(~prediction, label).sum().item())
+
+
+def finalize_stream_stats(stats: dict[str, float | int]) -> dict[str, float]:
+    """Finalize a streaming accumulator without changing legacy denominators."""
+
+    subjects = int(stats["subjects"])
+    tp = int(stats["tp"])
+    tn = int(stats["tn"])
+    fp = int(stats["fp"])
+    fn = int(stats["fn"])
+    return {
+        "dice": float(stats["dice_sum"]) / max(subjects, 1),
+        "sensitivity": float(tp / max(tp + fn, 1)),
+        "specificity": float(tn / max(tn + fp, 1)),
+        "precision": float(tp / max(tp + fp, 1)),
+    }
+
+
+def sweep_metric_row(values: dict[str, Any]) -> dict[str, Any]:
+    """Project finalized values onto the stable threshold-sweep CSV schema."""
+
+    return {key: values[key] for key in SWEEP_METRIC_KEYS}
+
+
+def fixed_rate_row(values: dict[str, Any]) -> dict[str, Any]:
+    """Project finalized values onto the stable fixed-threshold rate schema."""
+
+    return {key: values[key] for key in FIXED_RATE_KEYS}
 
 
 def threshold_method_metrics(
@@ -123,6 +186,18 @@ def summarize_processed(
     auprc_max_samples: int | None,
     auprc_seed: int,
     progress_enabled: bool,
+    summarize_without_labels_callback: Callable[
+        [PostprocessResult], tuple[dict[Any, Any], dict[Any, Any]]
+    ] | None = None,
+    segmentation_metrics_callback: Callable[
+        [torch.Tensor, torch.Tensor], dict[str, float]
+    ] | None = None,
+    threshold_method_metrics_callback: Callable[
+        [torch.Tensor, torch.Tensor, torch.Tensor], dict[str, float]
+    ] | None = None,
+    binary_rates_callback: Callable[
+        [torch.Tensor, torch.Tensor], dict[str, float]
+    ] | None = None,
 ) -> tuple[dict[Any, Any], dict[Any, Any]]:
     """Compute every in-memory metric from an already materialized policy result."""
 
@@ -130,12 +205,20 @@ def summarize_processed(
     anomaly_map_mf = processed.score_mf
 
     if labels is None:
+        if summarize_without_labels_callback is not None:
+            return summarize_without_labels_callback(processed)
         return summarize_without_labels(
             processed,
             thresholds=thresholds,
             compute_auprc=compute_auprc,
             auprc_mode=auprc_mode,
         )
+
+    segmentation_metrics_fn = segmentation_metrics_callback or segmentation_metrics
+    threshold_method_metrics_fn = (
+        threshold_method_metrics_callback or threshold_method_metrics
+    )
+    binary_rates_fn = binary_rates_callback or binary_rates
 
     scores: dict[Any, Any] = {}
     scores_mf: dict[Any, Any] = {}
@@ -149,17 +232,17 @@ def summarize_processed(
         for threshold in thresholds:
             segmentation = policy.fixed_threshold_mask(anomaly_map, threshold)
             segmentation_mf = policy.fixed_threshold_mask(anomaly_map_mf, threshold)
-            scores[threshold] = segmentation_metrics(segmentation, labels)
-            scores_mf[threshold] = segmentation_metrics(segmentation_mf, labels)
+            scores[threshold] = segmentation_metrics_fn(segmentation, labels)
+            scores_mf[threshold] = segmentation_metrics_fn(segmentation_mf, labels)
             summary_bar.update(postfix={"thr": threshold})
 
         method = processed.threshold_method
-        threshold_metrics = threshold_method_metrics(
+        threshold_metrics = threshold_method_metrics_fn(
             processed.binary_mask_raw_postprocessed,
             processed.thresholds_raw,
             labels,
         )
-        threshold_metrics_mf = threshold_method_metrics(
+        threshold_metrics_mf = threshold_method_metrics_fn(
             processed.binary_mask_mf_postprocessed,
             processed.thresholds_mf,
             labels,
@@ -198,8 +281,8 @@ def summarize_processed(
                 scores_mf["AUPRC_seed"] = auprc_seed
             summary_bar.update(postfix="AUPRC")
 
-        rates = binary_rates(anomaly_map > metric_threshold, labels)
-        rates_mf = binary_rates(anomaly_map_mf > metric_threshold, labels)
+        rates = binary_rates_fn(anomaly_map > metric_threshold, labels)
+        rates_mf = binary_rates_fn(anomaly_map_mf > metric_threshold, labels)
         scores.update(rates)
         scores_mf.update(rates_mf)
         summary_bar.update(postfix="rates")

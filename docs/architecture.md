@@ -1,6 +1,6 @@
 # 系統架構與執行流程
 
-本文件描述目前 repository 的實際程式碼，而不是預期中的未來設計。2026-08-12 inventory snapshot 包含 66 個 Python source、90 個 YAML config、7 個 test modules 與主要 scripts；數量會隨 repository 演進。YAML 的逐項設定請配合 [configuration.md](configuration.md)，後處理細節請配合 [postprocessing.md](postprocessing.md)。
+本文件描述目前 repository 的實際程式碼，而不是預期中的未來設計。2026-08-13 inventory snapshot 包含 108 個 Python source、90 個 YAML config、13 個 test modules 與主要 scripts；數量會隨 repository 演進。YAML 的逐項設定請配合 [configuration.md](configuration.md)，後處理細節請配合 [postprocessing.md](postprocessing.md)。
 
 ## 1. 系統目的與邊界
 
@@ -94,7 +94,7 @@ flowchart TB
 
 ### 資料層與 adapters
 
-`data/datasets.py` 提供以下資料契約：
+`data/datasets/` package 以 adapter modules 提供以下資料契約；`data/datasets/__init__.py` 保留舊 import surface，`data/datasets/factory.py` 只負責 type/alias 到 builder 的映射：
 
 | 類別 | Discovery / input | Output 與重要行為 |
 |---|---|---|
@@ -114,7 +114,7 @@ Factory 接受的 canonical/alias types：
 
 共通四通道語意是 `[flair,t1,t1ce,t2]`。UCSF 實體 suffix 對應 `[FLAIR,T1,T1c,T2]`。`normalize_volume()` 將各 modality 除以正 foreground 的第 99 percentile，沒有 clipping；histogram mode 則在 foreground 內 equalize。
 
-`data/preprocess.py` 將健康 slices 寫成 LMDB：第一 modality 必須有 foreground，segmentation slice 必須為空。可選 z-balanced sampling 會讓每個有 candidate 的 Z index 精確輸出 `per_z_count`，不足時會重複抽樣。K-fold 支援 validation folds、固定 test set，或合併 train/test 後的 circular test windows；當 `folds * test_size` 大於 pool，test windows 必然重疊。
+健康 slice selection 在 `data/healthy_slices.py`，subject split policy 在 `data/subject_splits.py`，LMDB sizing/writing 在 `data/lmdb_io.py`；`data/preprocess.py` 是舊 import 的相容 facade。第一 modality 必須有 foreground，segmentation slice 必須為空。可選 z-balanced sampling 會讓每個有 candidate 的 Z index 精確輸出 `per_z_count`，不足時會重複抽樣。K-fold 支援 validation folds、固定 test set，或合併 train/test 後的 circular test windows；當 `folds * test_size` 大於 pool，test windows 必然重疊。
 
 `data/prepare.py` 與 `data/registration.py` 是離線工具，不在 train/eval hot path。DIPY batch registration 使用 multiprocessing；SimpleITK/elastix 類別是另一個 backend。Histogram matching 會覆寫目標 NIfTI。
 
@@ -187,7 +187,7 @@ Standalone `detect()` 還回傳完整 deviation stack 與 per-modality scores；
 
 ### Postprocess 與 metrics
 
-`anomaly/postprocess.py` 是 score/mask policy 的單一來源；evaluator 會把同一個 policy instance 設回 detector，避免兩邊語意分歧。
+`anomaly/postprocess/` package 是 score/mask policy 的單一來源：registries 在 `base.py`、transforms 在 `transforms.py`、threshold strategies 在 `threshold.py`、policies 在 `policies.py`；package `__init__.py` 保留舊 import surface。evaluator 會把同一個 policy instance 設回 detector，避免兩邊語意分歧。
 
 - Score registry：normalize、median filter、gray dilation。
 - Mask registry：binary dilation、connected-component filtering。
@@ -201,7 +201,7 @@ Standalone `detect()` 還回傳完整 deviation stack 與 per-modality scores；
 
 ### Engine 與 infrastructure
 
-`Trainer` 擁有 model、AdamW optimizer、optional scheduler、EMA copy、epoch state、checkpoint/sample policy。`VolumeEvaluator` 擁有 volume-to-slice orchestration、distributed gather、postprocess、metrics、CSV/report、prediction export 與 disk streaming。
+`Trainer` 擁有 model、AdamW optimizer、optional scheduler、EMA copy、epoch state、checkpoint/sample policy。`VolumeEvaluator` 現為相容 facade/orchestrator；batch input、collection、metrics/output、prediction export、fingerprints 與 disk streaming 分別由 `engine/evaluation/` 的 cohesive modules 擁有。
 
 其他支援元件：
 
@@ -209,7 +209,7 @@ Standalone `detect()` 還回傳完整 deviation stack 與 per-modality scores；
 - `engine/ema.py`：在 `step_start` 前複製 model，之後 exponential update。
 - `engine/schedulers.py`：none 或 warmup-cosine；實作把 optimizer base LR 設為 `1.0`，LambdaLR 的結果相當於實際 LR。
 - `engine/evaluation_cache.py`：per-subject atomic `.npy`、atomic manifest replace、fingerprints 與 corruption validation。
-- `utils/reporting.py`：best-effort training/inference JSON、Markdown 與 summary CSV；report failure 只 warning，不使主工作失敗。
+- `reporting/`：serialization、metadata、metrics CSV、training/inference builders 與 artifact I/O；`utils/reporting.py` 是相容 facade。Report failure 只 warning，不使主工作失敗。
 - `utils/progress.py`：optional tqdm，否則 stderr reporter。
 - `utils/seed.py`：Python、NumPy、Torch、CUDA seeds。
 - `utils/noise_statistics.py` / `utils/spectrum_compare.py`：streaming statistics 與診斷圖資料。
@@ -318,12 +318,12 @@ Model、dataset、checkpoint、spectrum statistics 與 prediction metadata 的 c
 | State / artifact | Writer | 主要內容 | 原子性 / resume |
 |---|---|---|---|
 | Training checkpoint | `engine/checkpoint.py` | epoch、model、optimizer、training config、optional LR/EMA | 非 atomic；可 resume，但非 bitwise replay |
-| Healthy-slice LMDB | `data/preprocess.py` | pickled `[C,H,W]` arrays + CSV | LMDB transaction；overwrite 可先刪目錄 |
+| Healthy-slice LMDB | `data/lmdb_io.py` | pickled `[C,H,W]` arrays + CSV | LMDB transaction；overwrite 可先刪目錄 |
 | Spectrum NPZ | `compute_lmdb_spectrum.py` | amplitude/power/radial stats + sidecar | 一般檔案輸出 |
 | Evaluation cache | `DiskEvaluationCache` | manifest、raw/labels/MF/staging/sort files | array temp + replace、manifest atomic replace；嚴格 resume validation |
-| Metrics | `VolumeEvaluator` / metrics writer | `ANDi.csv`、`ANDi_mf.csv` | 一般檔案輸出 |
-| Predictions | `VolumeEvaluator` | NIfTI + per-subject JSON | 一般檔案輸出 |
-| Reports | `utils/reporting.py` | training/inference Markdown/JSON/summary CSV | best-effort；失敗只 warning |
+| Metrics | `engine/evaluation/output.py` | `ANDi.csv`、`ANDi_mf.csv` | 一般檔案輸出 |
+| Predictions | `engine/evaluation/prediction_export.py` | NIfTI + per-subject JSON | 一般檔案輸出 |
+| Reports | `reporting/io.py` | training/inference Markdown/JSON/summary CSV | best-effort；失敗只 warning |
 
 沒有跨 artifacts 的 transaction coordinator，也沒有 experiment database。
 

@@ -14,8 +14,8 @@ from .numerics import sanitize_scores
 
 def _validate_threshold_method(method: str) -> str:
     normalized = str(method).strip().lower()
-    if normalized not in SUPPORTED_THRESHOLD_METHODS:
-        supported = ", ".join(SUPPORTED_THRESHOLD_METHODS)
+    if normalized not in THRESHOLD_FUNCTION_LOADERS:
+        supported = ", ".join(supported_threshold_methods())
         raise ValueError(
             f"Unknown threshold method: {method!r}. Supported methods: {supported}."
         )
@@ -43,6 +43,67 @@ THRESHOLD_FUNCTION_LOADERS: dict[str, Callable[[], Callable[[np.ndarray], float]
 }
 
 
+def supported_threshold_methods() -> tuple[str, ...]:
+    """Return the currently registered methods in deterministic registry order."""
+
+    return tuple(THRESHOLD_FUNCTION_LOADERS)
+
+
+def register_threshold_method(*names: str):
+    """Register a lazy threshold-function loader under one or more aliases.
+
+    The loader indirection keeps optional scientific dependencies lazy.  The
+    existing mutable registry remains the authoritative runtime extension
+    surface; ``SUPPORTED_THRESHOLD_METHODS`` remains the built-in compatibility
+    snapshot ``("yen", "otsu")``.
+    """
+
+    normalized_names = tuple(str(name).strip().lower() for name in names)
+    if not normalized_names or any(not name for name in normalized_names):
+        raise ValueError("At least one non-empty threshold method name is required.")
+
+    def decorator(
+        loader: Callable[[], Callable[[np.ndarray], float]],
+    ) -> Callable[[], Callable[[np.ndarray], float]]:
+        for name in normalized_names:
+            THRESHOLD_FUNCTION_LOADERS[name] = loader
+        return loader
+
+    return decorator
+
+
+def _yen_import_fallback(
+    finite: torch.Tensor,
+    _error: ImportError,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    dimensions = tuple(range(1, finite.ndim))
+    threshold = finite.mean(dim=dimensions, keepdim=True)
+    warnings.warn(
+        "scikit-image is unavailable; using the legacy mean fallback for Yen thresholding.",
+        RuntimeWarning,
+        stacklevel=3,
+    )
+    return (finite > threshold).to(torch.bool), threshold.flatten()
+
+
+def _otsu_import_error(
+    _finite: torch.Tensor,
+    error: ImportError,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    raise ImportError(
+        "Otsu thresholding requires scikit-image (skimage.filters.threshold_otsu)."
+    ) from error
+
+
+_THRESHOLD_IMPORT_FAILURE_HANDLERS: dict[
+    str,
+    Callable[[torch.Tensor, ImportError], tuple[torch.Tensor, torch.Tensor]],
+] = {
+    "yen": _yen_import_fallback,
+    "otsu": _otsu_import_error,
+}
+
+
 def threshold_anomaly_map(
     tensor: torch.Tensor,
     method: str = "yen",
@@ -58,28 +119,13 @@ def threshold_anomaly_map(
 
     method = _validate_threshold_method(method)
     finite = sanitize_scores(tensor)
-    if method == "yen":
-        try:
-            threshold_function = THRESHOLD_FUNCTION_LOADERS[method]()
-        except ImportError:
-            # Preserve the rewrite's historical Yen-only fallback. Otsu has no
-            # project fallback because scikit-image is the authoritative
-            # implementation used by this repository.
-            dimensions = tuple(range(1, finite.ndim))
-            threshold = finite.mean(dim=dimensions, keepdim=True)
-            warnings.warn(
-                "scikit-image is unavailable; using the legacy mean fallback for Yen thresholding.",
-                RuntimeWarning,
-                stacklevel=2,
-            )
-            return (finite > threshold).to(torch.bool), threshold.flatten()
-    else:
-        try:
-            threshold_function = THRESHOLD_FUNCTION_LOADERS[method]()
-        except ImportError as exc:
-            raise ImportError(
-                "Otsu thresholding requires scikit-image (skimage.filters.threshold_otsu)."
-            ) from exc
+    try:
+        threshold_function = THRESHOLD_FUNCTION_LOADERS[method]()
+    except ImportError as exc:
+        handler = _THRESHOLD_IMPORT_FAILURE_HANDLERS.get(method)
+        if handler is None:
+            raise
+        return handler(finite, exc)
 
     masks = []
     thresholds = []

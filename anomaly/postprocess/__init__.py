@@ -27,6 +27,7 @@ from .policies import (
     OriginalANDiPostprocessPolicy,
     PostprocessPolicy,
     RewritePostprocessPolicy,
+    ScorePipelineSpec,
     _compile_legacy_normalization_steps,
     _pipeline_labels,
     _step_label,
@@ -36,6 +37,8 @@ from .threshold import (
     THRESHOLD_FUNCTION_LOADERS,
     _validate_threshold_method,
     otsu_threshold,
+    register_threshold_method,
+    supported_threshold_methods,
     threshold_anomaly_map,
     yen_threshold,
 )
@@ -53,6 +56,29 @@ from .transforms import (
     median_filter_tensor,
     remove_small_components_tensor,
 )
+from ._runtime import configure_runtime_functions as _configure_runtime_functions
+
+
+def _dispatch_median_filter_tensor(
+    tensor,
+    kernel_size,
+    mode="3d",
+):
+    return median_filter_tensor(tensor, kernel_size, mode)
+
+
+def _dispatch_normalize_minmax(
+    tensor,
+    eps=1.0e-8,
+    scope="dataset",
+):
+    return normalize_minmax(tensor, eps, scope)
+
+
+_configure_runtime_functions(
+    median_filter_tensor=_dispatch_median_filter_tensor,
+    normalize_minmax=_dispatch_normalize_minmax,
+)
 
 
 __all__ = [
@@ -68,6 +94,7 @@ __all__ = [
     "PostprocessPolicy",
     "PostprocessResult",
     "RewritePostprocessPolicy",
+    "ScorePipelineSpec",
     "SCORE_POSTPROCESSORS",
     "SUPPORTED_THRESHOLD_METHODS",
     "THRESHOLD_FUNCTION_LOADERS",
@@ -93,8 +120,10 @@ __all__ = [
     "otsu_threshold",
     "register_mask_postprocessor",
     "register_score_postprocessor",
+    "register_threshold_method",
     "remove_small_components_tensor",
     "sanitize_scores",
+    "supported_threshold_methods",
     "threshold_anomaly_map",
     "yen_threshold",
 ]
