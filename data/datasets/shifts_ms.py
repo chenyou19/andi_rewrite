@@ -1,40 +1,27 @@
-"""新版 ANDi framework 的 dataset builder。
+"""Shifts / Ljubljana-MS full-volume dataset adapter.
 
-LMDB 與 volume loader 保留成清楚的小型介面，讓未來新增真實資料集時
-不需要修改 training loop。
+Discovery, grid resampling, interpolation, labels, ordering, and metadata are
+kept local because these behaviours intentionally differ from UCSF-PDGM.
 """
 
 from __future__ import annotations
 
-import pickle
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 import numpy as np
-import pandas as pd
 import torch
 import torch.nn.functional as F
-from torch.utils.data import DataLoader, Dataset
-from torchvision import transforms
+from torch.utils.data import Dataset
+
+from .common import _as_list, _shape_text
+from .imaging import histogram_normalize_volume, normalize_volume
 
 
 _NIFTI_SUFFIXES = (".nii", ".nii.gz")
 _SHIFTS_SPLITS = ("train", "dev_in", "dev_out", "eval_in", "unsupervised")
 _SHIFTS_LOCATIONS = ("ljubljana", "best", "msseg")
-
-
-def _subject_frame_from_directory(dataset_path: Path) -> pd.DataFrame:
-    if not dataset_path.exists():
-        raise FileNotFoundError(f"Dataset path does not exist: {dataset_path}")
-    subject_ids = sorted(path.name for path in dataset_path.iterdir() if path.is_dir())
-    if not subject_ids:
-        raise FileNotFoundError(f"No subject directories found under {dataset_path}")
-    return pd.DataFrame({"subject_id": subject_ids})
-
-
-def _subject_file_path(subject_dir: Path, file_stem: str, suffix: str, separator: str = "_") -> Path:
-    return subject_dir / f"{file_stem}{separator}{suffix}.nii.gz"
 
 
 def _is_nifti(path: Path) -> bool:
@@ -55,18 +42,6 @@ def _subject_id_from_shifts_path(path: Path) -> str:
     return _strip_nifti_suffix(path.name).split("_", 1)[0]
 
 
-def _as_list(value: Any, default: list[str] | None = None) -> list[str]:
-    if value is None:
-        return list(default or [])
-    if isinstance(value, str):
-        return [value]
-    return [str(item) for item in value]
-
-
-def _shape_text(shape: tuple[int, ...] | list[int]) -> str:
-    return ",".join(str(int(item)) for item in shape)
-
-
 @dataclass(frozen=True)
 class ShiftsMSSubject:
     subject_id: str
@@ -77,256 +52,6 @@ class ShiftsMSSubject:
     modality_sources: dict[str, str]
     segmentation_path: Path | None
     brain_mask_path: Path | None
-
-
-class LMDBSliceDataset(Dataset):
-    """讀取原版 ANDi healthy-slice LMDB 格式。"""
-
-    def __init__(self, directory: str | Path, image_size: int | None = None):
-        try:
-            import lmdb
-        except ImportError as exc:
-            raise ImportError("LMDBSliceDataset requires the optional 'lmdb' package.") from exc
-
-        self._lmdb = lmdb
-        self.directory = str(directory)
-        self.image_size = image_size
-        env = self._lmdb.open(
-            self.directory,
-            max_readers=1,
-            readonly=True,
-            lock=False,
-            readahead=False,
-            meminit=False,
-        )
-        with env.begin(write=False) as txn:
-            self.length = txn.stat()["entries"]
-        env.close()
-
-    def _open_lmdb(self) -> None:
-        self.env = self._lmdb.open(
-            self.directory,
-            max_readers=1,
-            readonly=True,
-            lock=False,
-            readahead=False,
-            meminit=False,
-        )
-        self.txn = self.env.begin(write=False)
-
-    def __len__(self) -> int:
-        return self.length
-
-    def __getitem__(self, index: int) -> torch.Tensor:
-        if not hasattr(self, "txn"):
-            self._open_lmdb()
-
-        byteflow = self.txn.get(f"{index:08}".encode("ascii"))
-        if byteflow is None:
-            raise IndexError(index)
-
-        tensor = torch.from_numpy(pickle.loads(byteflow)).float()
-        if self.image_size is not None and tensor.shape[-1] != self.image_size:
-            tensor = transforms.Resize(self.image_size, antialias=True)(tensor)
-        return tensor
-
-
-class BraTSHealthySliceDataset(Dataset):
-    """Read healthy 2D slices directly from a raw BraTS volume directory."""
-
-    def __init__(
-        self,
-        csv_path: str | Path,
-        dataset_path: str | Path,
-        image_size: int = 128,
-        modalities: list[str] | None = None,
-        slice_column: str = "Slice",
-        filename_separator: str = "_",
-    ):
-        self.df = pd.read_csv(csv_path)
-        self.dataset_path = Path(dataset_path)
-        self.image_size = int(image_size)
-        self.modalities = modalities or ["flair", "t1", "t1ce", "t2"]
-        self.slice_column = slice_column
-        self.filename_separator = filename_separator
-        if self.slice_column not in self.df.columns:
-            raise ValueError(f"Slice CSV must contain a '{self.slice_column}' column.")
-        self.subject_column = self.df.columns[0]
-        self._cached_subject_id: str | None = None
-        self._cached_volume: torch.Tensor | None = None
-
-    def __len__(self) -> int:
-        return self.df.shape[0]
-
-    def _load_nifti(self, path: Path, dtype: type = float) -> np.ndarray:
-        try:
-            import nibabel as nib
-        except ImportError as exc:
-            raise ImportError("BraTSHealthySliceDataset requires the optional 'nibabel' package.") from exc
-
-        if not path.exists():
-            raise FileNotFoundError(path)
-        return np.asarray(nib.load(str(path)).dataobj, dtype=dtype)
-
-    def _load_subject_volume(self, subject_id: str) -> torch.Tensor:
-        if self._cached_subject_id == subject_id and self._cached_volume is not None:
-            return self._cached_volume
-
-        subject_dir = self.dataset_path / subject_id
-        images = [
-            self._load_nifti(_subject_file_path(subject_dir, subject_id, modality, self.filename_separator), dtype=float)
-            for modality in self.modalities
-        ]
-        volume = normalize_volume(torch.from_numpy(np.stack(images, axis=0)).float())
-        self._cached_subject_id = subject_id
-        self._cached_volume = volume
-        return volume
-
-    def __getitem__(self, idx: int) -> torch.Tensor:
-        subject_id = str(self.df.loc[idx, self.subject_column])
-        slice_index = int(self.df.loc[idx, self.slice_column])
-        volume = self._load_subject_volume(subject_id)
-        tensor = volume[:, :, :, slice_index]
-        if tensor.shape[-2:] != (self.image_size, self.image_size):
-            tensor = transforms.Resize(self.image_size, antialias=True)(tensor)
-        return tensor
-
-
-def normalize_volume(images: torch.Tensor, eps: float = 1.0e-8) -> torch.Tensor:
-    """用 foreground intensity 的第 99 百分位數正規化每個 modality。"""
-
-    images = images.float()
-    for modality in range(images.shape[0]):
-        values = images[modality].reshape(-1)
-        foreground = values[values > 0]
-        if foreground.numel() == 0:
-            continue
-        images[modality] = images[modality] / torch.quantile(foreground, 0.99).clamp_min(eps)
-    return images
-
-
-def histogram_normalize_volume(images: np.ndarray) -> torch.Tensor:
-    try:
-        import skimage.exposure as exposure
-    except ImportError as exc:
-        raise ImportError("Histogram normalization requires the optional 'scikit-image' package.") from exc
-
-    normalized = np.zeros_like(images, dtype=np.float32)
-    for modality in range(images.shape[0]):
-        image = images[modality]
-        mask = image > 0
-        if image.max() > 0:
-            image = image / image.max()
-        normalized[modality] = exposure.equalize_hist(image.astype(np.float32), mask=mask, nbins=256) * mask
-    return torch.from_numpy(normalized)
-
-
-class MRIDataVolume(Dataset):
-    """載入完整 multi-modal MRI volume，供 ANDi evaluation 使用。"""
-
-    def __init__(
-        self,
-        csv_path: str | Path | None,
-        dataset_path: str | Path,
-        image_size: int = 128,
-        modalities: list[str] | None = None,
-        segmentation_suffix: str = "seg",
-        histogram_normalization: bool = False,
-        shift_naming: bool = False,
-        filename_separator: str = "_",
-        return_metadata: bool = False,
-    ):
-        self.dataset_path = Path(dataset_path)
-        self.df = pd.read_csv(csv_path) if csv_path else _subject_frame_from_directory(self.dataset_path)
-        self.image_size = int(image_size)
-        self.modalities = modalities or ["flair", "t1", "t1ce", "t2"]
-        self.segmentation_suffix = segmentation_suffix
-        self.histogram_normalization = bool(histogram_normalization)
-        self.shift_naming = bool(shift_naming)
-        self.filename_separator = filename_separator
-        self.return_metadata = bool(return_metadata)
-
-    def __len__(self) -> int:
-        return self.df.shape[0]
-
-    def _subject_file_stem(self, subject_id: str) -> str:
-        if self.shift_naming:
-            return subject_id.split("_")[-1]
-        return subject_id
-
-    def _load_nifti(self, path: Path, dtype: type = float) -> np.ndarray:
-        try:
-            import nibabel as nib
-        except ImportError as exc:
-            raise ImportError("MRIDataVolume requires the optional 'nibabel' package.") from exc
-
-        if not path.exists():
-            raise FileNotFoundError(path)
-        return np.asarray(nib.load(str(path)).dataobj, dtype=dtype)
-
-    def __getitem__(
-        self,
-        idx: int,
-    ) -> tuple[torch.Tensor, torch.Tensor] | tuple[torch.Tensor, torch.Tensor, dict[str, Any]]:
-        subject_id = str(self.df.loc[idx, self.df.columns[0]])
-        file_stem = self._subject_file_stem(subject_id)
-        subject_dir = self.dataset_path / subject_id
-
-        modality_paths = {
-            modality: _subject_file_path(subject_dir, file_stem, modality, self.filename_separator)
-            for modality in self.modalities
-        }
-        images = [self._load_nifti(path, dtype=float) for path in modality_paths.values()]
-
-        segmentation_path = _subject_file_path(
-            subject_dir,
-            file_stem,
-            self.segmentation_suffix,
-            self.filename_separator,
-        )
-        mask = self._load_nifti(segmentation_path, dtype=float)
-        native_shape = tuple(int(value) for value in mask.shape)
-        # 有些資料集的 mask 經 registration/interpolation 後會變成 float；
-        # 因此先 threshold，再做 nearest-neighbor resize。
-        mask = torch.from_numpy((mask > 0.5).astype(np.uint8)).bool()
-        mask = F.interpolate(
-            mask[None, None].float(),
-            size=(self.image_size, self.image_size, mask.shape[2]),
-            mode="nearest-exact",
-        )[0, 0].bool()
-
-        image_array = np.stack(images, axis=0)
-        if self.histogram_normalization:
-            volume = histogram_normalize_volume(image_array)
-        else:
-            volume = normalize_volume(torch.from_numpy(image_array).float())
-
-        # 將每個 axial slice resize 成 DDPM 預期的 2D 解析度。
-        resized = torch.zeros(
-            volume.shape[0],
-            self.image_size,
-            self.image_size,
-            mask.shape[2],
-            dtype=volume.dtype,
-        )
-        resize = transforms.Resize(self.image_size, antialias=True)
-        for slice_index in range(mask.shape[2]):
-            resized[:, :, :, slice_index] = resize(volume[None, :, :, :, slice_index])[0]
-
-        if not self.return_metadata:
-            return resized, mask
-        reference_modality = self.modalities[0]
-        metadata = {
-            "subject_id": subject_id,
-            "has_label": True,
-            "reference_modality": reference_modality,
-            "reference_path": str(modality_paths[reference_modality]),
-            "native_shape": _shape_text(native_shape),
-            "model_shape": _shape_text(tuple(mask.shape)),
-            "input_paths": {key: str(value) for key, value in modality_paths.items()},
-            "segmentation_path": str(segmentation_path),
-        }
-        return resized, mask, metadata
 
 
 class ShiftsMSVolumeDataset(Dataset):
@@ -640,66 +365,28 @@ class ShiftsMSVolumeDataset(Dataset):
         return resized, resized_mask, metadata
 
 
-def build_dataset(config: dict[str, Any]) -> Dataset:
-    """從 config 建立 dataset，避免上層 trainer/evaluator 寫死 dataset type 判斷。"""
-
-    data_type = str(config.get("type", "lmdb")).lower()
+def build_shifts_ms_volume_dataset(config: dict[str, Any]) -> ShiftsMSVolumeDataset:
     image_size = int(config.get("image_size", 128))
-
-    if data_type == "lmdb":
-        if "path" not in config:
-            raise ValueError("data.path is required when data.type is 'lmdb'.")
-        return LMDBSliceDataset(config["path"], image_size=image_size)
-    if data_type in {"brats_healthy_slices", "healthy_slices"}:
-        return BraTSHealthySliceDataset(
-            csv_path=config["path_to_csv"],
-            dataset_path=config["dataset_path"],
-            image_size=image_size,
-            modalities=config.get("modalities"),
-            slice_column=str(config.get("slice_column", "Slice")),
-            filename_separator=str(config.get("filename_separator", "_")),
-        )
-    if data_type in {"volume", "mri_volume", "brats_volume"}:
-        return MRIDataVolume(
-            csv_path=config.get("path_to_csv"),
-            dataset_path=config["dataset_path"],
-            image_size=image_size,
-            modalities=config.get("modalities"),
-            segmentation_suffix=str(config.get("segmentation_suffix", "seg")),
-            histogram_normalization=bool(config.get("histogram_normalization", False)),
-            shift_naming=bool(config.get("shift_naming", "shifts" in str(config.get("dataset_path", "")).lower())),
-            filename_separator=str(config.get("filename_separator", "_")),
-            return_metadata=bool(config.get("return_metadata", False)),
-        )
-    if data_type in {"ljubljana_ms_volume", "shifts_ms_volume", "shifts_volume"}:
-        return ShiftsMSVolumeDataset(
-            dataset_path=config["dataset_path"],
-            image_size=image_size,
-            modalities=config.get("modalities"),
-            modality_mapping=config.get("modality_mapping"),
-            dataset_subdir=config.get("dataset_subdir"),
-            locations=config.get("locations"),
-            location=config.get("location"),
-            preferred_locations=config.get("preferred_locations"),
-            splits=config.get("splits"),
-            reference_modality=str(config.get("reference_modality", "flair")),
-            require_segmentation=bool(config.get("require_segmentation", True)),
-            require_modalities=bool(config.get("require_modalities", True)),
-            resample_to_reference=bool(config.get("resample_to_reference", True)),
-            histogram_normalization=bool(config.get("histogram_normalization", False)),
-            return_metadata=bool(config.get("return_metadata", True)),
-            subject_limit=config.get("subject_limit"),
-        )
-
-    raise ValueError(f"Unknown dataset type: {data_type}")
-
-
-def build_dataloader(config: dict[str, Any]) -> DataLoader:
-    dataset = build_dataset(config)
-    return DataLoader(
-        dataset,
-        batch_size=int(config.get("batch_size", 1)),
-        shuffle=bool(config.get("shuffle", False)),
-        num_workers=int(config.get("workers", 0)),
-        pin_memory=bool(config.get("pin_memory", False)),
+    return ShiftsMSVolumeDataset(
+        dataset_path=config["dataset_path"],
+        image_size=image_size,
+        modalities=config.get("modalities"),
+        modality_mapping=config.get("modality_mapping"),
+        dataset_subdir=config.get("dataset_subdir"),
+        locations=config.get("locations"),
+        location=config.get("location"),
+        preferred_locations=config.get("preferred_locations"),
+        splits=config.get("splits"),
+        reference_modality=str(config.get("reference_modality", "flair")),
+        require_segmentation=bool(config.get("require_segmentation", True)),
+        require_modalities=bool(config.get("require_modalities", True)),
+        resample_to_reference=bool(config.get("resample_to_reference", True)),
+        histogram_normalization=bool(config.get("histogram_normalization", False)),
+        return_metadata=bool(config.get("return_metadata", True)),
+        subject_limit=config.get("subject_limit"),
     )
+
+
+# Kept as an internal-friendly spelling for callers that use the adapter module
+# directly; the factory registry uses the explicit dataset-type name above.
+build_shifts_ms_dataset = build_shifts_ms_volume_dataset

@@ -24,6 +24,7 @@ from andi_rewrite.anomaly.postprocess import (  # noqa: E402
     MASK_POSTPROCESSORS,
     OriginalANDiPostprocessPolicy,
     PostprocessResult,
+    RewritePostprocessPolicy,
     _legacy_mask_pipeline,
     apply_mask_postprocess,
     apply_score_postprocess,
@@ -499,6 +500,74 @@ class OriginalANDiPostprocessPolicyTest(unittest.TestCase):
         torch.testing.assert_close(median_inputs[0], raw)
         torch.testing.assert_close(normalize_inputs[0], raw)
         torch.testing.assert_close(normalize_inputs[1], raw + 10.0)
+
+    def test_rewrite_postprocessor_classes_use_stable_facade_patch_seam(self) -> None:
+        import andi_rewrite.anomaly.postprocess as postprocess
+
+        raw = torch.arange(27, dtype=torch.float32).reshape(1, 3, 3, 3)
+        policy = RewritePostprocessPolicy(
+            {
+                "postprocess": {
+                    "score": {"pipeline": [{"type": "normalize"}]},
+                    "score_mf": {
+                        "pipeline": [
+                            {"type": "median_filter", "kernel_size": 3, "mode": "3d"},
+                            {"type": "normalize"},
+                        ]
+                    },
+                    "threshold_mask": {"pipeline": []},
+                    "binary_mask": {"pipeline": []},
+                }
+            }
+        )
+        original_median = postprocess.median_filter_tensor
+        original_normalize = postprocess.normalize_minmax
+        events: list[str] = []
+
+        def fake_median(
+            tensor: torch.Tensor,
+            kernel_size: int,
+            mode: str,
+        ) -> torch.Tensor:
+            events.append("median_filter")
+            self.assertEqual(kernel_size, 3)
+            self.assertEqual(mode, "3d")
+            return tensor + 10.0
+
+        def fake_normalize(
+            tensor: torch.Tensor,
+            eps: float = 1.0e-8,
+            scope: str = "dataset",
+        ) -> torch.Tensor:
+            events.append(f"normalize:{scope}")
+            return tensor
+
+        with (
+            mock.patch(
+                "andi_rewrite.anomaly.postprocess.median_filter_tensor",
+                side_effect=fake_median,
+            ),
+            mock.patch(
+                "andi_rewrite.anomaly.postprocess.normalize_minmax",
+                side_effect=fake_normalize,
+            ),
+        ):
+            processed = policy.process(raw)
+
+        self.assertEqual(
+            events,
+            ["normalize:dataset", "median_filter", "normalize:dataset"],
+        )
+        torch.testing.assert_close(processed.score_raw, raw)
+        torch.testing.assert_close(processed.score_mf, raw + 10.0)
+        self.assertIs(postprocess.median_filter_tensor, original_median)
+        self.assertIs(postprocess.normalize_minmax, original_normalize)
+
+        policy.process(raw)
+        self.assertEqual(
+            events,
+            ["normalize:dataset", "median_filter", "normalize:dataset"],
+        )
 
     def test_original_mf_matches_filter_raw_then_normalize(self) -> None:
         raw = torch.arange(125, dtype=torch.float32).reshape(1, 5, 5, 5)

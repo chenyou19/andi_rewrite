@@ -9,8 +9,8 @@ import torch.nn as nn
 from andi_rewrite.anomaly.aggregation import build_aggregator
 from andi_rewrite.anomaly.postprocess import (
     PostprocessPolicy,
-    SUPPORTED_THRESHOLD_METHODS,
     build_postprocess_policy,
+    supported_threshold_methods,
 )
 from andi_rewrite.diffusion import DDPMDiffusion
 from andi_rewrite.noise import NoisePlan
@@ -60,7 +60,7 @@ class ANDiDetector:
         """Share the exact policy instance used by an evaluator."""
 
         self.postprocess_policy = policy
-        if self.threshold in SUPPORTED_THRESHOLD_METHODS:
+        if self.threshold in supported_threshold_methods():
             # Adaptive threshold selection belongs to the shared policy.
             self.threshold = policy.threshold_method
         elif policy.mode == "original_andi":
@@ -123,7 +123,7 @@ class ANDiDetector:
 
     def postprocess(self, anomaly_map: torch.Tensor) -> dict[str, Any]:
         processed = self.postprocess_policy.process(anomaly_map)
-        if self.threshold in SUPPORTED_THRESHOLD_METHODS:
+        if self.threshold in supported_threshold_methods():
             segmentation = processed.binary_mask_mf_postprocessed
             thresholds = processed.thresholds_mf
         else:

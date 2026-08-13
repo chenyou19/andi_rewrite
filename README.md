@@ -1,770 +1,214 @@
 # ANDi Rewrite
 
-`andi_rewrite` 是一個以 PyTorch 重寫的 ANDi MRI anomaly detection 研究框架。專案把 DDPM 訓練、可替換 noise sampler、ANDi anomaly map 推論、full-volume evaluation、metric 輸出與資料前處理拆成獨立模組，主要透過 YAML config 組裝實驗。
+`andi_rewrite` 是以 PyTorch 實作的研究型 MRI anomaly detection 框架。它以健康的多模態 2D MRI slices 訓練 DDPM noise predictor；評估時把 3D volume 沿 axial 軸拆成 slices，計算多個 diffusion timestep 的 transition deviation，聚合成 3D anomaly score，再執行後處理、voxel-level metrics 與可選的 NIfTI prediction export。
 
-目前程式碼支援：
+目前版本為 `0.1.0`。本 repository 是 YAML 驅動的本機 CLI 專案，不是 Web/API 服務，也沒有資料庫、佇列、排程器或臨床部署層。程式碼沒有宣告臨床用途或提供臨床安全控制。
 
-- 2D DDPM training，預設處理 4-channel MRI slice：`flair`、`t1`、`t1ce`、`t2`
-- `ANDiUNet` noise-prediction model
-- DDPM forward/reverse transition，預設 `1000` steps、`beta_start=1e-4`、`beta_end=0.02`
-- Gaussian、Pyramid、Spectrum、Hybrid noise sampler
-- static noise schedule 與 epoch-switch noise schedule
-- EMA、AdamW、warmup cosine LR scheduler
-- checkpoint save/resume 與 sample image export
-- BraTS healthy-slice raw loader 與 LMDB loader
-- full-volume evaluation，輸出 raw 與 median-filtered metrics CSV
-- ANDi anomaly map time aggregation、modality pooling、Yen/Otsu threshold 與 postprocess pipeline
-- optional Accelerate distributed training/evaluation
+## 文件導覽
 
-## 專案結構
+| 文件 | 適合先讀的情境 |
+|---|---|
+| [架構與執行流程](docs/architecture.md) | 理解系統邊界、模組責任、資料流、狀態、錯誤與限制 |
+| [YAML 設定參考](docs/configuration.md) | 建立或修改 training/evaluation config |
+| [後處理與 threshold](docs/postprocessing.md) | 比較 `rewrite` / `original_andi`、Yen / Otsu、score / mask pipelines |
+| [開發與驗證](docs/development.md) | 建立環境、執行測試、使用 scripts、擴充 factory/registry |
+| [UCSF-PDGM adapter](docs/datasets/ucsf-pdgm.md) | 查閱現行 channel、discovery、geometry、CSV 與 metadata 契約 |
+| [UCSF-PDGM 儲存檢查快照](UCSF_PDGM_storage_inspection_report.md) | 查閱特定本機資料樹在檢查當下的格式與統計 |
+
+文件以目前程式碼為準。維護範圍是 `README.md`、`docs/**` 與上表明列的 root 歷史快照；被忽略的 `outputs/**` 一律視為 runtime artifacts。可生成的 report 應由 generator 重建，frozen/manual report 應封存，兩者都不是 current architecture/API 文件。
+
+## 核心能力
+
+- 2D DDPM noise-prediction training，預設四個邏輯通道依序為 `flair`、`t1`、`t1ce`、`t2`。
+- `ANDiUNet` 與 `ConvNeXtUNet` model factory。
+- Gaussian、Pyramid、Spectrum、Empirical Spectrum 與 Hybrid noise sampler。
+- Static 與 epoch-switch noise plan；目前 checked-in YAML 都使用 static plan。
+- AdamW、warmup-cosine scheduler、EMA、checkpoint resume 與 reverse-sample 圖片輸出。
+- Raw BraTS healthy-slice、LMDB slice、BraTS-style volume、Shifts/Ljubljana-MS 與 UCSF-PDGM dataset adapters。
+- In-memory 與單程序 disk-streaming full-volume evaluation。
+- 可組合的 anomaly aggregation、postprocess registry、Yen/Otsu adaptive threshold、threshold sweep 與 NIfTI prediction export。
+- 可選的 Hugging Face Accelerate training/in-memory evaluation；disk streaming 不支援 distributed execution。
+- Healthy-slice LMDB、K-fold、empirical spectrum、registration、diagnostic 與 figure scripts。
+
+## 一分鐘理解執行流程
+
+```mermaid
+flowchart LR
+    C["YAML config"] --> D["Dataset / DataLoader"]
+    C --> M["Noise-prediction model"]
+    C --> P["DDPM + NoisePlan"]
+    D --> T["Trainer"]
+    M --> T
+    P --> T
+    T --> K["Checkpoints / EMA / samples / reports"]
+    D --> E["VolumeEvaluator"]
+    M --> A["ANDiDetector"]
+    P --> A
+    A --> E
+    E --> O["Scores / masks / metrics / NIfTI / reports"]
+```
+
+訓練學習的是 sampled noise。異常偵測不是跑一條完整的 diffusion trajectory：每一個選定 timestep 都從同一個 clean slice 以 closed-form `q_sample` 獨立加噪，再比較真實 noise 與模型預測 noise 所導出的 posterior mean；平方差經 timestep 與 modality 聚合後成為 anomaly score。
+
+## Repository 結構
 
 ```text
 andi_rewrite/
-  anomaly/      ANDi detector、aggregation、threshold/postprocess pipeline
-  configs/      training/evaluation YAML configs
-  data/         BraTS/LMDB/volume datasets、healthy-slice preprocessing、registration helpers
-  diffusion/    DDPM scheduler 與 transition math
-  engine/       Trainer、VolumeEvaluator、EMA、checkpoint、LR scheduler
-  metrics/      AUPRC、Dice、DiceYen/DiceOtsu、sensitivity、specificity、CSV writer
-  models/       ANDiUNet 與 model factory
-  noise/        Gaussian/Pyramid/Spectrum/Hybrid noise sampler 與 noise schedule
-  scripts/      CLI entrypoints
-  utils/        config、seed、progress、visualization helpers
+├─ anomaly/       detector、aggregation registry、postprocess policies
+├─ configs/       可直接執行的 templates 與實驗快照
+├─ data/          datasets、healthy-slice preprocessing、registration
+├─ diffusion/     DDPM scheduler 與 transition math
+├─ docs/          維護中的架構、設定、後處理與開發文件
+├─ engine/        Trainer、VolumeEvaluator、disk cache、checkpoint、EMA、LR
+├─ metrics/       AUPRC、Dice、confusion metrics 與 CSV writer
+├─ models/        ANDiUNet、ConvNeXtUNet 與 factory
+├─ noise/         noise samplers、plans 與 factory
+├─ scripts/       CLI composition roots、資料與實驗工具
+├─ splits/        checked-in subject split CSV
+├─ tests/         unittest/pytest-compatible tests
+└─ utils/         config、reporting、progress、seed、statistics、visualization
 ```
 
-`outputs/` 與 `results/` 目前包含已產生的 checkpoint、sample、metric 或測試資料，屬於執行產物，不是核心原始碼。
+`outputs/`、`results/`、checkpoints、LMDB、NPZ 與 NIfTI 多數由 `.gitignore` 排除，屬於本機資料或執行產物。專案沒有 central experiment database。
 
-## 環境需求
+## 環境
 
-這個 repository 目前沒有提供 `requirements.txt` 或 `environment.yml`。依照程式 import，至少需要下列套件：
+Repository 目前沒有 `pyproject.toml`、`requirements.txt`、Conda environment、lockfile 或 Dockerfile，因此沒有可由 repository 重建的版本組合。Python 語法至少需要 3.10；PyTorch/CUDA 應依執行平台安裝。
+
+程式實際 import 的套件分組如下：
+
+| 用途 | 套件 |
+|---|---|
+| 核心 | `torch`, `torchvision`, `numpy`, `pandas`, `PyYAML`, `Pillow` |
+| MRI / storage | `nibabel`, `lmdb` |
+| 後處理 / metrics | `scipy`, `scikit-image`; `scikit-learn` 為 AUPRC 首選實作 |
+| Figures / diagnostics / 進度 | `matplotlib`, optional `tqdm` |
+| 分散式 | optional `accelerate` |
+| 資料配準 | optional `dipy`, `SimpleITK` |
+| 測試 | `pytest` |
+
+完整依賴分層、目前驗證環境與 optional fallback 見 [開發與驗證](docs/development.md)。不要把上表當作版本鎖定。
+
+## 快速開始
+
+以下命令假設工作目錄是 repository root。多數 `scripts/*.py` 會透過 `scripts/_bootstrap.py` 加入 package parent，因此可直接以 script path 執行。
+
+先查看 CLI：
 
 ```powershell
-pip install torch torchvision numpy pandas pyyaml lmdb nibabel scipy scikit-image scikit-learn tqdm pillow
+python -B scripts\train.py --help
+python -B scripts\eval.py --help
 ```
 
-若要使用額外功能，還會需要：
-
-- `accelerate`：distributed training/evaluation
-- `dipy`：`prepare_data.py --register` 使用的 registration backend
-- `SimpleITK`：histogram matching
-
-建議先切到專案的上一層目錄或目前 package 目錄執行。以下範例假設目前在：
+先複製最接近的 canonical config，填入有效 dataset paths。建立 components 並執行單一 training batch：
 
 ```powershell
-cd C:\ML\andi_test\Test\andi_rewrite
+python -B scripts\train.py --config <prepared-train-config.yaml> --run-one-step
 ```
 
-## 資料格式
+完整訓練：
 
-### BraTS volume layout
+```powershell
+python -B scripts\train.py --config <prepared-train-config.yaml> --fit
+```
 
-`MRIDataVolume` 與 healthy-slice preprocessing 預期每個 subject 一個資料夾，檔名格式如下：
+`configs/train_lmdb.yaml` 本身是 20-epoch template，但 checkpoint/sample 的 `start_epoch` 都是 120，所以直接 `--fit` 只會完成 training 與 report，不會寫 checkpoint/sample。需要 artifacts 時，複製後把相應 `start_epoch` 與 `every_epochs`/`save_every_epochs` 調到本次 epoch 範圍內。
+
+Full-volume evaluation：
+
+```powershell
+python -B scripts\eval.py --config <prepared-eval-config.yaml> --run-eval
+```
+
+執行前必須確認 volume root、CSV 與 `model.checkpoint` 均有效且 checkpoint 非空；`configs/eval.yaml` 的 checkpoint 是空值，直接執行會評估 random-initialized model。
+
+CLI 唯一通用的 evaluation override 是 threshold method：
+
+```powershell
+python -B scripts\eval.py --config <prepared-eval-config.yaml> --run-eval --threshold-method otsu
+```
+
+這些命令在執行前都必須先修改 YAML 中的 dataset、CSV、checkpoint、spectrum 與 output paths。許多 checked-in config 是特定 Windows 實驗的快照，包含本機絕對路徑；`configs/train.yaml` 的預設 CSV path 也不指向 repository 內同名資料。Config loader 不會展開 environment variable、做 include/inheritance 或驗證完整 schema。
+
+### Canonical configs
+
+- `configs/train.yaml`：直接讀取 raw BraTS healthy slices 的 training template。
+- `configs/train_lmdb.yaml`：讀取預處理 LMDB 的 training template。
+- `configs/eval.yaml`：`rewrite` postprocess 的 standalone evaluation template。
+- `configs/eval_original_andi.yaml`：reference-compatible `original_andi` postprocess template。
+
+其餘 `configs/**/*.yaml` 多為具體資料集、checkpoint、fold 或研究比較的可追溯實驗設定，不代表通用預設。完整 section 與 precedence 見 [YAML 設定參考](docs/configuration.md)。
+
+## 資料契約
+
+| Adapter | 主要用途 | 回傳形狀 / 行為 |
+|---|---|---|
+| `LMDBSliceDataset` | 健康 slice training | pickled NumPy value，`[C,H,W]` |
+| `BraTSHealthySliceDataset` | 從 raw BraTS + slice CSV training | `[C,H,W]`，cache 最近一位 subject |
+| `MRIDataVolume` | BraTS-style evaluation | image `[C,H,W,Z]`、mask `[H,W,Z]`；不驗證跨 modality geometry |
+| `ShiftsMSVolumeDataset` | Shifts/Ljubljana/BEST/MSSEG layout | 可補零缺失 modality，並將資料 resample 到 reference grid |
+| `UCSFPDGMVolumeDataset` | UCSF-PDGM evaluation | 嚴格要求四 modality + tumor segmentation，驗證 shape/spacing/orientation/affine |
+
+四通道的邏輯順序為 `[flair, t1, t1ce, t2]`。UCSF adapter 將它映射到實際檔名 `[FLAIR, T1, T1c, T2]`。通用/Shifts volume adapter 以 `segmentation > 0.5` 產生 binary mask；UCSF adapter 以 `segmentation > 0` 將多類別 labels 轉成 whole-tumor mask。
+
+Healthy-slice LMDB 以八位數 ASCII key（如 `00000000`）保存 pickled NumPy array。`--overwrite` 會遞迴刪除指定的既有 LMDB output directory，使用前應再次確認目標 path。詳細 preprocessing 與各 adapter 差異見 [架構與執行流程](docs/architecture.md#資料層與-adapters)。
+
+## 訓練輸出與 checkpoint
+
+`Trainer` 對 `[0,1]` input 預設轉為 `[-1,1]`，隨機抽取 `[1, diffusion.steps)` 的 timestep，以 MSE 學習 noise。可輸出：
 
 ```text
-BraTS_2021/
-  BraTS2021_00000/
-    BraTS2021_00000_flair.nii.gz
-    BraTS2021_00000_t1.nii.gz
-    BraTS2021_00000_t1ce.nii.gz
-    BraTS2021_00000_t2.nii.gz
-    BraTS2021_00000_seg.nii.gz
+<checkpoint.dir>/<run_name>/epoch_XXXX.pt
+<samples.output_dir>/<run_name>/epoch_XXXX.png
+<checkpoint.dir>/<run_name>/training_report.md
+<checkpoint.dir>/<run_name>/training_report.json
 ```
 
-CSV 的第一欄會被視為 subject id：
+Checkpoint 保存 epoch、model、optimizer、training subsection config，並視設定保存 scheduler、EMA model 與 EMA state。它不保存 RNG、DataLoader sampler、loss history 或完整 run config，因此 resume 不是 bitwise replay。只應載入可信的 PyTorch checkpoint。
 
-```csv
-BraTS_2021_subject
-BraTS2021_00000
-BraTS2021_00002
-```
+## 評估輸出
 
-healthy-slice CSV 需要額外有 `Slice` 欄位：
+Standalone `scripts/eval.py --run-eval` 可產生：
 
-```csv
-BraTS_2021_subject,Slice
-BraTS2021_00000,12
-BraTS2021_00000,13
-```
+- Raw 與 MF metric CSV，預設為 `ANDi.csv`、`ANDi_mf.csv`。
+- `inference_report.md`、`inference_report.json`、`inference_metrics_summary.csv`。
+- 可選的 per-subject NIfTI scores、adaptive/fixed masks 與 `prediction_metadata.json`。
+- Disk-streaming mode 的 `.npy` cache 與 manifest。
 
-### LMDB training data
+Metric CSV 的實際欄位是 `thr,value,dice,sensitivity,precision`；threshold sweep 使用 end-exclusive `np.arange(thr_start, thr_end, thr_step)`，再四捨五入到三位。Dice 是 per-subject mean；confusion rates 是全 voxel micro aggregate；adaptive Yen/Otsu threshold 則逐 subject 的完整 3D score volume 計算。
 
-`scripts/split_healthy.py` 會從 raw BraTS volume 中挑出有 foreground 且 segmentation mask 為空的 healthy slices，並寫成：
-
-- LMDB：key 為 `00000000` 這類連續編號，value 是 pickled numpy tensor，shape 為 `[C, H, W]`
-- CSV：subject id 與 `Slice` metadata
-
-建立 LMDB：
-
-```powershell
-python scripts\split_healthy.py `
-  -d C:\ML\data\BraTS_2021 `
-  -i C:\ML\ANDi\splits\BraTS21\scans_train.csv `
-  -o C:\ML\ANDi\data\BraTS21\healthy_slices_train.csv `
-  --lmdb-dir C:\ML\data\BraTS_2021_healthy_lmdb `
-  --overwrite
-```
-
-常用參數：
-
-- `-d, --data_set`：BraTS dataset root
-- `-i, --input_file`：subject id CSV
-- `-o, --output_file`：輸出的 healthy-slice CSV
-- `-r, --resolution`：輸出 slice resolution，預設 `128`
-- `--lmdb-dir`：LMDB 輸出位置，未指定時為 `<data_set>/healthy_slices`
-- `--modalities`：預設 `flair t1 t1ce t2`
-- `--map-size`：手動指定 LMDB map size
-- `--overwrite`：覆寫既有 LMDB 目錄
-- `--no-progress`：關閉 progress bar
-
-建立 z 軸平衡的 healthy-slice LMDB（每個有 healthy candidate 的 z index 輸出固定張數）：
-```powershell
-python scripts\split_healthy.py `
-  -d C:\ML\data\BraTS_2021 `
-  -i C:\ML\ANDi\splits\BraTS21\scans_train.csv `
-  -o C:\ML\ANDi\data\BraTS21\healthy_slices_train_zbalanced.csv `
-  --lmdb-dir C:\ML\data\BraTS_2021_healthy_lmdb_zbalanced `
-  --z-balanced `
-  --per-z-count 447 `
-  --balance-seed 42 `
-  --overwrite
-```
-
-z-balanced options:
-- `--sampling-mode {healthy,z_balanced}` / `--z-balanced`: default `healthy` keeps the original behavior; `z_balanced` balances output by z index
-- `--per-z-count`: target output count for each z index in z-balanced mode, default `447`
-- `--balance-seed`: seed for z-balanced random sampling, default `42`
-
-Create one training LMDB per fold for 5-fold experiments:
-
-```powershell
-python scripts\split_healthy_kfold.py `
-  -d C:\ML\data\BraTS_2021 `
-  -i C:\ML\ANDi\splits\BraTS21\scans_train.csv `
-  --test-file C:\ML\ANDi\splits\BraTS21\scans_test.csv `
-  --combine-train-test `
-  --combined-test-size 251 `
-  --output-root C:\ML\ANDi\splits\BraTS21\5fold `
-  --lmdb-root C:\ML\data\BraTS_2021_healthy_lmdb_5fold `
-  --folds 5 `
-  --split-seed 42 `
-  --overwrite
-```
-
-Each fold writes:
-
-- `fold_N/scans_train.csv`: subjects used to build that fold's training LMDB
-- `fold_N/scans_test.csv`: test subjects for that fold when `--test-file` is set
-- `fold_N/scans_val.csv`: held-out validation subjects when `--test-file` is not set
-- `fold_N/healthy_slices_train.csv`: healthy-slice metadata for the training LMDB
-- `<lmdb-root>/fold_N`: LMDB using the same key/value format as `scripts/split_healthy.py`
-
-With `--combine-train-test --combined-test-size 251`, the 938-subject train CSV and 251-subject test CSV are combined into one 1189-subject pool, then each fold writes 938 train subjects and 251 test subjects. Because `251 * 5` is larger than `1189`, test sets are different deterministic windows over the shuffled pool but cannot be perfectly disjoint.
-
-Use `--z-balanced --per-z-count 447` with the k-fold script when the fold LMDBs should use the same z-balanced sampling as the single-LMDB workflow.
-
-Run the full 5-fold experiment in one command:
-
-```powershell
-python scripts\run_5fold.py `
-  --dataset C:\ML\data\BraTS_2021 `
-  --train-csv C:\ML\ANDi\splits\BraTS21\scans_train.csv `
-  --test-csv C:\ML\ANDi\splits\BraTS21\scans_test.csv `
-  --split-root C:\ML\ANDi\splits\BraTS21\5fold `
-  --lmdb-root C:\ML\data\BraTS_2021_healthy_lmdb_5fold `
-  --base-train-config configs\train_pyramid20_lmdb.yaml `
-  --base-eval-config configs\eval_gaussian50_pyramid20.yaml `
-  --config-dir configs\5fold `
-  --combined-test-size 251 `
-  --folds 5 `
-  --overwrite-data
-```
-
-This prepares the combined train/test folds, writes `configs/5fold/train_fold_N.yaml` and `configs/5fold/eval_fold_N.yaml`, then runs each fold sequentially with `scripts/train.py --fit`. Use `--dry-run` to generate configs and print the fold commands without launching training.
-
-## Training
-
-先確認 config 內的資料路徑存在，例如 `configs/train_pyramid20_lmdb.yaml` 使用：
-
-```yaml
-data:
-  type: lmdb
-  path: C:/ML/data/BraTS_2021_healthy_lmdb
-```
-
-只載入 config 並建立 components，不跑訓練：
-
-```powershell
-python scripts\train.py --config configs\train_pyramid20_lmdb.yaml
-```
-
-跑一個 batch 的 smoke test：
-
-```powershell
-python scripts\train.py --config configs\train_pyramid20_lmdb.yaml --run-one-step
-```
-
-正式訓練：
-
-```powershell
-python scripts\train.py --config configs\train_pyramid20_lmdb.yaml --fit
-```
-
-只產生一次 sample grid：
-
-```powershell
-python scripts\train.py --config configs\train_pyramid20_lmdb.yaml --sample-once
-```
-
-訓練輸出：
+Prediction export 的典型檔名：
 
 ```text
-outputs/checkpoints/<run_name>/epoch_XXXX.pt
-outputs/samples/<run_name>/epoch_XXXX.png
+anomaly_score_raw.nii.gz
+anomaly_score_mf.nii.gz
+lesion_mask_<method>_raw.nii.gz
+lesion_mask_<method>_mf.nii.gz
+lesion_mask_<method>.nii.gz
+prediction_metadata.json
 ```
 
-### Resume checkpoint
+Native-grid restoration 只依 shape 做 trilinear score / nearest mask resize，再沿用 reference NIfTI affine/header；它不是一般 affine registration。
 
-在 training config 設定：
+## 測試
 
-```yaml
-training:
-  checkpoint:
-    resume: C:/path/to/epoch_0019.pt
-```
-
-再執行：
+測試可由 `pytest` 或標準 `unittest` discovery 執行：
 
 ```powershell
-python scripts\train.py --config configs\train_pyramid20_lmdb.yaml --fit
+python -B -m pytest -q -p no:cacheprovider
+python -B -m unittest discover -s tests -v
 ```
 
-checkpoint payload 包含：
-
-- `model`
-- `optimizer`
-- `scheduler`
-- `ema_model`
-- `ema`
-- `config`
-- `epoch`
-
-### Training config 列表
-
-- `configs/train.yaml`：raw BraTS healthy-slice training template
-- `configs/train_lmdb.yaml`：LMDB training template
-- `configs/train_pyramid20_lmdb.yaml`：20 epoch pyramid-noise LMDB training，完成後自動跑 `configs/eval_gaussian50_pyramid20.yaml`
-- `configs/train_pyramid233_lmdb_full_gaussian.yaml`：233 epoch pyramid-noise LMDB training，完成後自動跑 `configs/eval_full_gaussian_from_pyramid233.yaml`
-- `configs/experiment/hybrid_spectrum_gaussian.yaml`：Spectrum/Gaussian hybrid noise 範例
-
-## Evaluation
-
-evaluation config 需要指定 volume dataset、checkpoint 與 metric output：
-
-```yaml
-data:
-  type: volume
-  dataset_path: C:/ML/data/BraTS_2021
-  path_to_csv: C:/ML/ANDi/splits/BraTS21/scans_test.csv
-
-model:
-  checkpoint: outputs/checkpoints/pyramid233_lmdb_full_gaussian/epoch_0232.pt
-  use_ema: true
-```
-
-只載入 config 並建立 detector：
-
-```powershell
-python scripts\eval.py --config configs\eval_full_gaussian_from_pyramid233.yaml
-```
-
-跑 full-volume evaluation：
-
-```powershell
-python scripts\eval.py --config configs\eval_full_gaussian_from_pyramid233.yaml --run-eval
-```
-
-以 CLI 選擇 anomaly-map 二值化方法（預設仍為 Yen）：
-
-```powershell
-python scripts\eval.py --config configs\eval_full_gaussian_from_pyramid233.yaml --run-eval --threshold-method yen
-python scripts\eval.py --config configs\eval_full_gaussian_from_pyramid233.yaml --run-eval --threshold-method otsu
-```
-
-也可直接在 YAML 設定：
-
-```yaml
-metrics:
-  threshold_method: yen  # yen 或 otsu
-```
-
-常用 evaluation configs：
-
-- `configs/eval.yaml`：evaluation template
-- `configs/eval_original_andi.yaml`：重現原版 ANDi dataset-level 後處理的 standalone config
-- `configs/eval_gaussian50_pyramid20.yaml`：用 20-epoch pyramid checkpoint，搭配 Gaussian noise 評估 50 個 BraTS volumes
-- `configs/eval_full_gaussian_from_pyramid233.yaml`：用 233-epoch pyramid checkpoint，搭配 Gaussian noise 做 full evaluation
-
-metric 輸出格式為 original-style CSV，index 是 threshold 或 metric 名稱，欄位為 `value`：
-
-```text
-outputs/metrics/<run_name>/ANDi.csv
-outputs/metrics/<run_name>/ANDi_mf.csv
-```
-
-`ANDi.csv` 使用 raw/postprocessed anomaly map；`ANDi_mf.csv` 使用 median-filtered anomaly map。兩者都會包含 threshold sweep、所選方法（`yen` 或 `otsu`）、`AUPRC`、`sensitivity`、`specificity`。自適應 threshold 是逐 subject、完整 3D volume 計算，兩種方法都沿用既有嚴格 `score > threshold` 判定；常數 volume 會記錄常數值為 threshold、產生空 mask 並發出 warning，而不會中止整批評估。
-
-`metrics.postprocess_mode` 可明確切換 `rewrite` 與 `original_andi`。兩者的 median-filter 順序、normalization scope、自適應 threshold/dilation、prediction export 對齊方式與向後相容規則，詳見 [`docs/postprocessing.md`](docs/postprocessing.md)。
-
-### 大型評估的磁碟串流與 AUPRC 模式
-
-完整資料集可使用 `evaluation.memory_mode: disk_streaming`，將每個 subject 的 raw anomaly map、label 與 median-filtered score 寫入 `evaluation.cache.directory`。`cache.resume: true` 會在重跑時驗證 manifest 並跳過已完成的 model inference；設定 fingerprint 不一致時會停止，不會混用舊快取。
-
-```yaml
-evaluation:
-  memory_mode: disk_streaming
-  cache:
-    directory: outputs/eval_cache/my_full_evaluation
-    resume: true
-    keep_on_success: true
-  compute_auprc: true
-  auprc_mode: sampled       # sampled 或 exact
-  auprc_max_samples: 5000000
-  auprc_seed: 73
-  external_sort:
-    chunk_bytes: 268435456  # exact 模式使用
-```
-
-`sampled` 維持既有的均勻有放回抽樣；若 voxel 總數不超過上限則使用全部資料。`exact` 使用磁碟外部排序計算全部 voxels，並且不可同時設定 `auprc_max_samples`。舊 config 未指定 `auprc_mode` 時，有 `auprc_max_samples` 會推定為 `sampled`，否則維持 `exact`。
-
-## ANDi anomaly 設定
-
-Detector 會在 `t_lower <= t < t_upper` 的 DDPM timestep 範圍內計算 transition deviation，預設：
-
-```yaml
-anomaly:
-  t_lower: 75
-  t_upper: 200
-  aggregation:
-    type: geometric_mean
-    eps: 1.0e-8
-  modality_pool:
-    type: max
-  median_filter:
-    enabled: true
-    kernel_size: 5
-  threshold: yen
-```
-
-支援的 aggregation / pooling：
-
-- `mean`, `arithmetic`, `arithmetic_mean`
-- `geometric`, `gmean`, `geometric_mean`
-- `max`, `maximum`
-- `sum`
-- `weighted_mean`, `weighted`
-
-weighted modality pooling 範例，權重數量需和 modality 數量一致：
-
-```yaml
-anomaly:
-  modality_pool:
-    type: weighted_mean
-    weights: [0.25, 0.25, 0.25, 0.25]
-```
-
-## Noise 設定
-
-### Gaussian
-
-```yaml
-noise:
-  schedule:
-    type: static
-    sampler:
-      type: gaussian
-```
-
-### Pyramid
-
-```yaml
-noise:
-  schedule:
-    type: static
-    sampler:
-      type: pyramid
-      discount: 0.8
-      levels: 10
-      normalize: true
-```
-
-### Spectrum
-
-```yaml
-noise:
-  schedule:
-    type: static
-    sampler:
-      type: spectrum
-      exponent: 1.0
-      low_frequency_bias: true
-      normalize: true
-```
-
-### Empirical MRI spectrum
-
-Compute empirical spectra from healthy LMDB slices:
-
-```powershell
-python scripts\compute_lmdb_spectrum.py `
-  --lmdb-path C:\ML\data\BraTS_2021_healthy_lmdb `
-  --out outputs\spectrum\brats21_healthy_empirical_spectrum.npz `
-  --mask-mode union_nonzero `
-  --window hann `
-  --radial-bins 128 `
-  --overwrite
-```
-
-Use the empirical spectrum noise sampler:
-
-```yaml
-noise:
-  schedule:
-    type: static
-    sampler:
-      type: empirical_spectrum
-      generation_method: fixed_magnitude
-      stats_path: outputs/spectrum/brats21_healthy_empirical_spectrum.npz
-      mode: radial
-      radial_key: radial_amplitude
-      strength: 1.0
-      normalize: true
-      per_channel: true
-```
-
-- `generation_method: fixed_magnitude` is the backward-compatible default. Each noise draw uses the empirical MRI FFT magnitude and a random phase:
-
-  ```text
-  F_i = A_MRI * exp(j * phi_i)
-  ```
-
-  At `strength: 1`, different draws therefore have an almost fixed FFT magnitude even though their phases differ. The aliases `fixed` and `phase_randomized` resolve to the canonical name `fixed_magnitude`.
-
-- `generation_method: filtered_gaussian` treats the empirical MRI power spectrum as a frequency-domain filter while retaining the white Gaussian FFT's random magnitude and phase:
-
-  ```text
-  F_i = FFT(W_i) * H_MRI
-  H_MRI = sqrt(S_MRI)
-  ```
-
-  The aliases `gaussian_filter` and `legacy_filter` resolve to `filtered_gaussian`. A radial example is:
-
-  ```yaml
-  noise:
-    schedule:
-      type: static
-      sampler:
-        type: empirical_spectrum
-        generation_method: filtered_gaussian
-        stats_path: outputs/spectrum/brats21_healthy_empirical_spectrum.npz
-        mode: radial
-        radial_power_key: radial_power
-        spectrum_power_key: mean_power
-        strength: 1.0
-        normalize: true
-        per_channel: true
-        eps: 1.0e-8
-  ```
-
-- For `filtered_gaussian`, the RMS-normalized amplitude filter is raised to `strength`: `H_effective = H_MRI ** strength`. Thus `0` is white Gaussian noise, `0.5` is the square root of the full normalized amplitude filter, and `1` is full empirical-spectrum filtering.
-- The two generation methods can have similar mean spectra but deliberately differ in sample-to-sample spectrum variation. `fixed_magnitude` nearly fixes every draw's FFT magnitude; `filtered_gaussian` retains the draw-specific Gaussian FFT magnitude.
-- `mode: radial` uses a radial averaged spectrum, so it is less likely to learn fixed direction or position bias.
-- `mode: 2d` or `mode: full2d` uses the full 2D spectrum and preserves directional frequency structure; use it as an ablation.
-- `normalize: true` applies zero mean and population unit standard deviation independently to every sample and channel.
-- Recommended sweep: `strength = 0.25, 0.5, 0.75, 1.0`.
-- Spectrum statistics crop around the nonzero foreground before FFT, which avoids contaminating the spectrum with outer black-background boundaries.
-
-Compare the two production generation methods without starting training:
-
-```powershell
-python scripts\compare_noise_statistics.py `
-  --synthetic `
-  --method-a fixed_magnitude `
-  --method-b filtered_gaussian `
-  --num-samples 1000 `
-  --no-plots
-```
-
-Compare one or more spectrum `.npz` files against the same LMDB MRI slice:
-
-```powershell
-python compare_npz_spectra.py `
-  --spectrum-stats-paths `
-    data/BraTS21/healthy_slices/healthy_spectrum_stats.npz `
-    results/exp_a/spectrum_stats.npz `
-    results/exp_b/spectrum_stats.npz `
-  --labels healthy exp_a exp_b `
-  --dataset-path data/BraTS21/healthy_slices `
-  --index 100 `
-  --channel 0 `
-  --timestep 150 `
-  --output-dir results/npz_spectrum_compare
-```
-
-This writes:
-
-- `radial_spectrum_compare.png`
-- `noise_compare_grid.png`
-- `noised_mri_compare_grid.png`
-- `npz_spectrum_compare_dashboard.png`
-- `metadata.json`
-
-### Hybrid
-
-```yaml
-noise:
-  schedule:
-    type: static
-    sampler:
-      type: hybrid
-      normalize: true
-      components:
-        - type: spectrum
-          weight: 0.6
-          exponent: 1.0
-          low_frequency_bias: true
-          normalize: true
-        - type: gaussian
-          weight: 0.4
-```
-
-### Epoch switch
-
-```yaml
-noise:
-  schedule:
-    type: epoch_switch
-    switch_epoch_fraction: 0.5
-    before:
-      type: spectrum
-      exponent: 1.0
-      low_frequency_bias: true
-      normalize: true
-    after:
-      type: gaussian
-```
-
-也可使用 `switch_epoch` 指定明確 epoch。
-
-## Postprocess pipeline
-
-score-map postprocess 支援：
-
-- `normalize`
-- `median_filter`
-- `gray_dilation`
-
-mask postprocess 支援：
-
-- `binary_dilation`
-- `connected_components`
-
-`yen_threshold` 與 `otsu_threshold` 都不是 mask postprocess step。共用 `PostprocessPolicy` 會依
-`metrics.threshold_method` 把 continuous anomaly score threshold 成 binary mask；`metrics.postprocess.binary_mask.pipeline`
-只放 binary mask 後處理，例如
-`binary_dilation` 或 `connected_components`。若不需要 binary mask 後處理，請使用
-`pipeline: []`。
-
-score map 範例：
-
-```yaml
-metrics:
-  postprocess:
-    score:
-      pipeline:
-        - type: normalize
-    score_mf:
-      pipeline:
-        - type: median_filter
-          kernel_size: 5
-          mode: 3d
-        - type: normalize
-```
-
-mask 範例：
-
-```yaml
-metrics:
-  postprocess:
-    threshold_mask:
-      pipeline:
-        - type: binary_dilation
-          rank: 3
-          connectivity: 1
-          iterations: 1
-    binary_mask:
-      pipeline:
-        - type: binary_dilation
-          rank: 3
-          connectivity: 1
-          iterations: 1
-```
-
-移除小 connected components：
-
-```yaml
-metrics:
-  postprocess:
-    binary_mask:
-      pipeline:
-        - type: connected_components
-          min_size: 20
-          connectivity: 3
-```
-
-## Shifts/MSSEG data preparation
-
-整理 patient folders：
-
-```powershell
-python scripts\prepare_data.py `
-  -d C:\ML\data\raw_shifts `
-  --output-dir C:\ML\data\patients
-```
-
-registration：
-
-```powershell
-python scripts\prepare_data.py `
-  -d C:\ML\data\patients `
-  --register `
-  -t C:\ML\atlas\SRI_template.nii
-```
-
-histogram matching：
-
-```powershell
-python scripts\prepare_data.py `
-  -d C:\ML\data\patients `
-  --norm `
-  -i C:\ML\data\BraTS_2021\BraTS2021_00000
-```
-
-`--register` 目前使用 `dipy` backend，`--norm` 需要 `nibabel` 與 `SimpleITK`。
-
-## Accelerate
-
-在 config 啟用：
-
-```yaml
-runtime:
-  accelerate: true
-  find_unused_parameters: true
-```
-
-training：
-
-```powershell
-accelerate launch scripts\train.py --config configs\train_pyramid20_lmdb.yaml --fit
-```
-
-evaluation：
-
-```powershell
-accelerate launch scripts\eval.py --config configs\eval_full_gaussian_from_pyramid233.yaml --run-eval
-```
-
-## 擴充方式
-
-### 新增 noise sampler
-
-1. 在 `noise/` 新增繼承 `BaseNoise` 的 class
-2. 實作 `sample(self, shape, device, dtype)`
-3. 在 `noise/factory.py` 的 `build_noise_sampler()` 加入新的 `type`
-4. 在 YAML 的 `noise.schedule.sampler.type` 使用新名稱
-
-### 新增 dataset
-
-1. 在 `data/datasets.py` 新增 `Dataset` class
-2. 在 `build_dataset()` 加入新的 `data.type`
-3. 在 YAML 設定：
-
-```yaml
-data:
-  type: your_dataset
-```
-
-training dataset 的 `__getitem__()` 應回傳 `[C, H, W]` tensor；evaluation volume dataset 應回傳 `(image, mask)`，其中 image shape 為 `[C, H, W, Z]`。
-
-### 新增 model
-
-1. 在 `models/` 新增 model class
-2. forward contract 需符合：
-
-```python
-model(x_t, timesteps) -> predicted_noise
-```
-
-3. 在 `models/factory.py` 的 `build_model()` 加入新的 `model.type`
-
-### 新增 aggregation
-
-1. 在 `anomaly/aggregation.py` 新增繼承 `BaseAggregator` 的 class
-2. 使用 `@register_aggregator("your_name")`
-3. 在 YAML 使用：
-
-```yaml
-anomaly:
-  aggregation:
-    type: your_name
-```
-
-或：
-
-```yaml
-anomaly:
-  modality_pool:
-    type: your_name
-```
-
-### 新增 postprocess step
-
-score-map step：
-
-1. 在 `anomaly/postprocess.py` 新增繼承 `BasePostprocessor` 的 class
-2. 使用 `@register_score_postprocessor("your_step")`
-
-mask step：
-
-1. 在 `anomaly/postprocess.py` 新增繼承 `BasePostprocessor` 的 class
-2. 使用 `@register_mask_postprocessor("your_step")`
-
-YAML：
-
-```yaml
-metrics:
-  postprocess:
-    score:
-      pipeline:
-        - type: your_step
-```
-
-## 建議 workflow
-
-1. 準備 raw BraTS volume 與 subject CSV
-2. 用 `scripts/split_healthy.py` 建立 healthy-slice LMDB
-3. 修改 training config 的 `data.path`、`training.run_name`、checkpoint/sample policy
-4. 用 `--run-one-step` 做 smoke test
-5. 用 `--fit` 訓練 DDPM
-6. 修改 evaluation config 的 `data.dataset_path`、`data.path_to_csv`、`model.checkpoint`
-7. 用 `scripts/eval.py --run-eval` 產生 `ANDi.csv` 與 `ANDi_mf.csv`
-8. 比較 `AUPRC`、所選 threshold method、threshold sweep Dice、sensitivity、specificity
-
-## 注意事項
-
-- `t_lower` 必須大於等於 `1`，因為 `x_0` 沒有上一個 transition。
-- `t_upper` 必須大於 `t_lower`。
-- training 預設會把 input 從 `[0, 1]` normalize 到 `[-1, 1]`。
-- evaluation 預設也會做相同 input normalization。
-- `model.use_ema: true` 時，若 checkpoint 含 `ema_model`，evaluation 會載入 EMA weights。
-- `configs/eval.yaml` 是 template，預設 checkpoint 為空，正式 evaluation 前要填入 `model.checkpoint`。
-- `configs/train_lmdb.yaml` 的 checkpoint/sample `start_epoch` 目前大於 `epochs`，因此用它直接訓練 20 epochs 時不會輸出 checkpoint/sample；若需要輸出，請改用 `configs/train_pyramid20_lmdb.yaml` 或調整 `start_epoch`。
+本次文件更新的 dated 驗證結果、環境版本與 coverage 邊界記錄在 [開發與驗證](docs/development.md#3-建議驗證順序)。測試重點涵蓋 dataset discovery/UCSF geometry、empirical spectrum、noise statistics、postprocess、prediction/reporting、streaming cache/AUPRC 與 comparison figures；未涵蓋真實資料完整訓練、registration、checkpoint resume 或 Accelerate multi-process integration。
+
+## 重要限制與安全邊界
+
+- 專案只透過本機 filesystem 讀寫資料，沒有 network client、HTTP endpoint、auth 或 secrets manager。
+- LMDB values 會經 `pickle.loads`，checkpoint 會經 `torch.load`；只使用可信來源的 LMDB 與 checkpoint。
+- 空的 evaluation checkpoint 設定不會阻止執行，會評估隨機初始化模型；正式執行前應明確檢查 `model.checkpoint`。
+- `in_memory` evaluation 會把所有 score/labels 留在 RAM；大型資料集應考慮 single-process `disk_streaming`。
+- Standalone disk streaming 也可逐 cached subject 匯出 NIfTI predictions；它仍是單程序，且 export 會發生在 streaming metrics pass。
+- 只要一個 subject 沒有 label，該次 evaluation 的 label-based metrics 就會整體標成 unavailable。
+- `set_seed` 與 cuDNN flags 可改善重現性，但程式沒有啟用 deterministic algorithms，不能保證 bitwise determinism。
+- `scripts/prepare_data.py` 的 histogram matching 會原地覆寫目標 NIfTI；LMDB `--overwrite` 與成功後 cache cleanup 也會刪除目錄。
+- Auto-evaluation after training 與 batch checkpoint evaluator 的 config 傳遞不完全等同 standalone `scripts/eval.py`；需要 prediction export 或完整 fingerprint 時，應優先使用 standalone evaluation。詳見 [架構文件的目前實作差異](docs/architecture.md#12-目前實作差異與已知邊界)。
