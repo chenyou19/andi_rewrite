@@ -27,6 +27,16 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--window", default="hann", choices=["none", "hann"])
     parser.add_argument("--radial-bins", type=int, help="Number of radial bins. Defaults to image_size // 2.")
     parser.add_argument("--max-slices", type=int, help="Optional maximum number of LMDB entries to inspect.")
+    parser.add_argument(
+        "--channel-order",
+        nargs="+",
+        help="Semantic source channel order, for example FLAIR T1 T2.",
+    )
+    parser.add_argument(
+        "--source-manifest",
+        type=Path,
+        help="Optional LMDB entry manifest used to prove source split/session membership.",
+    )
     parser.add_argument("--no-progress", action="store_true", help="Disable progress bar.")
     parser.add_argument("--overwrite", action="store_true", help="Overwrite an existing output file.")
     return parser.parse_args()
@@ -144,7 +154,10 @@ def validate_slice(value: bytes, index: int) -> np.ndarray:
     x = np.asarray(pickle.loads(value))
     if x.ndim != 3:
         raise ValueError(f"LMDB entry {index} has shape {x.shape}; expected [C, H, W].")
-    return x.astype(np.float32, copy=False)
+    x = x.astype(np.float32, copy=False)
+    if not np.all(np.isfinite(x)):
+        raise ValueError(f"LMDB entry {index} contains NaN or Inf.")
+    return x
 
 
 def compute(args: argparse.Namespace) -> None:
@@ -225,6 +238,15 @@ def compute(args: argparse.Namespace) -> None:
     if used == 0:
         raise ValueError(f"No non-empty foreground slices found in LMDB: {lmdb_path}")
 
+    channel_order = list(args.channel_order or [f"channel_{index}" for index in range(int(channels))])
+    if len(channel_order) != int(channels):
+        raise ValueError(
+            f"--channel-order has {len(channel_order)} values but LMDB entries have C={channels}."
+        )
+    source_manifest = Path(args.source_manifest).resolve() if args.source_manifest else None
+    if source_manifest is not None and not source_manifest.is_file():
+        raise FileNotFoundError(f"Source manifest does not exist: {source_manifest}")
+
     mean_amplitude = (sum_amplitude / used).astype(np.float32)
     mean_power = (sum_power / used).astype(np.float32)
     radial_amplitude = (radial_amplitude_sum / used).astype(np.float32)
@@ -247,6 +269,7 @@ def compute(args: argparse.Namespace) -> None:
         eps=np.array(float(args.eps), dtype=np.float64),
         crop_margin=np.array(int(args.crop_margin), dtype=np.int64),
         window=np.array(args.window),
+        channel_order=np.asarray(channel_order),
     )
 
     digest = hashlib.sha256(out_path.read_bytes()).hexdigest()
@@ -263,6 +286,8 @@ def compute(args: argparse.Namespace) -> None:
     metadata = {
         "source_lmdb": str(lmdb_path.resolve()),
         "source_lmdb_entry_count": int(seen),
+        "source_manifest": str(source_manifest) if source_manifest is not None else None,
+        "channel_order": channel_order,
         "output_npz": str(out_path.resolve()),
         "command": [sys.executable, str(Path(__file__).resolve()), *sys.argv[1:]],
         "python_executable": sys.executable,

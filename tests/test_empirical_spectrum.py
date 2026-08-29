@@ -18,7 +18,7 @@ from andi_rewrite.noise.factory import build_noise_sampler  # noqa: E402
 
 
 class EmpiricalSpectrumNoiseTest(unittest.TestCase):
-    channels = 2
+    channels = 4
     height = 16
     width = 16
     eps = 1.0e-8
@@ -35,6 +35,8 @@ class EmpiricalSpectrumNoiseTest(unittest.TestCase):
             [
                 1.0 / np.power(1.0 + 8.0 * coordinate, 1.3),
                 1.0 / np.power(1.0 + 13.0 * coordinate, 1.1),
+                1.0 / np.power(1.0 + 10.0 * coordinate, 1.5),
+                1.0 / np.power(1.0 + 16.0 * coordinate, 0.9),
             ]
         ).astype(np.float32)
         radial_power = np.square(radial_amplitude, dtype=np.float32)
@@ -274,6 +276,65 @@ class EmpiricalSpectrumNoiseTest(unittest.TestCase):
             rtol=1.0e-6,
             atol=1.0e-6,
         )
+
+    def test_channel_indices_preserve_requested_order_for_all_modes_and_methods(self) -> None:
+        requested = [3, 0, 1]
+        for generation_method in ("fixed_magnitude", "filtered_gaussian"):
+            for mode in ("radial", "full2d"):
+                selected = self._sampler(
+                    generation_method=generation_method,
+                    mode=mode,
+                    channel_indices=requested,
+                )
+                description = selected.describe()
+                self.assertEqual(description["source_channel_count"], 4)
+                self.assertEqual(description["channel_indices"], requested)
+                self.assertEqual(description["effective_channel_count"], 3)
+                self.assertEqual(description["effective_channel_ordering"], requested)
+                values = selected.sample((2, 3, self.height, self.width), "cpu", torch.float32)
+                self.assertEqual(tuple(values.shape), (2, 3, self.height, self.width))
+                self.assertTrue(bool(torch.isfinite(values).all()))
+
+    def test_channel_indices_match_np_take_without_sorting(self) -> None:
+        base = self._sampler(generation_method="filtered_gaussian", mode="radial")
+        selected = self._sampler(
+            generation_method="filtered_gaussian",
+            mode="radial",
+            channel_indices=[3, 0, 1],
+        )
+        torch.testing.assert_close(
+            selected.filter_amp_rfft,
+            base.filter_amp_rfft[[3, 0, 1]],
+            rtol=0.0,
+            atol=0.0,
+        )
+
+    def test_channel_indices_validation(self) -> None:
+        for invalid in ([], [0, 0], [-1], [4]):
+            with self.subTest(indices=invalid), self.assertRaises((ValueError, IndexError)):
+                self._sampler(channel_indices=invalid)
+        for invalid in ([True], [0.0], "0,1,3"):
+            with self.subTest(indices=invalid), self.assertRaises(TypeError):
+                self._sampler(channel_indices=invalid)
+
+    def test_channel_indices_none_keeps_seeded_output_exact(self) -> None:
+        legacy = self._sampler(generation_method="fixed_magnitude")
+        explicit_none = self._sampler(generation_method="fixed_magnitude", channel_indices=None)
+        torch.manual_seed(1701)
+        expected = legacy.sample((2, 4, self.height, self.width), "cpu", torch.float32)
+        torch.manual_seed(1701)
+        actual = explicit_none.sample((2, 4, self.height, self.width), "cpu", torch.float32)
+        torch.testing.assert_close(actual, expected, rtol=0.0, atol=0.0)
+
+    def test_factory_forwards_channel_indices(self) -> None:
+        sampler = build_noise_sampler(
+            {
+                "type": "empirical_spectrum",
+                "stats_path": str(self.stats_path),
+                "channel_indices": [0, 1, 3],
+            }
+        )
+        self.assertEqual(sampler.describe()["effective_channel_ordering"], [0, 1, 3])
 
     def test_amplitude_fallback_warns_and_is_described(self) -> None:
         with warnings.catch_warnings(record=True) as caught:

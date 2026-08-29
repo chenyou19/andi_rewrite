@@ -81,6 +81,7 @@ class RunSettings:
     no_plots: bool
     method_a: str
     method_b: str
+    channel_indices: tuple[int, ...] | None
 
     @property
     def shape(self) -> tuple[int, int, int, int]:
@@ -189,6 +190,12 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--num-samples", type=int, default=1000)
     parser.add_argument("--batch-size", type=int, default=25)
     parser.add_argument("--channels", type=int, default=4)
+    parser.add_argument(
+        "--channel-indices",
+        type=int,
+        nargs="+",
+        help="Optional source spectrum channels to select, preserving the supplied order.",
+    )
     parser.add_argument("--height", type=int, default=128)
     parser.add_argument("--width", type=int, default=128)
     parser.add_argument("--seed", type=int, default=73)
@@ -375,6 +382,11 @@ def build_settings(args: argparse.Namespace) -> RunSettings:
         no_plots=bool(args.no_plots),
         method_a=EmpiricalSpectrumNoise._canonical_generation_method(str(args.method_a)),
         method_b=EmpiricalSpectrumNoise._canonical_generation_method(str(args.method_b)),
+        channel_indices=(
+            tuple(int(value) for value in args.channel_indices)
+            if args.channel_indices is not None
+            else None
+        ),
     )
 
 
@@ -480,6 +492,7 @@ def create_generator_context(settings: RunSettings) -> GeneratorContext:
         strength=1.0,
         normalize=True,
         eps=settings.eps,
+        channel_indices=settings.channel_indices,
     )
     method_b_generator = EmpiricalSpectrumNoise(
         stats_path=settings.stats_path,
@@ -491,6 +504,7 @@ def create_generator_context(settings: RunSettings) -> GeneratorContext:
         strength=1.0,
         normalize=True,
         eps=settings.eps,
+        channel_indices=settings.channel_indices,
     )
     # Let the production implementation perform its own validation as well.
     method_a_generator._validate_shape((1, settings.channels, settings.height, settings.width))
@@ -1816,6 +1830,7 @@ def write_report(
         f"| Radial example subset | seeded-random indices `{list(select_radial_example_indices(settings.num_samples, settings.seed))}` |",
         f"| Epsilon | `{settings.eps:.8g}` |",
         f"| Shared stats path | `{settings.stats_path}` |",
+        f"| Channel indices | `{list(settings.channel_indices) if settings.channel_indices is not None else None}` |",
         f"| Method A | `{settings.method_a}` |",
         f"| Method B | `{settings.method_b}` |",
         f"| Synthetic fixture | `{settings.synthetic}` |",
@@ -1956,6 +1971,9 @@ def build_summary_payload(
             "synthetic": settings.synthetic,
             "plots_enabled": not settings.no_plots,
             "stats_path": str(settings.stats_path),
+            "channel_indices": (
+                list(settings.channel_indices) if settings.channel_indices is not None else None
+            ),
             "method_a": settings.method_a,
             "method_b": settings.method_b,
             "normalization": {

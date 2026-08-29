@@ -1,0 +1,101 @@
+# Reproducible LEMON T1/T2/high-resolution FLAIR preprocessing for ANDi.
+input_csv: C:/ML/data/MPI/sessions_with_T1_T2_highres_FLAIR.csv
+output_root: C:/ML/data/MPI/LEMON_ANDi_MIP
+required_python: C:/Users/E-118-3/miniconda3/envs/ANDi/python.exe
+hdbet_executable: C:/Users/E-118-3/miniconda3/envs/hdbet201/Scripts/hd-bet.exe
+
+expected_sessions: 115
+validation_count: 5
+seed: 73
+expected_validation_session_ids:
+  - sub-010269/ses-01
+  - sub-010272/ses-01
+  - sub-010126/ses-01
+  - sub-010294/ses-01
+  - sub-010196/ses-01
+
+# Explicit user decision on 2026-08-21: release the 97 sessions outside the
+# complete 18-row manual-review queue. Preserve the original seed-73 split;
+# do not redraw a replacement validation subject for sub-010294/ses-01.
+explicit_exclusions:
+  authorized: true
+  authorized_by: user
+  reason: Use only the 97 sessions outside the full manual-review queue.
+  preserve_original_split: true
+  expected_excluded_sessions: 18
+  expected_remaining_sessions: 97
+  expected_remaining_split_counts:
+    train: 93
+    val: 4
+  session_ids:
+    - sub-010165/ses-01
+    - sub-010192/ses-01
+    - sub-010203/ses-01
+    - sub-010231/ses-01
+    - sub-010233/ses-01
+    - sub-010274/ses-01
+    - sub-010276/ses-01
+    - sub-010281/ses-01
+    - sub-010282/ses-01
+    - sub-010283/ses-01
+    - sub-010285/ses-01
+    - sub-010286/ses-01
+    - sub-010289/ses-01
+    - sub-010293/ses-01
+    - sub-010294/ses-01
+    - sub-010301/ses-01
+    - sub-010306/ses-01
+    - sub-010307/ses-01
+
+pilot:
+  csv_indices: [0, 28, 57, 86, 114]
+  expected_case_ids:
+    - sub-010093
+    - sub-010204
+    - sub-010263
+    - sub-010292
+    - sub-010320
+
+registration:
+  mi_bins: 32
+  sampling_proportion:
+  factors: [4, 2, 1]
+  sigmas: [3, 1, 0]
+  iterations: [1000, 100, 10]
+  flair_to_t1: [center_of_mass, translation, rigid_6dof]
+  t2_to_t1: [center_of_mass, translation, rigid_6dof]
+  t1_to_mni: [center_of_mass, translation, rigid_6dof, affine_12dof]
+  dipy_affine_map_convention: static-world-to-moving-world pull matrix
+  persisted_world_convention: moving-world-to-static-world forward matrix
+  image_interpolation: linear
+  mask_interpolation: nearest
+  final_resample_policy: compose-forward-then-invert; no modality T1-grid intermediate output
+
+mask:
+  guard_dilation_mm: 5.0
+  final: warped native HD-BET T1 mask AND dilated MNI guard
+
+roi:
+  margin_mm: 8.0
+  output_size: 128
+  fixed_across_subjects: true
+  physical_square: true
+
+lmdb:
+  map_size_bytes: 17179869184
+  key_format: 8-digit zero-padded contiguous decimal
+  value: pickle NumPy float32 [3,128,128]
+  order: source CSV order then z ascending
+  channel_order: [FLAIR, T1, T2]
+
+qc:
+  dice_fail_below: 0.70
+  singular_value_range: [0.25, 4.0]
+  guard_retention_review_below: 0.98
+  modified_z_threshold: 3.5
+  suspicious_count: 15
+  automatic_exclusion: false
+
+disk:
+  minimum_before_full_gib: 20.0
+  hdbet_install_before_gib: 225.78341293333398
