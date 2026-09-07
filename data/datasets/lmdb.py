@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import pickle
+import json
 from pathlib import Path
 from typing import Any, Sequence
 
@@ -96,6 +97,14 @@ def build_lmdb_dataset(config: dict[str, Any]) -> LMDBSliceDataset:
     image_size = int(config.get("image_size", 128))
     if "path" not in config:
         raise ValueError("data.path is required when data.type is 'lmdb'.")
+    if config.get("intensity_normalization") == "robust_iqr":
+        from ..robust_normalization import ROBUST_SPEC
+        manifest_path = Path(config["path"]) / "normalization.json"
+        if not manifest_path.is_file():
+            raise ValueError("robust_iqr requires a rebuilt LMDB with normalization.json.")
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        if manifest != ROBUST_SPEC:
+            raise ValueError("LMDB normalization metadata does not match robust_iqr v1.")
     if "channel_indices" not in config:
         # Preserve the historical constructor call exactly for old configs.
         return LMDBSliceDataset(config["path"], image_size=image_size)

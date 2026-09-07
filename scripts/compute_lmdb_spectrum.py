@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import csv
 import hashlib
 import json
 import subprocess
@@ -160,6 +161,41 @@ def validate_slice(value: bytes, index: int) -> np.ndarray:
     return x
 
 
+def source_manifest_provenance(path: Path) -> dict[str, object]:
+    digest = hashlib.sha256(path.read_bytes()).hexdigest()
+    with path.open(newline="", encoding="utf-8") as handle:
+        reader = csv.DictReader(handle)
+        rows = list(reader)
+        fieldnames = list(reader.fieldnames or [])
+    split_counts: dict[str, int] = {}
+    subject_ids: set[str] = set()
+    session_ids: set[str] = set()
+    subject_column = next(
+        (name for name in ("participant_id", "case_id", "subject_id") if name in fieldnames),
+        fieldnames[0] if fieldnames else None,
+    )
+    for row in rows:
+        split = str(row.get("split", "")).strip()
+        if split:
+            split_counts[split] = split_counts.get(split, 0) + 1
+        if subject_column and row.get(subject_column):
+            subject_ids.add(str(row[subject_column]))
+        identifier = str(row.get("session_identifier", "")).strip()
+        if not identifier and subject_column:
+            session = str(row.get("session_id", row.get("session", ""))).strip()
+            identifier = f"{row.get(subject_column, '')}/{session}" if session else ""
+        if identifier:
+            session_ids.add(identifier)
+    return {
+        "sha256": digest,
+        "rows": len(rows),
+        "columns": fieldnames,
+        "split_counts": dict(sorted(split_counts.items())),
+        "subject_count": len(subject_ids),
+        "session_count": len(session_ids),
+    }
+
+
 def compute(args: argparse.Namespace) -> None:
     out_path = Path(args.out)
     if out_path.exists() and not args.overwrite:
@@ -246,6 +282,28 @@ def compute(args: argparse.Namespace) -> None:
     source_manifest = Path(args.source_manifest).resolve() if args.source_manifest else None
     if source_manifest is not None and not source_manifest.is_file():
         raise FileNotFoundError(f"Source manifest does not exist: {source_manifest}")
+    manifest_provenance = (
+        source_manifest_provenance(source_manifest) if source_manifest is not None else None
+    )
+    if (
+        manifest_provenance is not None
+        and args.max_slices is None
+        and int(manifest_provenance["rows"]) != seen
+    ):
+        raise ValueError(
+            "Source manifest row count does not match the fully inspected LMDB: "
+            f"{manifest_provenance['rows']} != {seen}."
+        )
+    if (
+        manifest_provenance is not None
+        and lmdb_path.name.lower() == "train"
+        and manifest_provenance["split_counts"]
+        and set(manifest_provenance["split_counts"]) != {"train"}
+    ):
+        raise ValueError(
+            "Train LMDB source manifest contains non-train rows: "
+            f"{manifest_provenance['split_counts']}."
+        )
 
     mean_amplitude = (sum_amplitude / used).astype(np.float32)
     mean_power = (sum_power / used).astype(np.float32)
@@ -274,9 +332,18 @@ def compute(args: argparse.Namespace) -> None:
 
     digest = hashlib.sha256(out_path.read_bytes()).hexdigest()
     try:
+        repository = Path(__file__).resolve().parents[1]
         git_commit = subprocess.run(
-            ["git", "rev-parse", "HEAD"],
-            cwd=Path(__file__).resolve().parents[1],
+            [
+                "git",
+                "-c",
+                f"safe.directory={repository.as_posix()}",
+                "-C",
+                str(repository),
+                "rev-parse",
+                "HEAD",
+            ],
+            cwd=repository,
             check=True,
             capture_output=True,
             text=True,
@@ -287,6 +354,7 @@ def compute(args: argparse.Namespace) -> None:
         "source_lmdb": str(lmdb_path.resolve()),
         "source_lmdb_entry_count": int(seen),
         "source_manifest": str(source_manifest) if source_manifest is not None else None,
+        "source_manifest_provenance": manifest_provenance,
         "channel_order": channel_order,
         "output_npz": str(out_path.resolve()),
         "command": [sys.executable, str(Path(__file__).resolve()), *sys.argv[1:]],

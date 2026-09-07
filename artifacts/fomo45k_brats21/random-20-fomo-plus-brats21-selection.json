@@ -1,0 +1,113 @@
+{
+  "random_seed": 73,
+  "slice_index": 74,
+  "modality": "flair",
+  "fomo_candidates": 243,
+  "selected": [
+    {
+      "case_id": "sub_2805/ses_1",
+      "path": "C:\\ML\\data\\FOMO45K_SRI24_BraTS21\\PT007_NIMH\\sub_2805\\ses_1\\sub_2805_ses_1_flair.nii.gz",
+      "atlas_mask_dice": 0.957817169551723
+    },
+    {
+      "case_id": "sub_11178/ses_1",
+      "path": "C:\\ML\\data\\FOMO45K_SRI24_BraTS21\\PT007_NIMH\\sub_11178\\ses_1\\sub_11178_ses_1_flair.nii.gz",
+      "atlas_mask_dice": 0.9520416149148618
+    },
+    {
+      "case_id": "sub_5120/ses_1",
+      "path": "C:\\ML\\data\\FOMO45K_SRI24_BraTS21\\PT007_NIMH\\sub_5120\\ses_1\\sub_5120_ses_1_flair.nii.gz",
+      "atlas_mask_dice": 0.947897813181829
+    },
+    {
+      "case_id": "sub_4829/ses_1",
+      "path": "C:\\ML\\data\\FOMO45K_SRI24_BraTS21\\PT007_NIMH\\sub_4829\\ses_1\\sub_4829_ses_1_flair.nii.gz",
+      "atlas_mask_dice": 0.95654630369118
+    },
+    {
+      "case_id": "sub_5866/ses_1",
+      "path": "C:\\ML\\data\\FOMO45K_SRI24_BraTS21\\PT007_NIMH\\sub_5866\\ses_1\\sub_5866_ses_1_flair.nii.gz",
+      "atlas_mask_dice": 0.9317534031528011
+    },
+    {
+      "case_id": "sub_1690/ses_1",
+      "path": "C:\\ML\\data\\FOMO45K_SRI24_BraTS21\\PT007_NIMH\\sub_1690\\ses_1\\sub_1690_ses_1_flair.nii.gz",
+      "atlas_mask_dice": 0.9516335552139186
+    },
+    {
+      "case_id": "sub_468/ses_1",
+      "path": "C:\\ML\\data\\FOMO45K_SRI24_BraTS21\\PT007_NIMH\\sub_468\\ses_1\\sub_468_ses_1_flair.nii.gz",
+      "atlas_mask_dice": 0.9540191214360241
+    },
+    {
+      "case_id": "sub_2969/ses_1",
+      "path": "C:\\ML\\data\\FOMO45K_SRI24_BraTS21\\PT007_NIMH\\sub_2969\\ses_1\\sub_2969_ses_1_flair.nii.gz",
+      "atlas_mask_dice": 0.9581349408576343
+    },
+    {
+      "case_id": "sub_613/ses_1",
+      "path": "C:\\ML\\data\\FOMO45K_SRI24_BraTS21\\PT007_NIMH\\sub_613\\ses_1\\sub_613_ses_1_flair.nii.gz",
+      "atlas_mask_dice": 0.9625536043717479
+    },
+    {
+      "case_id": "sub_10828/ses_1",
+      "path": "C:\\ML\\data\\FOMO45K_SRI24_BraTS21\\PT007_NIMH\\sub_10828\\ses_1\\sub_10828_ses_1_flair.nii.gz",
+      "atlas_mask_dice": 0.9606941012380279
+    },
+    {
+      "case_id": "sub_4955/ses_1",
+      "path": "C:\\ML\\data\\FOMO45K_SRI24_BraTS21\\PT007_NIMH\\sub_4955\\ses_1\\sub_4955_ses_1_flair.nii.gz",
+      "atlas_mask_dice": 0.9660386118963912
+    },
+    {
+      "case_id": "sub_4170/ses_1",
+      "path": "C:\\ML\\data\\FOMO45K_SRI24_BraTS21\\PT007_NIMH\\sub_4170\\ses_1\\sub_4170_ses_1_flair.nii.gz",
+      "atlas_mask_dice": 0.9421431732915673
+    },
+    {
+      "case_id": "sub_5285/ses_1",
+      "path": "C:\\ML\\data\\FOMO45K_SRI24_BraTS21\\PT007_NIMH\\sub_5285\\ses_1\\sub_5285_ses_1_flair.nii.gz",
+      "atlas_mask_dice": 0.9647721450157376
+    },
+    {
+      "case_id": "sub_1980/ses_1",
+      "path": "C:\\ML\\data\\FOMO45K_SRI24_BraTS21\\PT007_NIMH\\sub_1980\\ses_1\\sub_1980_ses_1_flair.nii.gz",
+      "atlas_mask_dice": 0.9532363602190068
+    },
+    {
+      "case_id": "sub_4625/ses_1",
+      "path": "C:\\ML\\data\\FOMO45K_SRI24_BraTS21\\PT007_NIMH\\sub_4625\\ses_1\\sub_4625_ses_1_flair.nii.gz",
+      "atlas_mask_dice": 0.9584001796462266
+    },
+    {
+      "case_id": "sub_1109/ses_1",
+      "path": "C:\\ML\\data\\FOMO45K_SRI24_BraTS21\\PT007_NIMH\\sub_1109\\ses_1\\sub_1109_ses_1_flair.nii.gz",
+      "atlas_mask_dice": 0.9537187990464762
+    },
+    {
+      "case_id": "sub_10248/ses_1",
+      "path": "C:\\ML\\data\\FOMO45K_SRI24_BraTS21\\PT007_NIMH\\sub_10248\\ses_1\\sub_10248_ses_1_flair.nii.gz",
+      "atlas_mask_dice": 0.9556978788264345
+    },
+    {
+      "case_id": "sub_2600/ses_1",
+      "path": "C:\\ML\\data\\FOMO45K_SRI24_BraTS21\\PT007_NIMH\\sub_2600\\ses_1\\sub_2600_ses_1_flair.nii.gz",
+      "atlas_mask_dice": 0.9582484905359704
+    },
+    {
+      "case_id": "sub_4209/ses_1",
+      "path": "C:\\ML\\data\\FOMO45K_SRI24_BraTS21\\PT007_NIMH\\sub_4209\\ses_1\\sub_4209_ses_1_flair.nii.gz",
+      "atlas_mask_dice": 0.9576859668955512
+    },
+    {
+      "case_id": "sub_8203/ses_1",
+      "path": "C:\\ML\\data\\FOMO45K_SRI24_BraTS21\\PT007_NIMH\\sub_8203\\ses_1\\sub_8203_ses_1_flair.nii.gz",
+      "atlas_mask_dice": 0.9637938312908865
+    }
+  ],
+  "brats21": {
+    "case_id": "BraTS2021_00658",
+    "path": "C:\\ML\\data\\BraTS_2021\\BraTS2021_00658\\BraTS2021_00658_flair.nii.gz"
+  },
+  "output_image": "C:\\ML\\andi_test\\Test\\andi_rewrite\\artifacts\\fomo45k_brats21\\random-20-fomo-plus-brats21-flair.png"
+}

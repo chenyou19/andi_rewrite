@@ -12,9 +12,11 @@ runtime:
   find_unused_parameters: true
 
 data:
-  type: volume
+  type: brats_mpi_cache
   dataset_path: C:/ML/data/BraTS_2021
-  path_to_csv: C:/ML/andi_test/Test/andi_rewrite/splits/BraTS21/scans_test_50.csv
+  cache_root: C:/ML/data/BraTS_2021_MPI_aligned
+  mode: mni_affine
+  path_to_csv: C:/ML/data/BraTS_2021_MPI_aligned/manifests/test50_mni_affine_pass.csv
   image_size: 128
   channels: 3
   batch_size: 1
@@ -25,6 +27,7 @@ data:
   filename_separator: "_"
   histogram_normalization: false
   shift_naming: false
+  return_metadata: true
 
 model:
   type: andi_unet
@@ -113,6 +116,8 @@ metrics:
 
 prediction_output:
   enabled: false
+  restore_native_grid: true
+  save_model_grid: true
 
 evaluation:
   progress:

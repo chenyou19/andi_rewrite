@@ -1,0 +1,35 @@
+{
+  "dataset": {
+    "PT007_NIMH": 243
+  },
+  "group": {
+    "Control": 243
+  },
+  "T1_MRAcquisitionType": {
+    "3D": 243
+  },
+  "T1_SliceThickness": {
+    "1.0": 191,
+    "1.2": 52
+  },
+  "T2_MRAcquisitionType": {
+    "3D": 243
+  },
+  "T2_SliceThickness": {
+    "1.0": 243
+  },
+  "FLAIR_MRAcquisitionType": {
+    "2D": 151,
+    "3D": 92
+  },
+  "FLAIR_SliceThickness": {
+    "5.0": 151,
+    "1.0": 92
+  },
+  "age_session_weighted": {
+    "n": 242,
+    "median": 31.0,
+    "min": 18.0,
+    "max": 72.0
+  }
+}

@@ -12,6 +12,7 @@ from typing import Any
 from torch.utils.data import DataLoader, Dataset
 
 from .brats import build_brats_healthy_slices_dataset, build_mri_volume_dataset
+from .brats_mpi import build_brats_mpi_cache_dataset
 from .lmdb import build_lmdb_dataset
 from .shifts_ms import build_shifts_ms_volume_dataset
 from .ucsf_pdgm import build_ucsf_pdgm_dataset
@@ -27,6 +28,8 @@ DATASET_BUILDERS: dict[str, DatasetBuilder] = {
     "volume": build_mri_volume_dataset,
     "mri_volume": build_mri_volume_dataset,
     "brats_volume": build_mri_volume_dataset,
+    "brats_mpi": build_brats_mpi_cache_dataset,
+    "brats_mpi_cache": build_brats_mpi_cache_dataset,
     "ljubljana_ms_volume": build_shifts_ms_volume_dataset,
     "shifts_ms_volume": build_shifts_ms_volume_dataset,
     "shifts_volume": build_shifts_ms_volume_dataset,
@@ -51,9 +54,12 @@ def build_dataset(config: dict[str, Any]) -> Dataset:
 
 def build_dataloader(config: dict[str, Any]) -> DataLoader:
     dataset = build_dataset(config)
+    batch_size = int(config.get("batch_size", 1))
+    if getattr(dataset, "requires_batch_size_one", False) and batch_size != 1:
+        raise ValueError("BraTS-MPI spatial metadata export requires data.batch_size=1.")
     return DataLoader(
         dataset,
-        batch_size=int(config.get("batch_size", 1)),
+        batch_size=batch_size,
         shuffle=bool(config.get("shuffle", False)),
         num_workers=int(config.get("workers", 0)),
         pin_memory=bool(config.get("pin_memory", False)),

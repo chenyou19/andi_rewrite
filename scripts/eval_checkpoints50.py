@@ -40,8 +40,8 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--csv",
-        default="splits/BraTS21/scans_test_50.csv",
-        help="CSV containing the 50 evaluation volumes.",
+        default=None,
+        help="CSV containing the evaluation volumes; defaults to data.path_to_csv in base config.",
     )
     parser.add_argument(
         "--output-root",
@@ -154,7 +154,10 @@ def validate_base_config(base_config: dict, args: argparse.Namespace) -> None:
     dataset_path = Path(str(data.get("dataset_path", "")))
     if not dataset_path.is_dir():
         raise FileNotFoundError(f"Dataset path does not exist: {dataset_path}")
-    validate_subject_csv(args.csv, args.expected_subjects)
+    csv_path = args.csv or data.get("path_to_csv")
+    if not csv_path:
+        raise ValueError("Provide --csv or configure data.path_to_csv.")
+    validate_subject_csv(csv_path, args.expected_subjects)
 
     schedule = base_config.get("noise", {}).get("schedule", {})
     sampler = schedule.get("sampler", schedule)
@@ -194,7 +197,11 @@ def config_for_checkpoint(base_config: dict, checkpoint: Path, args: argparse.Na
     output_dir = Path(args.output_root) / label
 
     config.setdefault("experiment", {})["name"] = f"{config.get('experiment', {}).get('name', 'eval')}_{label}_50"
-    config.setdefault("data", {})["path_to_csv"] = str(Path(args.csv))
+    data_config = config.setdefault("data", {})
+    csv_path = args.csv or data_config.get("path_to_csv")
+    if not csv_path:
+        raise ValueError("Provide --csv or configure data.path_to_csv.")
+    data_config["path_to_csv"] = str(Path(csv_path))
     config.setdefault("model", {})["checkpoint"] = str(checkpoint)
     config.setdefault("evaluation", {})["progress"] = bool(args.progress)
     metrics = config.setdefault("metrics", {})

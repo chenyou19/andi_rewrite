@@ -1,0 +1,34 @@
+{
+  "train": [
+    {
+      "index": 73,
+      "subject_id": "BraTS2021_00674",
+      "z": 130,
+      "max_absolute_difference": 0.0,
+      "matches": true
+    },
+    {
+      "index": 34595,
+      "subject_id": "BraTS2021_00392",
+      "z": 56,
+      "max_absolute_difference": 0.0,
+      "matches": true
+    }
+  ],
+  "val": [
+    {
+      "index": 73,
+      "subject_id": "BraTS2021_01310",
+      "z": 136,
+      "max_absolute_difference": 0.0,
+      "matches": true
+    },
+    {
+      "index": 9473,
+      "subject_id": "BraTS2021_01595",
+      "z": 53,
+      "max_absolute_difference": 0.0,
+      "matches": true
+    }
+  ]
+}

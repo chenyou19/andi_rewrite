@@ -1,0 +1,125 @@
+# Evaluate the final FOMO45K SRI24 [FLAIR,T1,T2] model on the fixed
+# 251-subject BraTS21 split. Preprocessing and noise match training.
+experiment:
+  name: brats21_251_fomo45k_sri24_flair_t1_t2_gaussian233_epoch0232
+
+runtime:
+  seed: 73
+  device: auto
+  cudnn_benchmark: true
+  deterministic: false
+  accelerate: false
+  find_unused_parameters: true
+
+data:
+  type: volume
+  dataset_path: C:/ML/data/BraTS_2021
+  path_to_csv: C:/ML/andi_test/Test/andi_rewrite/splits/BraTS21/scans_test.csv
+  image_size: 128
+  channels: 3
+  batch_size: 1
+  workers: 0
+  size_splits: 155
+  modalities: [flair, t1, t2]
+  segmentation_suffix: seg
+  filename_separator: "_"
+  histogram_normalization: false
+  normalize_input: true
+  shift_naming: false
+  return_metadata: true
+
+model:
+  type: andi_unet
+  image_size: 128
+  in_channels: 3
+  out_channels: 3
+  time_dim: 256
+  checkpoint: C:/ML/andi_test/Test/andi_rewrite/outputs/runs/fomo45k_sri24_flair_t1_t2_gaussian233/epoch_0232.pt
+  use_ema: true
+
+diffusion:
+  steps: 1000
+  beta_start: 1.0e-4
+  beta_end: 0.02
+
+noise:
+  schedule:
+    type: static
+    sampler:
+      type: gaussian
+
+anomaly:
+  t_lower: 75
+  t_upper: 200
+  aggregation:
+    type: geometric_mean
+    eps: 1.0e-8
+  modality_pool:
+    type: max
+  median_filter:
+    enabled: true
+    kernel_size: 5
+  threshold: yen
+
+metrics:
+  postprocess_mode: rewrite
+  threshold_method: yen
+  normalization_scope: dataset
+  output_csv: outputs/runs/fomo45k_sri24_flair_t1_t2_gaussian233/evaluation/brats21_test251/ANDi.csv
+  output_mf_csv: outputs/runs/fomo45k_sri24_flair_t1_t2_gaussian233/evaluation/brats21_test251/ANDi_mf.csv
+  thr_start: 0.01
+  thr_end: 0.3
+  thr_step: 0.001
+  threshold: 0.5
+  size_splits: 155
+  kernel_size: 5
+  rank: 3
+  connectivity: 1
+  median_filter:
+    enabled: true
+    kernel_size: 5
+    mode: 3d
+  postprocess:
+    score:
+      pipeline:
+        - type: normalize
+    score_mf:
+      pipeline:
+        - type: median_filter
+          kernel_size: 5
+          mode: 3d
+        - type: normalize
+    threshold_mask:
+      pipeline:
+        - type: binary_dilation
+          rank: 3
+          connectivity: 1
+          iterations: 1
+    yen_mask:
+      pipeline: []
+
+prediction_output:
+  enabled: true
+  directory: outputs/runs/fomo45k_sri24_flair_t1_t2_gaussian233/evaluation/brats21_test251/predictions
+  normalization_scope: dataset
+  restore_native_grid: true
+  save_raw_score: true
+  save_median_filtered_score: true
+  binary_mask_source: score_mf
+  save_binary_mask: true
+  save_threshold_mask: false
+
+evaluation:
+  memory_mode: disk_streaming
+  cache:
+    directory: outputs/runs/fomo45k_sri24_flair_t1_t2_gaussian233/evaluation/brats21_test251/cache
+    resume: true
+    keep_on_success: true
+  compute_auprc: true
+  auprc_mode: sampled
+  auprc_max_samples: 5000000
+  auprc_seed: 73
+  external_sort:
+    chunk_bytes: 268435456
+  progress:
+    enabled: true

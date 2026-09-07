@@ -1,0 +1,565 @@
+{
+  "seed": 73,
+  "matched_z": {
+    "fomo": {
+      "z_levels": [
+        30,
+        45,
+        60,
+        75,
+        90,
+        105,
+        120
+      ],
+      "n_per_level": 12,
+      "sample_indices": [
+        29682,
+        1009,
+        871,
+        23906,
+        9027,
+        21090,
+        8044,
+        15482,
+        14357,
+        28836,
+        6645,
+        23059,
+        3414,
+        22086,
+        13391,
+        12414,
+        22368,
+        17045,
+        24342,
+        2989,
+        23639,
+        5390,
+        18029,
+        13950,
+        11303,
+        4557,
+        6675,
+        12149,
+        2443,
+        2161,
+        1316,
+        26613,
+        20004,
+        15936,
+        23228,
+        26755,
+        30436,
+        13142,
+        18614,
+        24093,
+        6265,
+        21135,
+        1470,
+        21831,
+        6123,
+        13560,
+        29306,
+        1612,
+        8527,
+        27348,
+        12879,
+        19894,
+        14978,
+        12459,
+        6565,
+        21846,
+        7963,
+        25233,
+        30311,
+        28195,
+        10364,
+        17809,
+        13590,
+        382,
+        16125,
+        20461,
+        23699,
+        6859,
+        10505,
+        1222,
+        8402,
+        13172,
+        17824,
+        16421,
+        22586,
+        23149,
+        26532,
+        22161,
+        12209,
+        10238,
+        25403,
+        19363,
+        29772,
+        23996
+      ],
+      "positive_mean": [
+        0.6512633562088013,
+        0.551032543182373,
+        0.3736194968223572
+      ],
+      "above_002_mean": [
+        0.6754992008209229,
+        0.5707333087921143,
+        0.38736414909362793
+      ],
+      "positive_fraction": [
+        0.24526250930059523,
+        0.24526250930059523,
+        0.24526105608258927
+      ],
+      "limitation": "Matched slice index only; not matched tissue, age, site, or participant."
+    },
+    "brats": {
+      "z_levels": [
+        30,
+        45,
+        60,
+        75,
+        90,
+        105,
+        120
+      ],
+      "n_per_level": 12,
+      "sample_indices": [
+        67432,
+        2063,
+        1860,
+        56361,
+        20133,
+        48095,
+        17875,
+        34477,
+        33267,
+        65807,
+        14533,
+        53876,
+        7789,
+        50860,
+        31592,
+        28923,
+        50552,
+        39240,
+        56636,
+        6550,
+        53240,
+        12350,
+        40596,
+        32707,
+        23169,
+        9855,
+        14643,
+        24825,
+        5324,
+        4284,
+        3310,
+        60191,
+        43836,
+        35060,
+        52798,
+        60701,
+        68767,
+        30982,
+        41743,
+        52674,
+        13860,
+        46982,
+        6100,
+        48447,
+        13341,
+        32204,
+        62617,
+        69127,
+        20458,
+        60088,
+        29701,
+        41373,
+        33426,
+        28027,
+        16498,
+        46217,
+        19432,
+        54503,
+        68904,
+        63827,
+        26003,
+        42484,
+        32863,
+        1453,
+        37665,
+        47869,
+        54657,
+        18906,
+        26153,
+        4194,
+        22387,
+        32309,
+        41803,
+        37205,
+        51839,
+        53254,
+        59953,
+        50251,
+        27253,
+        24425,
+        57444,
+        44801,
+        68196,
+        54434
+      ],
+      "positive_mean": [
+        0.4819844961166382,
+        0.6649803519248962,
+        0.36039701104164124
+      ],
+      "above_002_mean": [
+        0.4938405156135559,
+        0.6773030757904053,
+        0.3690827488899231
+      ],
+      "positive_fraction": [
+        0.23764110746837797,
+        0.23762439546130953,
+        0.23763674781436012
+      ],
+      "limitation": "Matched slice index only; not matched tissue, age, site, or participant."
+    }
+  },
+  "brats_training_p99": [
+    {
+      "subject_id": "BraTS2021_00674",
+      "modalities": {
+        "flair": {
+          "p99_all": 1710.0,
+          "p99_seg0": 1589.0,
+          "p99_ratio_all_over_seg0": 1.0761485210824417,
+          "normalized_seg0_median_all": 0.464327485380117,
+          "normalized_seg0_median_excluding_lesion": 0.49968533668974197
+        },
+        "t1": {
+          "p99_all": 3161.689999999944,
+          "p99_seg0": 3170.0,
+          "p99_ratio_all_over_seg0": 0.9973785488958814,
+          "normalized_seg0_median_all": 0.6215030569094486,
+          "normalized_seg0_median_excluding_lesion": 0.6198738170347003
+        },
+        "t2": {
+          "p99_all": 1668.0,
+          "p99_seg0": 1691.0,
+          "p99_ratio_all_over_seg0": 0.9863985807214666,
+          "normalized_seg0_median_all": 0.30755395683453235,
+          "normalized_seg0_median_excluding_lesion": 0.30337078651685395
+        }
+      }
+    },
+    {
+      "subject_id": "BraTS2021_00286",
+      "modalities": {
+        "flair": {
+          "p99_all": 433.0,
+          "p99_seg0": 354.0,
+          "p99_ratio_all_over_seg0": 1.2231638418079096,
+          "normalized_seg0_median_all": 0.4942263279445728,
+          "normalized_seg0_median_excluding_lesion": 0.6045197740112994
+        },
+        "t1": {
+          "p99_all": 510.0,
+          "p99_seg0": 510.0,
+          "p99_ratio_all_over_seg0": 1.0,
+          "normalized_seg0_median_all": 0.7254901960784313,
+          "normalized_seg0_median_excluding_lesion": 0.7254901960784313
+        },
+        "t2": {
+          "p99_all": 1469.0,
+          "p99_seg0": 1484.0,
+          "p99_ratio_all_over_seg0": 0.9898921832884097,
+          "normalized_seg0_median_all": 0.34717494894486045,
+          "normalized_seg0_median_excluding_lesion": 0.3436657681940701
+        }
+      }
+    },
+    {
+      "subject_id": "BraTS2021_00085",
+      "modalities": {
+        "flair": {
+          "p99_all": 2444.0,
+          "p99_seg0": 1692.0,
+          "p99_ratio_all_over_seg0": 1.4444444444444444,
+          "normalized_seg0_median_all": 0.3923895253682488,
+          "normalized_seg0_median_excluding_lesion": 0.5667848699763594
+        },
+        "t1": {
+          "p99_all": 1220.0,
+          "p99_seg0": 1204.0,
+          "p99_ratio_all_over_seg0": 1.0132890365448506,
+          "normalized_seg0_median_all": 0.740983606557377,
+          "normalized_seg0_median_excluding_lesion": 0.7508305647840532
+        },
+        "t2": {
+          "p99_all": 1624.0,
+          "p99_seg0": 1634.0,
+          "p99_ratio_all_over_seg0": 0.9938800489596084,
+          "normalized_seg0_median_all": 0.24507389162561577,
+          "normalized_seg0_median_excluding_lesion": 0.24357405140758873
+        }
+      }
+    },
+    {
+      "subject_id": "BraTS2021_00134",
+      "modalities": {
+        "flair": {
+          "p99_all": 256.0,
+          "p99_seg0": 210.0,
+          "p99_ratio_all_over_seg0": 1.2190476190476192,
+          "normalized_seg0_median_all": 0.5390625,
+          "normalized_seg0_median_excluding_lesion": 0.6571428571428571
+        },
+        "t1": {
+          "p99_all": 329.0,
+          "p99_seg0": 330.0,
+          "p99_ratio_all_over_seg0": 0.996969696969697,
+          "normalized_seg0_median_all": 0.7689969604863222,
+          "normalized_seg0_median_excluding_lesion": 0.7666666666666667
+        },
+        "t2": {
+          "p99_all": 1065.0,
+          "p99_seg0": 1062.0,
+          "p99_ratio_all_over_seg0": 1.002824858757062,
+          "normalized_seg0_median_all": 0.3389671361502347,
+          "normalized_seg0_median_excluding_lesion": 0.339924670433145
+        }
+      }
+    },
+    {
+      "subject_id": "BraTS2021_00239",
+      "modalities": {
+        "flair": {
+          "p99_all": 801.0,
+          "p99_seg0": 575.0,
+          "p99_ratio_all_over_seg0": 1.3930434782608696,
+          "normalized_seg0_median_all": 0.4332084893882647,
+          "normalized_seg0_median_excluding_lesion": 0.6034782608695652
+        },
+        "t1": {
+          "p99_all": 502.0,
+          "p99_seg0": 502.0,
+          "p99_ratio_all_over_seg0": 1.0,
+          "normalized_seg0_median_all": 0.7231075697211156,
+          "normalized_seg0_median_excluding_lesion": 0.7231075697211156
+        },
+        "t2": {
+          "p99_all": 2458.0,
+          "p99_seg0": 2142.0,
+          "p99_ratio_all_over_seg0": 1.1475256769374416,
+          "normalized_seg0_median_all": 0.27827502034174123,
+          "normalized_seg0_median_excluding_lesion": 0.31932773109243695
+        }
+      }
+    },
+    {
+      "subject_id": "BraTS2021_01116",
+      "modalities": {
+        "flair": {
+          "p99_all": 464.0,
+          "p99_seg0": 369.0,
+          "p99_ratio_all_over_seg0": 1.2574525745257452,
+          "normalized_seg0_median_all": 0.5560344827586207,
+          "normalized_seg0_median_excluding_lesion": 0.6991869918699187
+        },
+        "t1": {
+          "p99_all": 405.0,
+          "p99_seg0": 403.0,
+          "p99_ratio_all_over_seg0": 1.0049627791563276,
+          "normalized_seg0_median_all": 0.745679012345679,
+          "normalized_seg0_median_excluding_lesion": 0.749379652605459
+        },
+        "t2": {
+          "p99_all": 1638.0,
+          "p99_seg0": 1641.0,
+          "p99_ratio_all_over_seg0": 0.9981718464351006,
+          "normalized_seg0_median_all": 0.2557997557997558,
+          "normalized_seg0_median_excluding_lesion": 0.25533211456429006
+        }
+      }
+    },
+    {
+      "subject_id": "BraTS2021_00251",
+      "modalities": {
+        "flair": {
+          "p99_all": 309.0,
+          "p99_seg0": 293.0,
+          "p99_ratio_all_over_seg0": 1.0546075085324231,
+          "normalized_seg0_median_all": 0.5631067961165048,
+          "normalized_seg0_median_excluding_lesion": 0.5938566552901023
+        },
+        "t1": {
+          "p99_all": 501.0,
+          "p99_seg0": 502.0,
+          "p99_ratio_all_over_seg0": 0.99800796812749,
+          "normalized_seg0_median_all": 0.6806387225548902,
+          "normalized_seg0_median_excluding_lesion": 0.6792828685258964
+        },
+        "t2": {
+          "p99_all": 1425.0,
+          "p99_seg0": 1425.0,
+          "p99_ratio_all_over_seg0": 1.0,
+          "normalized_seg0_median_all": 0.33263157894736844,
+          "normalized_seg0_median_excluding_lesion": 0.33263157894736844
+        }
+      }
+    },
+    {
+      "subject_id": "BraTS2021_00207",
+      "modalities": {
+        "flair": {
+          "p99_all": 435.0,
+          "p99_seg0": 274.0,
+          "p99_ratio_all_over_seg0": 1.5875912408759123,
+          "normalized_seg0_median_all": 0.33793103448275863,
+          "normalized_seg0_median_excluding_lesion": 0.5364963503649635
+        },
+        "t1": {
+          "p99_all": 482.0,
+          "p99_seg0": 483.0,
+          "p99_ratio_all_over_seg0": 0.9979296066252588,
+          "normalized_seg0_median_all": 0.6929460580912863,
+          "normalized_seg0_median_excluding_lesion": 0.6915113871635611
+        },
+        "t2": {
+          "p99_all": 1353.0,
+          "p99_seg0": 1370.0,
+          "p99_ratio_all_over_seg0": 0.9875912408759124,
+          "normalized_seg0_median_all": 0.29194382852919437,
+          "normalized_seg0_median_excluding_lesion": 0.28832116788321166
+        }
+      }
+    },
+    {
+      "subject_id": "BraTS2021_01430",
+      "modalities": {
+        "flair": {
+          "p99_all": 364.0,
+          "p99_seg0": 292.0,
+          "p99_ratio_all_over_seg0": 1.2465753424657535,
+          "normalized_seg0_median_all": 0.5769230769230769,
+          "normalized_seg0_median_excluding_lesion": 0.7191780821917808
+        },
+        "t1": {
+          "p99_all": 65.0,
+          "p99_seg0": 66.0,
+          "p99_ratio_all_over_seg0": 0.9848484848484849,
+          "normalized_seg0_median_all": 0.6461538461538462,
+          "normalized_seg0_median_excluding_lesion": 0.6363636363636364
+        },
+        "t2": {
+          "p99_all": 941.0,
+          "p99_seg0": 852.0,
+          "p99_ratio_all_over_seg0": 1.1044600938967135,
+          "normalized_seg0_median_all": 0.3931987247608927,
+          "normalized_seg0_median_excluding_lesion": 0.43427230046948356
+        }
+      }
+    },
+    {
+      "subject_id": "BraTS2021_01279",
+      "modalities": {
+        "flair": {
+          "p99_all": 366.0,
+          "p99_seg0": 356.0,
+          "p99_ratio_all_over_seg0": 1.0280898876404494,
+          "normalized_seg0_median_all": 0.6256830601092896,
+          "normalized_seg0_median_excluding_lesion": 0.6432584269662921
+        },
+        "t1": {
+          "p99_all": 450.0,
+          "p99_seg0": 450.0,
+          "p99_ratio_all_over_seg0": 1.0,
+          "normalized_seg0_median_all": 0.7022222222222222,
+          "normalized_seg0_median_excluding_lesion": 0.7022222222222222
+        },
+        "t2": {
+          "p99_all": 1428.0,
+          "p99_seg0": 1430.0,
+          "p99_ratio_all_over_seg0": 0.9986013986013986,
+          "normalized_seg0_median_all": 0.2927170868347339,
+          "normalized_seg0_median_excluding_lesion": 0.2923076923076923
+        }
+      }
+    },
+    {
+      "subject_id": "BraTS2021_00760",
+      "modalities": {
+        "flair": {
+          "p99_all": 2047.0,
+          "p99_seg0": 1937.0,
+          "p99_ratio_all_over_seg0": 1.0567888487351575,
+          "normalized_seg0_median_all": 0.4934049829018075,
+          "normalized_seg0_median_excluding_lesion": 0.5214248838409912
+        },
+        "t1": {
+          "p99_all": 3601.0,
+          "p99_seg0": 3610.0,
+          "p99_ratio_all_over_seg0": 0.9975069252077562,
+          "normalized_seg0_median_all": 0.7061927242432657,
+          "normalized_seg0_median_excluding_lesion": 0.7044321329639889
+        },
+        "t2": {
+          "p99_all": 1695.0,
+          "p99_seg0": 1712.0,
+          "p99_ratio_all_over_seg0": 0.990070093457944,
+          "normalized_seg0_median_all": 0.28023598820059,
+          "normalized_seg0_median_excluding_lesion": 0.2774532710280374
+        }
+      }
+    },
+    {
+      "subject_id": "BraTS2021_00550",
+      "modalities": {
+        "flair": {
+          "p99_all": 1646.0,
+          "p99_seg0": 1646.0,
+          "p99_ratio_all_over_seg0": 1.0,
+          "normalized_seg0_median_all": 0.6239368165249088,
+          "normalized_seg0_median_excluding_lesion": 0.6239368165249088
+        },
+        "t1": {
+          "p99_all": 3018.0,
+          "p99_seg0": 3020.0,
+          "p99_ratio_all_over_seg0": 0.9993377483443708,
+          "normalized_seg0_median_all": 0.6583830351225978,
+          "normalized_seg0_median_excluding_lesion": 0.6579470198675497
+        },
+        "t2": {
+          "p99_all": 2078.0,
+          "p99_seg0": 2082.0,
+          "p99_ratio_all_over_seg0": 0.9980787704130644,
+          "normalized_seg0_median_all": 0.26227141482194416,
+          "normalized_seg0_median_excluding_lesion": 0.2617675312199808
+        }
+      }
+    }
+  ],
+  "p99_ratio_summary": {
+    "flair": {
+      "median": 1.2211057304277644,
+      "min": 1.0,
+      "max": 1.5875912408759123
+    },
+    "t1": {
+      "median": 0.9986728582359304,
+      "min": 0.9848484848484849,
+      "max": 1.0132890365448506
+    },
+    "t2": {
+      "median": 0.9981253084240824,
+      "min": 0.9863985807214666,
+      "max": 1.1475256769374416
+    }
+  },
+  "limitation": "12 evenly spaced training subjects; seg==0 is an unlabeled-tissue proxy, not verified healthy tissue. Diagnostic lesion exclusion is not a deployable normalization."
+}

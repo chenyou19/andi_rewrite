@@ -29,6 +29,8 @@ ALIAS_BUILDERS = {
     "volume": ("brats", "build_mri_volume_dataset"),
     "mri_volume": ("brats", "build_mri_volume_dataset"),
     "brats_volume": ("brats", "build_mri_volume_dataset"),
+    "brats_mpi": ("brats_mpi", "build_brats_mpi_cache_dataset"),
+    "brats_mpi_cache": ("brats_mpi", "build_brats_mpi_cache_dataset"),
     "ljubljana_ms_volume": ("shifts_ms", "build_shifts_ms_volume_dataset"),
     "shifts_ms_volume": ("shifts_ms", "build_shifts_ms_volume_dataset"),
     "shifts_volume": ("shifts_ms", "build_shifts_ms_volume_dataset"),
@@ -39,6 +41,7 @@ ALIAS_BUILDERS = {
 FACADE_OBJECTS = {
     "LMDBSliceDataset": ("lmdb", "LMDBSliceDataset"),
     "BraTSHealthySliceDataset": ("brats", "BraTSHealthySliceDataset"),
+    "BraTSMPICacheDataset": ("brats_mpi", "BraTSMPICacheDataset"),
     "MRIDataVolume": ("brats", "MRIDataVolume"),
     "ShiftsMSVolumeDataset": ("shifts_ms", "ShiftsMSVolumeDataset"),
     "UCSFPDGMVolumeDataset": ("ucsf_pdgm", "UCSFPDGMVolumeDataset"),
@@ -48,6 +51,7 @@ FACADE_OBJECTS = {
 
 DATA_PACKAGE_EXPORTS = (
     "BraTSHealthySliceDataset",
+    "BraTSMPICacheDataset",
     "MRIDataVolume",
     "ShiftsMSVolumeDataset",
     "UCSFPDGMVolumeDataset",
@@ -319,6 +323,7 @@ class DatasetPackageContractTest(unittest.TestCase):
             f"{DATASETS_MODULE}.imaging",
             f"{DATASETS_MODULE}.lmdb",
             f"{DATASETS_MODULE}.brats",
+            f"{DATASETS_MODULE}.brats_mpi",
             f"{DATASETS_MODULE}.shifts_ms",
             f"{DATASETS_MODULE}.ucsf_pdgm",
             f"{DATASETS_MODULE}.factory",

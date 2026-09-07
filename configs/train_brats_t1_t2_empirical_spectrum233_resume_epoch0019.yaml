@@ -1,0 +1,85 @@
+# Resume the 2-channel BraTS21 [T1,T2]=source [1,3] run after completed
+# epoch 20 and continue through completed epoch 233.
+experiment:
+  name: brats_t1_t2_empirical_spectrum233_resume_epoch0019
+
+runtime:
+  seed: 73
+  device: auto
+  cudnn_benchmark: true
+  deterministic: false
+  accelerate: false
+  find_unused_parameters: true
+
+data:
+  type: lmdb
+  path: C:/ML/data/BraTS_2021_healthy_lmdb
+  channel_indices: [1, 3]
+  image_size: 128
+  channels: 2
+  batch_size: 52
+  workers: 0
+  pin_memory: true
+  shuffle: true
+
+model:
+  type: andi_unet
+  image_size: 128
+  in_channels: 2
+  out_channels: 2
+  time_dim: 256
+
+diffusion:
+  steps: 1000
+  beta_start: 1.0e-4
+  beta_end: 0.02
+
+noise:
+  schedule:
+    type: static
+    sampler:
+      type: empirical_spectrum
+      stats_path: C:/ML/data/spectrum/brats21_healthy_empirical_spectrum.npz
+      channel_indices: [1, 3]
+      mode: radial
+      spectrum_key: mean_amplitude
+      radial_key: radial_amplitude
+      spectrum_power_key: mean_power
+      radial_power_key: radial_power
+      generation_method: filtered_gaussian
+      strength: 1.0
+      normalize: true
+      per_channel: true
+      eps: 1.0e-8
+
+validation:
+  enabled: false
+
+training:
+  run_name: brats_t1_t2_empirical_spectrum233_resume_epoch0019
+  # This is the final total epoch count. The checkpoint resumes at epoch index 20.
+  epochs: 233
+  # The original 20-epoch cosine schedule is complete. Keep its terminal LR
+  # constant instead of reloading and cycling the exhausted scheduler state.
+  learning_rate: 2.0e-5
+  scheduler:
+    type: none
+  ema:
+    enabled: true
+    decay: 0.995
+    step_start: 2000
+  normalize_input: true
+  finite_checks: true
+  progress:
+    enabled: true
+  checkpoint:
+    dir: outputs/runs
+    # Save completed epochs 40,60,...,220, plus the final completed epoch 233.
+    start_epoch: 39
+    save_every_epochs: 20
+    save_last: true
+    resume: C:/ML/andi_test/Test/andi_rewrite/outputs/runs/brats_t1_t2_empirical_spectrum20_eval50/epoch_0019.pt
+  samples:
+    enabled: false
+  eval_after_fit:
+    enabled: false

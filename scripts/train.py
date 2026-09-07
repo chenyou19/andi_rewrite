@@ -63,6 +63,9 @@ def build_trainer_from_config(config: dict) -> tuple[Trainer, object]:
 
     runtime = config.get("runtime", {})
     seed = int(runtime.get("seed", 73))
+    if config.get("data", {}).get("intensity_normalization") == "robust_iqr":
+        if bool(config.get("training", {}).get("normalize_input", True)):
+            raise ValueError("robust_iqr data requires training.normalize_input=false.")
     set_seed(seed)
     configure_training_backend(runtime)
     accelerator = build_accelerator(config)
@@ -137,7 +140,15 @@ def run_evaluation_from_config(eval_config_path: str | Path) -> dict:
     dataloader = build_dataloader(eval_config.get("data", {}))
     evaluator = VolumeEvaluator(
         detector=detector,
-        config={**eval_config.get("data", {}), **eval_config.get("metrics", {}), **eval_config.get("evaluation", {})},
+        config={
+            **eval_config.get("data", {}),
+            **eval_config.get("metrics", {}),
+            **eval_config.get("evaluation", {}),
+            "prediction_output": eval_config.get("prediction_output", {}),
+            "model": eval_config.get("model", {}),
+            "anomaly": eval_config.get("anomaly", {}),
+            "_run_config": eval_config,
+        },
         accelerator=accelerator,
     )
     dataloader = evaluator.prepare(dataloader)

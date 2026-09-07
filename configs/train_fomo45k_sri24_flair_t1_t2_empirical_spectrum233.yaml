@@ -1,0 +1,95 @@
+# FOMO45K PT007_NIMH [FLAIR,T1,T2] SRI24/BraTS21-space LMDB training
+# with train-only radial empirical-spectrum filtered-Gaussian noise.
+experiment:
+  name: fomo45k_sri24_flair_t1_t2_empirical_spectrum233
+
+runtime:
+  seed: 73
+  device: auto
+  cudnn_benchmark: true
+  deterministic: false
+  accelerate: false
+  find_unused_parameters: true
+
+data:
+  type: lmdb
+  path: C:/ML/data/FOMO45K_SRI24_BraTS21_ANDi/PT007_NIMH/train
+  image_size: 128
+  channels: 3
+  batch_size: 52
+  workers: 0
+  pin_memory: true
+  shuffle: true
+
+validation:
+  enabled: true
+  every_epochs: 1
+  seed: 73
+  use_ema: false
+  data:
+    type: lmdb
+    path: C:/ML/data/FOMO45K_SRI24_BraTS21_ANDi/PT007_NIMH/val
+    image_size: 128
+    channels: 3
+    batch_size: 52
+    workers: 0
+    pin_memory: true
+    shuffle: false
+
+model:
+  type: andi_unet
+  image_size: 128
+  in_channels: 3
+  out_channels: 3
+  time_dim: 256
+
+diffusion:
+  steps: 1000
+  beta_start: 1.0e-4
+  beta_end: 0.02
+
+noise:
+  schedule:
+    type: static
+    sampler:
+      type: empirical_spectrum
+      stats_path: C:/ML/data/FOMO45K_SRI24_BraTS21_ANDi/PT007_NIMH/spectrum/fomo45k_sri24_flair_t1_t2_empirical_spectrum.npz
+      mode: radial
+      spectrum_key: mean_amplitude
+      radial_key: radial_amplitude
+      spectrum_power_key: mean_power
+      radial_power_key: radial_power
+      generation_method: filtered_gaussian
+      strength: 1.0
+      normalize: true
+      per_channel: true
+      eps: 1.0e-8
+
+training:
+  run_name: fomo45k_sri24_flair_t1_t2_empirical_spectrum233
+  epochs: 233
+  start_lr: 2.0e-5
+  target_lr: 1.0e-4
+  scheduler:
+    type: warmup_cosine
+    warmup_steps: 0.05
+    start_lr: 2.0e-5
+    target_lr: 1.0e-4
+  ema:
+    enabled: true
+    decay: 0.995
+    step_start: 2000
+  normalize_input: true
+  finite_checks: true
+  progress:
+    enabled: true
+  checkpoint:
+    dir: outputs/runs
+    start_epoch: 19
+    save_every_epochs: 20
+    save_last: true
+    resume:
+  samples:
+    enabled: false
+  eval_after_fit:
+    enabled: false

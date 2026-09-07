@@ -1,0 +1,55 @@
+# Offline BraTS21 cache for inference with MPI/LEMON-trained checkpoints.
+# GT remains categorical 0/1/2/4 and uses nearest-neighbour spatial transforms.
+
+dataset_path: C:/ML/data/BraTS_2021
+path_to_csv: C:/ML/data/BraTS_2021_healthy_lmdb/scans_test.csv
+expected_subjects: 251
+filename_separator: "_"
+modality_suffixes:
+  flair: flair
+  t1: t1
+  t2: t2
+segmentation_suffix: seg
+
+output_root: C:/ML/data/BraTS_2021_MPI_aligned
+mpi_preprocess_root: C:/ML/data/MPI/LEMON_ANDi_MIP
+model_size: 128
+modes: [mni_affine, ras_fixed_fov]
+
+mni:
+  root: C:/ML/data/MPI/LEMON_ANDi_MIP/templates/mni2009c
+  t1_path: C:/ML/data/MPI/LEMON_ANDi_MIP/templates/mni2009c/mni_icbm152_t1_tal_nlin_asym_09c.nii
+  mask_path: C:/ML/data/MPI/LEMON_ANDi_MIP/templates/mni2009c/mni_icbm152_t1_tal_nlin_asym_09c_mask.nii
+  roi_path: C:/ML/data/MPI/LEMON_ANDi_MIP/templates/mni2009c/fixed_roi.json
+  guard_dilation_mm: 5.0
+
+# Locked to the affine registration settings used by MPI preprocessing.
+registration:
+  nbins: 32
+  sampling_proportion: null
+  level_iters: [1000, 100, 10]
+  sigmas: [3.0, 1.0, 0.0]
+  factors: [4, 2, 1]
+
+# Any failed criterion is excluded automatically; there is no manual-review state.
+qc:
+  foreground_retention_min: 0.999
+  lesion_retention_min: 1.0
+  brain_volume_ratio: [0.5, 2.5]
+  affine_singular_values: [0.25, 4.0]
+  mni_mask_dice_min: 0.70
+  mi_improvement_min: 0.0
+  guard_retention_min: 0.98
+
+pilot_subjects:
+  - BraTS2021_01310
+  - BraTS2021_01137
+  - BraTS2021_00344
+  - BraTS2021_01012
+  - BraTS2021_01204
+  - BraTS2021_01565
+  - BraTS2021_00692
+
+selections:
+  - name: test50
+    source_csv: C:/ML/andi_test/Test/andi_rewrite/splits/BraTS21/scans_test_50.csv
