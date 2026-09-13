@@ -1,0 +1,87 @@
+experiment:
+  name: mpi_sri24_robust_iqr60_own_spectrum
+runtime:
+  seed: 73
+  device: cuda
+  cudnn_benchmark: true
+  deterministic: false
+  accelerate: false
+  find_unused_parameters: true
+data:
+  type: lmdb
+  path: C:\ML\andi_test\Test\andi_rewrite\outputs\datasets\mpi_sri24_robust_iqr\train
+  intensity_normalization: robust_iqr
+  image_size: 128
+  channels: 3
+  batch_size: 52
+  workers: 0
+  pin_memory: true
+  shuffle: true
+validation:
+  enabled: true
+  every_epochs: 1
+  seed: 73
+  use_ema: true
+  data:
+    type: lmdb
+    path: C:\ML\andi_test\Test\andi_rewrite\outputs\datasets\mpi_sri24_robust_iqr\val
+    intensity_normalization: robust_iqr
+    image_size: 128
+    channels: 3
+    batch_size: 52
+    workers: 0
+    pin_memory: true
+    shuffle: false
+model:
+  type: andi_unet
+  image_size: 128
+  in_channels: 3
+  out_channels: 3
+  time_dim: 256
+diffusion:
+  steps: 1000
+  beta_start: 0.0001
+  beta_end: 0.02
+noise:
+  schedule:
+    type: static
+    sampler:
+      type: empirical_spectrum
+      stats_path: C:\ML\andi_test\Test\andi_rewrite\outputs\datasets\mpi_sri24_robust_iqr\spectrum\mpi_train_robust_iqr_empirical_spectrum.npz
+      mode: radial
+      spectrum_key: mean_amplitude
+      radial_key: radial_amplitude
+      spectrum_power_key: mean_power
+      radial_power_key: radial_power
+      generation_method: filtered_gaussian
+      strength: 1.0
+      normalize: true
+      per_channel: true
+      eps: 1.0e-08
+training:
+  run_name: mpi_sri24_robust_iqr60_own_spectrum
+  epochs: 60
+  start_lr: 2.0e-05
+  target_lr: 0.0001
+  scheduler:
+    type: warmup_cosine
+    warmup_steps: 0.05
+    start_lr: 2.0e-05
+    target_lr: 0.0001
+  ema:
+    enabled: true
+    decay: 0.995
+    step_start: 2000
+  normalize_input: false
+  finite_checks: true
+  progress:
+    enabled: true
+  checkpoint:
+    dir: outputs/runs
+    start_epoch: 19
+    save_every_epochs: 20
+    save_last: true
+  samples:
+    enabled: false
+  eval_after_fit:
+    enabled: false

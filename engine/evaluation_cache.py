@@ -4,6 +4,7 @@ import hashlib
 import json
 import os
 import shutil
+import time
 from pathlib import Path
 from typing import Any
 
@@ -152,7 +153,16 @@ class DiskEvaluationCache:
             json.dumps(self.manifest, indent=2, sort_keys=True, ensure_ascii=False),
             encoding="utf-8",
         )
-        os.replace(temporary, self.manifest_path)
+        # Windows readers or scanners can briefly deny an atomic replacement.
+        # Keep the previous manifest intact and propagate persistent failures.
+        for attempt in range(8):
+            try:
+                os.replace(temporary, self.manifest_path)
+                break
+            except PermissionError:
+                if attempt == 7:
+                    raise
+                time.sleep(min(0.1 * (2 ** attempt), 1.0))
 
     @staticmethod
     def _atomic_save_array(path: Path, array: np.ndarray) -> None:

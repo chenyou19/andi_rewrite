@@ -22,7 +22,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--lmdb-path", required=True, help="Path to healthy-slice LMDB.")
     parser.add_argument("--out", required=True, help="Output .npz path.")
-    parser.add_argument("--mask-mode", default="union_nonzero", choices=["union_nonzero"])
+    parser.add_argument("--mask-mode", default="union_nonzero", choices=["union_nonzero", "robust_iqr_background"])
     parser.add_argument("--eps", type=float, default=1.0e-6)
     parser.add_argument("--crop-margin", type=int, default=4)
     parser.add_argument("--window", default="hann", choices=["none", "hann"])
@@ -161,6 +161,19 @@ def validate_slice(value: bytes, index: int) -> np.ndarray:
     return x
 
 
+def spectrum_foreground(x: np.ndarray, mode: str, eps: float) -> np.ndarray:
+    if mode == 'robust_iqr_background':
+        return np.any(np.abs(x + 1.0) > eps, axis=0)
+    return np.sum(np.abs(x), axis=0) > eps
+
+
+def center_spectrum_image(image: np.ndarray, valid_mask: np.ndarray, mode: str) -> np.ndarray:
+    centered = image - float(image[valid_mask].mean() if np.any(valid_mask) else image.mean())
+    if mode == 'robust_iqr_background':
+        centered = np.where(valid_mask, centered, 0.0)
+    return centered
+
+
 def source_manifest_provenance(path: Path) -> dict[str, object]:
     digest = hashlib.sha256(path.read_bytes()).hexdigest()
     with path.open(newline="", encoding="utf-8") as handle:
@@ -218,11 +231,17 @@ def compute(args: argparse.Namespace) -> None:
     skipped = 0
     seen = 0
     channels = height = width = radial_bin_count = None
+    source_content_digest = hashlib.sha256()
+    if args.mask_mode == 'robust_iqr_background':
+        spec = json.loads((lmdb_path/'normalization.json').read_text())
+        if spec.get('type') != 'robust_iqr' or spec.get('version') != 1 or spec.get('background') != -1.0:
+            raise ValueError('robust_iqr_background requires robust-IQR v1 with background -1')
 
     for raw_value in maybe_progress(values, total_entries, enabled=not args.no_progress):
         if args.max_slices is not None and seen >= args.max_slices:
             break
         x = validate_slice(raw_value, seen)
+        source_content_digest.update(raw_value)
         seen += 1
 
         if channels is None:
@@ -244,7 +263,7 @@ def compute(args: argparse.Namespace) -> None:
                 f"LMDB entry {seen - 1} has shape {x.shape}; expected {(channels, height, width)}."
             )
 
-        mask = np.sum(np.abs(x), axis=0) > float(args.eps)
+        mask = spectrum_foreground(x, args.mask_mode, float(args.eps))
         bbox = foreground_bbox(mask, int(args.crop_margin))
         if bbox is None:
             skipped += 1
@@ -252,11 +271,7 @@ def compute(args: argparse.Namespace) -> None:
 
         crop, valid_mask = resize_crop(x, mask, bbox, (height, width))
         for channel in range(channels):
-            image = crop[channel]
-            if np.any(valid_mask):
-                image = image - float(image[valid_mask].mean())
-            else:
-                image = image - float(image.mean())
+            image = center_spectrum_image(crop[channel], valid_mask, args.mask_mode)
             if window is not None:
                 image = image * window
 
@@ -353,6 +368,8 @@ def compute(args: argparse.Namespace) -> None:
     metadata = {
         "source_lmdb": str(lmdb_path.resolve()),
         "source_lmdb_entry_count": int(seen),
+        "source_serialized_values_sha256": source_content_digest.hexdigest(),
+        "background_after_centering": "zero" if args.mask_mode == 'robust_iqr_background' else "legacy_mean_subtracted",
         "source_manifest": str(source_manifest) if source_manifest is not None else None,
         "source_manifest_provenance": manifest_provenance,
         "channel_order": channel_order,

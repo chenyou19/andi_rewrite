@@ -207,6 +207,9 @@ def config_for_checkpoint(base_config: dict, checkpoint: Path, args: argparse.Na
     metrics = config.setdefault("metrics", {})
     metrics["output_csv"] = str(output_dir / "ANDi.csv")
     metrics["output_mf_csv"] = str(output_dir / "ANDi_mf.csv")
+    evaluation = config.setdefault("evaluation", {})
+    cache = evaluation.setdefault("cache", {})
+    cache["directory"] = str(output_dir / "cache")
     return config
 
 
