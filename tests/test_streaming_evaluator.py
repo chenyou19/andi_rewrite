@@ -192,6 +192,28 @@ class StreamingEvaluatorTest(unittest.TestCase):
         return batches
 
     @staticmethod
+    def _variable_depth_batches() -> list[dict[str, Any]]:
+        batches = []
+        for index, depth in enumerate((4, 5)):
+            raw = torch.linspace(
+                0.0,
+                1.0 + index,
+                3 * 3 * depth,
+                dtype=torch.float32,
+            ).reshape(3, 3, depth)
+            batches.append(
+                {
+                    "image": raw[None, None],
+                    "label": (raw > (0.55 + index * 0.1))[None],
+                    "metadata": {
+                        "subject_id": f"variable_case_{index}",
+                        "has_label": True,
+                    },
+                }
+            )
+        return batches
+
+    @staticmethod
     def _config(
         root: Path,
         *,
@@ -374,6 +396,39 @@ class StreamingEvaluatorTest(unittest.TestCase):
             self.assertEqual(len(manifest["entries"]), 2)
             self.assertTrue(all("mf" in entry for entry in manifest["entries"]))
             self.assertTrue(all("mf_pre" not in entry for entry in manifest["entries"]))
+
+    def test_sampled_disk_streaming_supports_variable_depth_and_resumes(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            config = self._config(
+                root,
+                memory_mode="disk_streaming",
+                auprc_mode="sampled",
+                cache_name="variable_depth_cache",
+            )
+            evaluator = _ScoreFromImageEvaluator(_DummyDetector(), config)
+            result = evaluator.evaluate(self._variable_depth_batches())
+
+            self.assertEqual(result["subjects"], 2)
+            self.assertEqual(result["memory_mode"], "disk_streaming")
+            self.assertTrue(result["labels_available"])
+            self.assertEqual(evaluator.score_calls, 2)
+            self.assertTrue(Path(evaluator.output_csv).is_file())
+            self.assertTrue(Path(evaluator.output_mf_csv).is_file())
+
+            manifest_path = root / "variable_depth_cache" / "manifest.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            self.assertTrue(manifest["collection_complete"])
+            self.assertEqual(
+                [entry["shape"] for entry in manifest["entries"]],
+                [[3, 3, 4], [3, 3, 5]],
+            )
+
+            resumed = _ScoreFromImageEvaluator(_DummyDetector(), config)
+            resumed_result = resumed.evaluate(self._variable_depth_batches())
+            self.assertEqual(resumed.score_calls, 0)
+            self.assertEqual(resumed_result["cache_hits"], 2)
+            self.assertEqual(resumed_result["subjects_inferred"], 0)
 
     def test_exact_disk_streaming_matches_in_memory(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

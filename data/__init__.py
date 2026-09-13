@@ -1,5 +1,6 @@
 from .datasets import (
     BraTSHealthySliceDataset,
+    BraTSMPICacheDataset,
     MRIDataVolume,
     ShiftsMSVolumeDataset,
     UCSFPDGMVolumeDataset,
@@ -12,6 +13,7 @@ from .registration import MRIRegistrator, SitkRegistrator
 
 __all__ = [
     "BraTSHealthySliceDataset",
+    "BraTSMPICacheDataset",
     "MRIDataVolume",
     "MRIRegistrator",
     "ShiftsMSVolumeDataset",

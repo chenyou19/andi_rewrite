@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import csv
 import hashlib
 import json
 import subprocess
@@ -21,12 +22,22 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--lmdb-path", required=True, help="Path to healthy-slice LMDB.")
     parser.add_argument("--out", required=True, help="Output .npz path.")
-    parser.add_argument("--mask-mode", default="union_nonzero", choices=["union_nonzero"])
+    parser.add_argument("--mask-mode", default="union_nonzero", choices=["union_nonzero", "robust_iqr_background"])
     parser.add_argument("--eps", type=float, default=1.0e-6)
     parser.add_argument("--crop-margin", type=int, default=4)
     parser.add_argument("--window", default="hann", choices=["none", "hann"])
     parser.add_argument("--radial-bins", type=int, help="Number of radial bins. Defaults to image_size // 2.")
     parser.add_argument("--max-slices", type=int, help="Optional maximum number of LMDB entries to inspect.")
+    parser.add_argument(
+        "--channel-order",
+        nargs="+",
+        help="Semantic source channel order, for example FLAIR T1 T2.",
+    )
+    parser.add_argument(
+        "--source-manifest",
+        type=Path,
+        help="Optional LMDB entry manifest used to prove source split/session membership.",
+    )
     parser.add_argument("--no-progress", action="store_true", help="Disable progress bar.")
     parser.add_argument("--overwrite", action="store_true", help="Overwrite an existing output file.")
     return parser.parse_args()
@@ -144,7 +155,58 @@ def validate_slice(value: bytes, index: int) -> np.ndarray:
     x = np.asarray(pickle.loads(value))
     if x.ndim != 3:
         raise ValueError(f"LMDB entry {index} has shape {x.shape}; expected [C, H, W].")
-    return x.astype(np.float32, copy=False)
+    x = x.astype(np.float32, copy=False)
+    if not np.all(np.isfinite(x)):
+        raise ValueError(f"LMDB entry {index} contains NaN or Inf.")
+    return x
+
+
+def spectrum_foreground(x: np.ndarray, mode: str, eps: float) -> np.ndarray:
+    if mode == 'robust_iqr_background':
+        return np.any(np.abs(x + 1.0) > eps, axis=0)
+    return np.sum(np.abs(x), axis=0) > eps
+
+
+def center_spectrum_image(image: np.ndarray, valid_mask: np.ndarray, mode: str) -> np.ndarray:
+    centered = image - float(image[valid_mask].mean() if np.any(valid_mask) else image.mean())
+    if mode == 'robust_iqr_background':
+        centered = np.where(valid_mask, centered, 0.0)
+    return centered
+
+
+def source_manifest_provenance(path: Path) -> dict[str, object]:
+    digest = hashlib.sha256(path.read_bytes()).hexdigest()
+    with path.open(newline="", encoding="utf-8") as handle:
+        reader = csv.DictReader(handle)
+        rows = list(reader)
+        fieldnames = list(reader.fieldnames or [])
+    split_counts: dict[str, int] = {}
+    subject_ids: set[str] = set()
+    session_ids: set[str] = set()
+    subject_column = next(
+        (name for name in ("participant_id", "case_id", "subject_id") if name in fieldnames),
+        fieldnames[0] if fieldnames else None,
+    )
+    for row in rows:
+        split = str(row.get("split", "")).strip()
+        if split:
+            split_counts[split] = split_counts.get(split, 0) + 1
+        if subject_column and row.get(subject_column):
+            subject_ids.add(str(row[subject_column]))
+        identifier = str(row.get("session_identifier", "")).strip()
+        if not identifier and subject_column:
+            session = str(row.get("session_id", row.get("session", ""))).strip()
+            identifier = f"{row.get(subject_column, '')}/{session}" if session else ""
+        if identifier:
+            session_ids.add(identifier)
+    return {
+        "sha256": digest,
+        "rows": len(rows),
+        "columns": fieldnames,
+        "split_counts": dict(sorted(split_counts.items())),
+        "subject_count": len(subject_ids),
+        "session_count": len(session_ids),
+    }
 
 
 def compute(args: argparse.Namespace) -> None:
@@ -169,11 +231,17 @@ def compute(args: argparse.Namespace) -> None:
     skipped = 0
     seen = 0
     channels = height = width = radial_bin_count = None
+    source_content_digest = hashlib.sha256()
+    if args.mask_mode == 'robust_iqr_background':
+        spec = json.loads((lmdb_path/'normalization.json').read_text())
+        if spec.get('type') != 'robust_iqr' or spec.get('version') != 1 or spec.get('background') != -1.0:
+            raise ValueError('robust_iqr_background requires robust-IQR v1 with background -1')
 
     for raw_value in maybe_progress(values, total_entries, enabled=not args.no_progress):
         if args.max_slices is not None and seen >= args.max_slices:
             break
         x = validate_slice(raw_value, seen)
+        source_content_digest.update(raw_value)
         seen += 1
 
         if channels is None:
@@ -195,7 +263,7 @@ def compute(args: argparse.Namespace) -> None:
                 f"LMDB entry {seen - 1} has shape {x.shape}; expected {(channels, height, width)}."
             )
 
-        mask = np.sum(np.abs(x), axis=0) > float(args.eps)
+        mask = spectrum_foreground(x, args.mask_mode, float(args.eps))
         bbox = foreground_bbox(mask, int(args.crop_margin))
         if bbox is None:
             skipped += 1
@@ -203,11 +271,7 @@ def compute(args: argparse.Namespace) -> None:
 
         crop, valid_mask = resize_crop(x, mask, bbox, (height, width))
         for channel in range(channels):
-            image = crop[channel]
-            if np.any(valid_mask):
-                image = image - float(image[valid_mask].mean())
-            else:
-                image = image - float(image.mean())
+            image = center_spectrum_image(crop[channel], valid_mask, args.mask_mode)
             if window is not None:
                 image = image * window
 
@@ -224,6 +288,37 @@ def compute(args: argparse.Namespace) -> None:
         raise ValueError(f"LMDB yielded no readable entries: {lmdb_path}")
     if used == 0:
         raise ValueError(f"No non-empty foreground slices found in LMDB: {lmdb_path}")
+
+    channel_order = list(args.channel_order or [f"channel_{index}" for index in range(int(channels))])
+    if len(channel_order) != int(channels):
+        raise ValueError(
+            f"--channel-order has {len(channel_order)} values but LMDB entries have C={channels}."
+        )
+    source_manifest = Path(args.source_manifest).resolve() if args.source_manifest else None
+    if source_manifest is not None and not source_manifest.is_file():
+        raise FileNotFoundError(f"Source manifest does not exist: {source_manifest}")
+    manifest_provenance = (
+        source_manifest_provenance(source_manifest) if source_manifest is not None else None
+    )
+    if (
+        manifest_provenance is not None
+        and args.max_slices is None
+        and int(manifest_provenance["rows"]) != seen
+    ):
+        raise ValueError(
+            "Source manifest row count does not match the fully inspected LMDB: "
+            f"{manifest_provenance['rows']} != {seen}."
+        )
+    if (
+        manifest_provenance is not None
+        and lmdb_path.name.lower() == "train"
+        and manifest_provenance["split_counts"]
+        and set(manifest_provenance["split_counts"]) != {"train"}
+    ):
+        raise ValueError(
+            "Train LMDB source manifest contains non-train rows: "
+            f"{manifest_provenance['split_counts']}."
+        )
 
     mean_amplitude = (sum_amplitude / used).astype(np.float32)
     mean_power = (sum_power / used).astype(np.float32)
@@ -247,13 +342,23 @@ def compute(args: argparse.Namespace) -> None:
         eps=np.array(float(args.eps), dtype=np.float64),
         crop_margin=np.array(int(args.crop_margin), dtype=np.int64),
         window=np.array(args.window),
+        channel_order=np.asarray(channel_order),
     )
 
     digest = hashlib.sha256(out_path.read_bytes()).hexdigest()
     try:
+        repository = Path(__file__).resolve().parents[1]
         git_commit = subprocess.run(
-            ["git", "rev-parse", "HEAD"],
-            cwd=Path(__file__).resolve().parents[1],
+            [
+                "git",
+                "-c",
+                f"safe.directory={repository.as_posix()}",
+                "-C",
+                str(repository),
+                "rev-parse",
+                "HEAD",
+            ],
+            cwd=repository,
             check=True,
             capture_output=True,
             text=True,
@@ -263,6 +368,11 @@ def compute(args: argparse.Namespace) -> None:
     metadata = {
         "source_lmdb": str(lmdb_path.resolve()),
         "source_lmdb_entry_count": int(seen),
+        "source_serialized_values_sha256": source_content_digest.hexdigest(),
+        "background_after_centering": "zero" if args.mask_mode == 'robust_iqr_background' else "legacy_mean_subtracted",
+        "source_manifest": str(source_manifest) if source_manifest is not None else None,
+        "source_manifest_provenance": manifest_provenance,
+        "channel_order": channel_order,
         "output_npz": str(out_path.resolve()),
         "command": [sys.executable, str(Path(__file__).resolve()), *sys.argv[1:]],
         "python_executable": sys.executable,

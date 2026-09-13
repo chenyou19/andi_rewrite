@@ -56,6 +56,21 @@ def collect_volumes(
                     gathered_count = int(anomaly_map.shape[0])
                     items = list(gather_object(items))[:gathered_count]
                     label_available = list(gather_object(label_available))[:gathered_count]
+                if maps and anomaly_map.shape[1:] != maps[0].shape[1:]:
+                    raise RuntimeError(
+                        "in_memory evaluation requires uniform anomaly-map shapes across "
+                        f"volumes; volume {volume_index} has shape "
+                        f"{tuple(anomaly_map.shape[1:])}, while the first volume has shape "
+                        f"{tuple(maps[0].shape[1:])}. Set "
+                        "evaluation.memory_mode: disk_streaming for variable-depth data."
+                    )
+                if label is not None and labels and label.shape[1:] != labels[0].shape[1:]:
+                    raise RuntimeError(
+                        "in_memory evaluation requires uniform label shapes across volumes; "
+                        f"volume {volume_index} has shape {tuple(label.shape[1:])}, while the "
+                        f"first volume has shape {tuple(labels[0].shape[1:])}. Set "
+                        "evaluation.memory_mode: disk_streaming for variable-depth data."
+                    )
                 maps.append(anomaly_map.detach().cpu())
                 if label is not None:
                     labels.append(label.detach().cpu())

@@ -1,0 +1,119 @@
+# Base config for evaluating every checkpoint from the 3-channel BraTS21
+# [FLAIR,T1,T2] empirical-spectrum233 run on the fixed 251-subject test split.
+experiment:
+  name: brats21_251_brats_flair_t1_t2_empirical_spectrum233_all_checkpoints
+
+runtime:
+  seed: 73
+  device: auto
+  cudnn_benchmark: true
+  deterministic: false
+  accelerate: false
+  find_unused_parameters: true
+
+data:
+  type: volume
+  dataset_path: C:/ML/data/BraTS_2021
+  path_to_csv: splits/BraTS21/scans_test.csv
+  image_size: 128
+  channels: 3
+  batch_size: 1
+  workers: 0
+  size_splits: 155
+  modalities: [flair, t1, t2]
+  segmentation_suffix: seg
+  filename_separator: "_"
+  histogram_normalization: false
+  shift_naming: false
+
+model:
+  type: andi_unet
+  image_size: 128
+  in_channels: 3
+  out_channels: 3
+  time_dim: 256
+  # Replaced by scripts/eval_checkpoints50.py for each epoch_*.pt checkpoint.
+  checkpoint: outputs/runs/brats_flair_t1_t2_empirical_spectrum233/epoch_0019.pt
+  use_ema: true
+
+diffusion:
+  steps: 1000
+  beta_start: 1.0e-4
+  beta_end: 0.02
+
+noise:
+  schedule:
+    type: static
+    sampler:
+      type: empirical_spectrum
+      stats_path: C:/ML/data/spectrum/brats21_healthy_empirical_spectrum.npz
+      channel_indices: [0, 1, 3]
+      generation_method: filtered_gaussian
+      mode: radial
+      spectrum_key: mean_amplitude
+      radial_key: radial_amplitude
+      spectrum_power_key: mean_power
+      radial_power_key: radial_power
+      strength: 1.0
+      normalize: true
+      per_channel: true
+      eps: 1.0e-8
+
+anomaly:
+  t_lower: 75
+  t_upper: 200
+  aggregation:
+    type: geometric_mean
+    eps: 1.0e-8
+  modality_pool:
+    type: max
+  median_filter:
+    enabled: true
+    kernel_size: 5
+  threshold: yen
+
+metrics:
+  # Replaced by scripts/eval_checkpoints50.py with one directory per checkpoint.
+  output_csv: outputs/metrics/brats_flair_t1_t2_empirical_spectrum233_brats21_251/placeholder/ANDi.csv
+  output_mf_csv: outputs/metrics/brats_flair_t1_t2_empirical_spectrum233_brats21_251/placeholder/ANDi_mf.csv
+  compute_auprc: true
+  auprc_max_samples: 5000000
+  auprc_seed: 73
+  thr_start: 0.01
+  thr_end: 0.3
+  thr_step: 0.001
+  threshold: 0.5
+  size_splits: 155
+  kernel_size: 5
+  rank: 3
+  connectivity: 1
+  postprocess_mode: rewrite
+  median_filter:
+    enabled: true
+    kernel_size: 5
+    mode: 3d
+  postprocess:
+    score:
+      pipeline:
+        - type: normalize
+    score_mf:
+      pipeline:
+        - type: median_filter
+          kernel_size: 5
+          mode: 3d
+        - type: normalize
+    threshold_mask:
+      pipeline:
+        - type: binary_dilation
+          rank: 3
+          connectivity: 1
+          iterations: 1
+    yen_mask:
+      pipeline: []
+
+prediction_output:
+  enabled: false
+
+evaluation:
+  progress:
+    enabled: true

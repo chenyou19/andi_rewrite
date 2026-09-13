@@ -44,6 +44,7 @@ class EmpiricalSpectrumNoise(BaseNoise):
         generation_method: str = "fixed_magnitude",
         spectrum_power_key: str = "mean_power",
         radial_power_key: str = "radial_power",
+        channel_indices: Sequence[int] | None = None,
     ):
         self.stats_path = str(stats_path)
         self.mode = str(mode).lower()
@@ -56,6 +57,7 @@ class EmpiricalSpectrumNoise(BaseNoise):
         self.strength = float(strength)
         self.normalize = bool(normalize)
         self.eps = float(eps)
+        self.channel_indices = self._validate_channel_indices_argument(channel_indices)
 
         if self.mode not in {"2d", "full2d", "radial"}:
             raise ValueError("EmpiricalSpectrumNoise mode must be one of: '2d', 'full2d', 'radial'.")
@@ -69,6 +71,8 @@ class EmpiricalSpectrumNoise(BaseNoise):
             raise FileNotFoundError(f"Empirical spectrum stats_path does not exist: {path}")
 
         self.channels: int | None = None
+        self.source_channel_count: int | None = None
+        self.effective_channel_ordering: list[int] | None = None
         self.height: int | None = None
         self.width: int | None = None
         self.target_amp: torch.Tensor | None = None
@@ -108,14 +112,65 @@ class EmpiricalSpectrumNoise(BaseNoise):
             raise ValueError(f"Empirical spectrum metadata '{key}' must be scalar, got {value.shape}.")
         return int(value.item())
 
+    @staticmethod
+    def _validate_channel_indices_argument(
+        value: Sequence[int] | None,
+    ) -> list[int] | None:
+        if value is None:
+            return None
+        if isinstance(value, (str, bytes)):
+            raise TypeError("EmpiricalSpectrumNoise channel_indices must be a sequence of integers or None.")
+        try:
+            items = list(value)
+        except TypeError as exc:
+            raise TypeError(
+                "EmpiricalSpectrumNoise channel_indices must be a sequence of integers or None."
+            ) from exc
+        if not items:
+            raise ValueError("EmpiricalSpectrumNoise channel_indices must not be empty.")
+        if any(isinstance(item, (bool, np.bool_)) or not isinstance(item, (int, np.integer)) for item in items):
+            raise TypeError("EmpiricalSpectrumNoise channel_indices must contain only integers (not bool).")
+        indices = [int(item) for item in items]
+        if len(set(indices)) != len(indices):
+            raise ValueError("EmpiricalSpectrumNoise channel_indices must be unique.")
+        return indices
+
+    def _select_channels(self, value: np.ndarray, key: str) -> np.ndarray:
+        source_channels = int(value.shape[0])
+        if self.source_channel_count is None:
+            self.source_channel_count = source_channels
+        elif source_channels != self.source_channel_count:
+            raise ValueError(
+                "Empirical spectrum channel count mismatch across statistics: "
+                f"expected {self.source_channel_count}, got {source_channels} for '{key}'."
+            )
+
+        if self.channel_indices is None:
+            self.effective_channel_ordering = list(range(source_channels))
+            # Deliberately return the original array. This keeps the historical
+            # no-selection path byte-for-byte equivalent for seeded sampling.
+            return value
+
+        invalid = [index for index in self.channel_indices if index < 0 or index >= source_channels]
+        if invalid:
+            raise IndexError(
+                "EmpiricalSpectrumNoise channel_indices out of range for "
+                f"source C={source_channels}: {invalid}."
+            )
+        self.effective_channel_ordering = list(self.channel_indices)
+        # np.take preserves the caller-provided semantic ordering. Never sort.
+        return np.take(value, self.channel_indices, axis=0)
+
     def _load_fixed_magnitude_target(self, stats: np.lib.npyio.NpzFile, path: Path) -> None:
         if self.mode in {"2d", "full2d"}:
             target = self._load_full_statistic(stats, self.spectrum_key, path, "spectrum")
+            target = self._select_channels(target, self.spectrum_key)
             target = np.fft.ifftshift(target, axes=(-2, -1)).copy()
             self.channels, self.height, self.width = map(int, target.shape)
             loaded_key = self.spectrum_key
         else:
             profile = self._load_radial_statistic(stats, self.radial_key, path, "spectrum")
+            profile = self._select_channels(profile, self.radial_key)
             self._require_radial_spatial_shape()
             self.channels = int(profile.shape[0])
             target = self._expand_radial_profile(profile, self.height, self.width)
@@ -163,11 +218,13 @@ class EmpiricalSpectrumNoise(BaseNoise):
 
         if is_full:
             power = self._validate_full_array(source, self.loaded_statistic_key)
+            power = self._select_channels(power, self.loaded_statistic_key)
             power = np.fft.ifftshift(power, axes=(-2, -1)).copy()
             self.channels, self.height, self.width = map(int, power.shape)
             power = self._make_power_hermitian(power)
         else:
             profile = self._validate_radial_array(source, self.loaded_statistic_key)
+            profile = self._select_channels(profile, self.loaded_statistic_key)
             self._require_radial_spatial_shape()
             self.channels = int(profile.shape[0])
             power = self._expand_radial_profile(profile, self.height, self.width)
@@ -334,6 +391,11 @@ class EmpiricalSpectrumNoise(BaseNoise):
         return {
             "type": self.name,
             "stats_path": self.stats_path,
+            "source_stats_path": self.stats_path,
+            "source_channel_count": self.source_channel_count,
+            "channel_indices": None if self.channel_indices is None else list(self.channel_indices),
+            "effective_channel_count": self.channels,
+            "effective_channel_ordering": list(self.effective_channel_ordering or []),
             "generation_method": self.generation_method,
             "mode": self.mode,
             "spectrum_key": self.spectrum_key,
@@ -343,6 +405,7 @@ class EmpiricalSpectrumNoise(BaseNoise):
             "loaded_statistic_type": self.loaded_statistic_type,
             "loaded_statistic_key": self.loaded_statistic_key,
             "used_statistic_fallback": self.used_statistic_fallback,
+            "fallback_status": "amplitude_to_power" if self.used_statistic_fallback else "none",
             "filter_normalization": (
                 "rms" if self.generation_method == "filtered_gaussian" else "not_applicable"
             ),

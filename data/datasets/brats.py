@@ -14,6 +14,7 @@ from torchvision import transforms
 
 from .common import _shape_text, _subject_file_path
 from .imaging import histogram_normalize_volume, normalize_volume
+from ..robust_normalization import ROBUST_METHOD, robust_normalize_volume
 
 
 def _subject_frame_from_directory(dataset_path: Path) -> pd.DataFrame:
@@ -100,6 +101,7 @@ class MRIDataVolume(Dataset):
         shift_naming: bool = False,
         filename_separator: str = "_",
         return_metadata: bool = False,
+        intensity_normalization: str = "p99",
     ):
         self.dataset_path = Path(dataset_path)
         self.df = pd.read_csv(csv_path) if csv_path else _subject_frame_from_directory(self.dataset_path)
@@ -110,6 +112,11 @@ class MRIDataVolume(Dataset):
         self.shift_naming = bool(shift_naming)
         self.filename_separator = filename_separator
         self.return_metadata = bool(return_metadata)
+        self.intensity_normalization = str(intensity_normalization)
+        if self.intensity_normalization not in {"p99", ROBUST_METHOD}:
+            raise ValueError(f"Unknown intensity_normalization: {intensity_normalization}")
+        if self.histogram_normalization and self.intensity_normalization != "p99":
+            raise ValueError("Histogram equalization and robust_iqr cannot be combined.")
 
     def __len__(self) -> int:
         return self.df.shape[0]
@@ -159,7 +166,9 @@ class MRIDataVolume(Dataset):
         )[0, 0].bool()
 
         image_array = np.stack(images, axis=0)
-        if self.histogram_normalization:
+        if self.intensity_normalization == ROBUST_METHOD:
+            volume = robust_normalize_volume(torch.from_numpy(image_array).float())
+        elif self.histogram_normalization:
             volume = histogram_normalize_volume(image_array)
         else:
             volume = normalize_volume(torch.from_numpy(image_array).float())
@@ -205,6 +214,8 @@ def build_brats_healthy_slices_dataset(config: dict[str, Any]) -> BraTSHealthySl
 
 def build_mri_volume_dataset(config: dict[str, Any]) -> MRIDataVolume:
     image_size = int(config.get("image_size", 128))
+    if config.get("intensity_normalization") == ROBUST_METHOD and bool(config.get("normalize_input", True)):
+        raise ValueError("robust_iqr requires data.normalize_input=false (already in model units).")
     return MRIDataVolume(
         csv_path=config.get("path_to_csv"),
         dataset_path=config["dataset_path"],
@@ -215,4 +226,6 @@ def build_mri_volume_dataset(config: dict[str, Any]) -> MRIDataVolume:
         shift_naming=bool(config.get("shift_naming", "shifts" in str(config.get("dataset_path", "")).lower())),
         filename_separator=str(config.get("filename_separator", "_")),
         return_metadata=bool(config.get("return_metadata", False)),
+        **({"intensity_normalization": config["intensity_normalization"]}
+           if "intensity_normalization" in config else {}),
     )

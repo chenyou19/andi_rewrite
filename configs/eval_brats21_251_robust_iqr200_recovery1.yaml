@@ -1,0 +1,118 @@
+anomaly:
+  aggregation:
+    eps: 1.0e-08
+    type: geometric_mean
+  median_filter:
+    enabled: true
+    kernel_size: 5
+  modality_pool:
+    type: max
+  t_lower: 75
+  t_upper: 200
+  threshold: yen
+data:
+  batch_size: 1
+  channels: 3
+  dataset_path: C:/ML/data/BraTS_2021
+  filename_separator: _
+  histogram_normalization: false
+  image_size: 128
+  intensity_normalization: robust_iqr
+  modalities:
+  - flair
+  - t1
+  - t2
+  normalize_input: false
+  path_to_csv: splits/BraTS21/scans_test.csv
+  return_metadata: true
+  segmentation_suffix: seg
+  shift_naming: false
+  size_splits: 155
+  type: volume
+  workers: 0
+diffusion:
+  beta_end: 0.02
+  beta_start: 0.0001
+  steps: 1000
+evaluation:
+  auprc_max_samples: 5000000
+  auprc_mode: sampled
+  auprc_seed: 73
+  cache:
+    directory: outputs/runs/fomo45k_robust_iqr200_continue20_recovery1/evaluation/brats21_test251/cache
+    keep_on_success: true
+    resume: true
+  compute_auprc: true
+  memory_mode: disk_streaming
+  progress:
+    enabled: true
+experiment:
+  name: brats21_251_robust_iqr200_recovery1
+metrics:
+  connectivity: 1
+  kernel_size: 5
+  median_filter:
+    enabled: true
+    kernel_size: 5
+    mode: 3d
+  normalization_scope: dataset
+  output_csv: outputs/runs/fomo45k_robust_iqr200_continue20_recovery1/evaluation/brats21_test251/ANDi.csv
+  output_mf_csv: outputs/runs/fomo45k_robust_iqr200_continue20_recovery1/evaluation/brats21_test251/ANDi_mf.csv
+  postprocess:
+    score:
+      pipeline:
+      - type: normalize
+    score_mf:
+      pipeline:
+      - kernel_size: 5
+        mode: 3d
+        type: median_filter
+      - type: normalize
+    threshold_mask:
+      pipeline:
+      - connectivity: 1
+        iterations: 1
+        rank: 3
+        type: binary_dilation
+    yen_mask:
+      pipeline: []
+  postprocess_mode: rewrite
+  rank: 3
+  size_splits: 155
+  thr_end: 0.3
+  thr_start: 0.01
+  thr_step: 0.001
+  threshold: 0.5
+  threshold_method: yen
+model:
+  checkpoint: outputs/runs/fomo45k_robust_iqr200_continue20_recovery1/epoch_0199.pt
+  image_size: 128
+  in_channels: 3
+  out_channels: 3
+  time_dim: 256
+  type: andi_unet
+  use_ema: true
+noise:
+  schedule:
+    sampler:
+      eps: 1.0e-08
+      generation_method: filtered_gaussian
+      mode: radial
+      normalize: true
+      per_channel: true
+      radial_key: radial_amplitude
+      radial_power_key: radial_power
+      spectrum_key: mean_amplitude
+      spectrum_power_key: mean_power
+      stats_path: C:/ML/data/FOMO45K_SRI24_BraTS21_ANDi/PT007_NIMH/spectrum/fomo45k_sri24_flair_t1_t2_empirical_spectrum.npz
+      strength: 1.0
+      type: empirical_spectrum
+    type: static
+prediction_output:
+  enabled: false
+runtime:
+  accelerate: false
+  cudnn_benchmark: true
+  deterministic: false
+  device: auto
+  seed: 73

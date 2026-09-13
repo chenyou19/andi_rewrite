@@ -42,6 +42,7 @@ def _build_training_report(
     model = config.get("model", {})
     diffusion = config.get("diffusion", {})
     noise = config.get("noise", {})
+    validation = config.get("validation", {})
     scheduler = training.get("scheduler", {})
     optimizer = _get_attr(trainer, "optimizer")
     optimizer_group = (optimizer.param_groups[0] if getattr(optimizer, "param_groups", None) else {})
@@ -70,6 +71,7 @@ def _build_training_report(
             "csv_path": data.get("path_to_csv"),
             "image_size": data.get("image_size"),
             "channels": data.get("channels", model.get("in_channels")),
+            "channel_indices": data.get("channel_indices"),
             "batch_size": data.get("batch_size"),
             "workers": data.get("workers"),
             "shuffle": data.get("shuffle"),
@@ -78,6 +80,16 @@ def _build_training_report(
             "healthy_slices_only": _infer_healthy_only(data),
             "z_balanced_sampling": _infer_z_balanced(data),
             "samples_per_z": _first_present(data.get("samples_per_z"), data.get("per_z_count")),
+            "validation_enabled": validation.get("enabled", False) if isinstance(validation, dict) else False,
+            "validation_data_path": (
+                safe_get(validation, "data.path") if isinstance(validation, dict) else None
+            ),
+            "validation_channel_indices": (
+                safe_get(validation, "data.channel_indices") if isinstance(validation, dict) else None
+            ),
+            "number_of_validation_samples": _dataset_len(
+                _get_attr(trainer, "validation_dataloader")
+            ),
         },
         "model_settings": {
             "model_type": model.get("type"),
@@ -112,6 +124,9 @@ def _build_training_report(
             "sample_output_path": str(sample_path) if sample_path else None,
             "loss_curve_path": _first_present(training.get("loss_curve_path"), safe_get(training, "logging.loss_curve_path")),
             "last_epoch": _get_attr(trainer, "last_epoch"),
+            "final_validation_loss": _get_attr(trainer, "last_validation_loss"),
+            "best_validation_loss": _get_attr(trainer, "best_validation_loss"),
+            "training_metrics_path": str(_get_attr(trainer, "metrics_path") or ""),
         },
         "full_config_snapshot": snapshot_config(config),
     }

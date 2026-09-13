@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import copy
+import csv
+import math
 import time
 from pathlib import Path
 from typing import Any, Iterable
@@ -29,6 +31,7 @@ class Trainer:
         device: torch.device | str,
         steps_per_epoch: int = 1,
         accelerator: Any = None,
+        validation_config: dict[str, Any] | None = None,
     ):
         self.model = model
         self.diffusion = diffusion
@@ -36,10 +39,17 @@ class Trainer:
         self.config = config
         self.device = torch.device(device)
         self.accelerator = accelerator
+        self.validation_config = dict(validation_config or {})
+        self.validation_enabled = bool(self.validation_config.get("enabled", bool(validation_config)))
+        self.validation_every_epochs = max(int(self.validation_config.get("every_epochs", 1)), 1)
+        self.validation_seed = int(self.validation_config.get("seed", 73))
+        self.validation_use_ema = bool(self.validation_config.get("use_ema", False))
+        self.validation_dataloader: Iterable | None = None
         self.epochs = int(config.get("epochs", 1))
         self.start_epoch = 0
         self.steps_per_epoch = max(int(steps_per_epoch), 1)
         self.normalize_input = bool(config.get("normalize_input", True))
+        self.finite_checks = bool(config.get("finite_checks", True))
         self.loss_fn = nn.MSELoss()
         scheduler_type = str(config.get("scheduler", {}).get("type", "warmup_cosine")).lower()
         # 原版 ANDi scheduler 預期 optimizer lr=1，實際 learning rate 由 LambdaLR 輸出。
@@ -84,9 +94,15 @@ class Trainer:
         self.sample_clip_denoised = bool(sample_config.get("clip_denoised", True))
         self.last_loss: float | None = None
         self.best_loss: float | None = None
+        self.last_validation_loss: float | None = None
+        self.best_validation_loss: float | None = None
         self.last_epoch: int | None = None
         self.last_checkpoint_path: Path | None = None
         self.last_sample_path: Path | None = None
+        self.last_epoch_metrics: dict[str, Any] | None = None
+        self._last_step_diagnostics: dict[str, Any] = {}
+        run_name = str(self.config.get("run_name", "andi_rewrite"))
+        self.metrics_path = self.checkpoint_dir / run_name / "training_metrics.csv"
         resume_path = checkpoint_config.get("resume", config.get("resume"))
         if resume_path:
             self.start_epoch = load_checkpoint(
@@ -109,12 +125,20 @@ class Trainer:
     def is_main_process(self) -> bool:
         return self.accelerator is None or self.accelerator.is_main_process
 
-    def prepare(self, dataloader: Iterable) -> Iterable:
+    def prepare(
+        self,
+        dataloader: Iterable,
+        validation_dataloader: Iterable | None = None,
+    ) -> Iterable | tuple[Iterable, Iterable]:
         """當啟用 distributed execution 時，交由 Accelerate wrap 相關物件。"""
 
         if self.accelerator is None:
-            return dataloader
+            if validation_dataloader is None:
+                return dataloader
+            return dataloader, validation_dataloader
         objects = [self.model, self.optimizer, dataloader]
+        if validation_dataloader is not None:
+            objects.append(validation_dataloader)
         if self.scheduler is not None:
             objects.append(self.scheduler)
         if self.ema_model is not None:
@@ -124,12 +148,18 @@ class Trainer:
         self.optimizer = prepared[1]
         dataloader = prepared[2]
         offset = 3
+        prepared_validation = None
+        if validation_dataloader is not None:
+            prepared_validation = prepared[offset]
+            offset += 1
         if self.scheduler is not None:
             self.scheduler = prepared[offset]
             offset += 1
         if self.ema_model is not None:
             self.ema_model = prepared[offset]
-        return dataloader
+        if prepared_validation is None:
+            return dataloader
+        return dataloader, prepared_validation
 
     def _prepare_batch(self, batch: torch.Tensor | list | tuple) -> torch.Tensor:
         images = batch[0] if isinstance(batch, (list, tuple)) else batch
@@ -138,10 +168,19 @@ class Trainer:
             images = images * 2.0 - 1.0
         return images
 
-    def train_step(self, batch: torch.Tensor | list | tuple, epoch: int = 0) -> dict[str, float]:
+    def _require_finite(self, name: str, value: torch.Tensor) -> None:
+        if self.finite_checks and not bool(torch.isfinite(value).all()):
+            raise FloatingPointError(f"Non-finite tensor detected during training: {name}.")
+
+    def _forward_loss(
+        self,
+        batch: torch.Tensor | list | tuple,
+        epoch: int,
+        model: nn.Module | None = None,
+    ) -> tuple[torch.Tensor, dict[str, Any]]:
         images = self._prepare_batch(batch)
+        self._require_finite("input", images)
         timesteps = self.diffusion.sample_timesteps(images.shape[0], self.device)
-        # noise 一律透過 plan sample；epoch-switch 與 hybrid policy 不會寫死在 loss 裡。
         noise = self.noise_plan.sample(
             images.shape,
             device=self.device,
@@ -149,23 +188,155 @@ class Trainer:
             epoch=epoch,
             total_epochs=self.epochs,
         )
+        self._require_finite("noise", noise)
         x_t = self.diffusion.q_sample(images, timesteps, noise)
-        predicted_noise = self.model(x_t, timesteps)
+        self._require_finite("noisy_input", x_t)
+        predicted_noise = (model or self.model)(x_t, timesteps)
+        self._require_finite("predicted_noise", predicted_noise)
         loss = self.loss_fn(predicted_noise, noise)
+        self._require_finite("loss", loss)
+        diagnostics = {
+            "input_shape": list(images.shape),
+            "noise_shape": list(noise.shape),
+            "model_output_shape": list(predicted_noise.shape),
+            "input_finite": True,
+            "noise_finite": True,
+            "model_output_finite": True,
+            "loss_finite": bool(math.isfinite(float(loss.detach().cpu()))),
+            "batch_size": int(images.shape[0]),
+        }
+        return loss, diagnostics
+
+    def _require_finite_gradients(self) -> None:
+        if not self.finite_checks:
+            return
+        for name, parameter in unwrap_model(self.model).named_parameters():
+            if parameter.grad is not None and not bool(torch.isfinite(parameter.grad).all()):
+                raise FloatingPointError(f"Non-finite gradient detected during training: {name}.")
+
+    def train_step(self, batch: torch.Tensor | list | tuple, epoch: int = 0) -> dict[str, float]:
+        loss, diagnostics = self._forward_loss(batch, epoch=epoch)
 
         self.optimizer.zero_grad(set_to_none=True)
         if self.accelerator is not None:
             self.accelerator.backward(loss)
         else:
             loss.backward()
+        self._require_finite_gradients()
         self.optimizer.step()
         if self.scheduler is not None:
             self.scheduler.step()
         if self.ema is not None and self.ema_model is not None:
             self.ema.step_ema(self.ema_model, self.model)
+        diagnostics.update(
+            {
+                "backward_successful": True,
+                "gradients_finite": True,
+                "optimizer_step_successful": True,
+                "ema_step": self.ema.step if self.ema is not None else None,
+            }
+        )
+        self._last_step_diagnostics = diagnostics
         return {"loss": float(loss.detach().cpu())}
 
-    def fit(self, dataloader: Iterable) -> None:
+    def run_one_step_diagnostics(
+        self,
+        batch: torch.Tensor | list | tuple,
+        epoch: int = 0,
+    ) -> dict[str, Any]:
+        parameter = next((item for item in unwrap_model(self.model).parameters() if item.requires_grad), None)
+        before = parameter.detach().clone() if parameter is not None else None
+        ema_step_before = self.ema.step if self.ema is not None else None
+        if self.device.type == "cuda":
+            torch.cuda.reset_peak_memory_stats(self.device)
+        result = self.train_step(batch, epoch=epoch)
+        changed = True if parameter is None else not torch.equal(before, parameter.detach())
+        diagnostics = dict(self._last_step_diagnostics)
+        diagnostics.update(
+            {
+                "loss": result["loss"],
+                "optimizer_step_successful": bool(changed),
+                "ema_successful": (
+                    True
+                    if self.ema is None
+                    else self.ema.step == int(ema_step_before or 0) + 1
+                ),
+                "gpu_peak_bytes": (
+                    int(torch.cuda.max_memory_allocated(self.device))
+                    if self.device.type == "cuda"
+                    else None
+                ),
+            }
+        )
+        if not diagnostics["optimizer_step_successful"]:
+            raise RuntimeError("One-step smoke test did not change the first trainable model parameter.")
+        return diagnostics
+
+    def should_validate(self, epoch: int, validation_dataloader: Iterable | None) -> bool:
+        return bool(
+            self.validation_enabled
+            and validation_dataloader is not None
+            and (epoch + 1) % self.validation_every_epochs == 0
+        )
+
+    def validate(self, validation_dataloader: Iterable, epoch: int) -> float:
+        model = self.ema_model if self.validation_use_ema and self.ema_model is not None else self.model
+        was_training = bool(model.training)
+        model.eval()
+        devices: list[int] = []
+        if self.device.type == "cuda":
+            devices = [self.device.index if self.device.index is not None else torch.cuda.current_device()]
+        loss_sum = 0.0
+        sample_count = 0
+        try:
+            with torch.random.fork_rng(devices=devices, enabled=True):
+                torch.manual_seed(self.validation_seed)
+                if self.device.type == "cuda":
+                    torch.cuda.manual_seed_all(self.validation_seed)
+                with torch.no_grad():
+                    for batch in validation_dataloader:
+                        loss, diagnostics = self._forward_loss(batch, epoch=epoch, model=model)
+                        batch_size = int(diagnostics["batch_size"])
+                        loss_sum += float(loss.detach().cpu()) * batch_size
+                        sample_count += batch_size
+        finally:
+            if was_training:
+                model.train()
+        if sample_count <= 0:
+            raise ValueError("Validation dataloader yielded zero samples.")
+        value = loss_sum / sample_count
+        if not math.isfinite(value):
+            raise FloatingPointError("Validation loss is NaN or Inf.")
+        return float(value)
+
+    def _write_epoch_metrics(self, metrics: dict[str, Any]) -> None:
+        if not self.is_main_process:
+            return
+        self.metrics_path.parent.mkdir(parents=True, exist_ok=True)
+        fieldnames = [
+            "epoch_index",
+            "completed_epoch",
+            "train_loss",
+            "validation_loss",
+            "learning_rate",
+            "ema_step",
+            "finite_status",
+            "elapsed_seconds",
+            "gpu_peak_bytes",
+            "checkpoint_path",
+        ]
+        write_header = not self.metrics_path.exists()
+        with self.metrics_path.open("a", newline="", encoding="utf-8") as handle:
+            writer = csv.DictWriter(handle, fieldnames=fieldnames)
+            if write_header:
+                writer.writeheader()
+            writer.writerow({name: metrics.get(name) for name in fieldnames})
+
+    def fit(
+        self,
+        dataloader: Iterable,
+        validation_dataloader: Iterable | None = None,
+    ) -> None:
         """執行 config 指定的 training loop，並依設定做 checkpoint 與 sample 輸出。"""
 
         self.model.train()
@@ -181,7 +352,8 @@ class Trainer:
                 epoch_started = time.perf_counter()
                 if self.device.type == "cuda":
                     torch.cuda.reset_peak_memory_stats(self.device)
-                last_result = {"loss": float("nan")}
+                train_loss_sum = 0.0
+                train_sample_count = 0
                 batch_bar = ProgressReporter(
                     self.steps_per_epoch,
                     f"Epoch {epoch + 1}/{self.epochs}",
@@ -191,13 +363,29 @@ class Trainer:
                 )
                 try:
                     for batch in dataloader:
-                        last_result = self.train_step(batch, epoch=epoch)
-                        self.last_loss = last_result["loss"]
-                        if self.best_loss is None or self.last_loss < self.best_loss:
-                            self.best_loss = self.last_loss
-                        batch_bar.update(postfix={"loss": f"{last_result['loss']:.6f}"})
+                        result = self.train_step(batch, epoch=epoch)
+                        batch_size = int(self._last_step_diagnostics.get("batch_size", 1))
+                        train_loss_sum += result["loss"] * batch_size
+                        train_sample_count += batch_size
+                        batch_bar.update(postfix={"loss": f"{result['loss']:.6f}"})
                 finally:
                     batch_bar.close()
+                if train_sample_count <= 0:
+                    raise ValueError("Training dataloader yielded zero samples.")
+                train_loss = train_loss_sum / train_sample_count
+                if not math.isfinite(train_loss):
+                    raise FloatingPointError("Mean training loss is NaN or Inf.")
+                self.last_loss = float(train_loss)
+                if self.best_loss is None or self.last_loss < self.best_loss:
+                    self.best_loss = self.last_loss
+
+                validation_loss = None
+                if self.should_validate(epoch, validation_dataloader):
+                    validation_loss = self.validate(validation_dataloader, epoch=epoch)
+                    self.last_validation_loss = validation_loss
+                    if self.best_validation_loss is None or validation_loss < self.best_validation_loss:
+                        self.best_validation_loss = validation_loss
+                    self.model.train()
                 self.last_epoch = epoch
                 checkpoint_path = None
                 if self.should_save(epoch):
@@ -206,22 +394,38 @@ class Trainer:
                     path = self.save_samples(epoch)
                     if self.is_main_process:
                         print(f"Saved samples: {path}")
+                elapsed = time.perf_counter() - epoch_started
+                learning_rate = float(self.optimizer.param_groups[0]["lr"])
+                peak_memory = (
+                    int(torch.cuda.max_memory_allocated(self.device))
+                    if self.device.type == "cuda"
+                    else None
+                )
+                epoch_metrics = {
+                    "epoch_index": epoch,
+                    "completed_epoch": epoch + 1,
+                    "train_loss": train_loss,
+                    "validation_loss": validation_loss,
+                    "learning_rate": learning_rate,
+                    "ema_step": self.ema.step if self.ema is not None else None,
+                    "finite_status": "PASS",
+                    "elapsed_seconds": elapsed,
+                    "gpu_peak_bytes": peak_memory,
+                    "checkpoint_path": str(checkpoint_path) if checkpoint_path is not None else None,
+                }
+                self.last_epoch_metrics = epoch_metrics
+                self._write_epoch_metrics(epoch_metrics)
                 if self.is_main_process:
-                    elapsed = time.perf_counter() - epoch_started
-                    learning_rate = float(self.optimizer.param_groups[0]["lr"])
-                    peak_memory = (
-                        int(torch.cuda.max_memory_allocated(self.device))
-                        if self.device.type == "cuda"
-                        else None
-                    )
+                    validation_text = "n/a" if validation_loss is None else f"{validation_loss:.6f}"
                     print(
                         "Epoch "
                         f"index={epoch} completed={epoch + 1} "
-                        f"loss={last_result['loss']:.6f} lr={learning_rate:.10g} "
+                        f"loss={train_loss:.6f} validation_loss={validation_text} "
+                        f"lr={learning_rate:.10g} "
                         f"elapsed_seconds={elapsed:.3f} "
                         f"gpu_peak_bytes={peak_memory} checkpoint={checkpoint_path}"
                     )
-                epoch_bar.update(postfix={"loss": f"{last_result['loss']:.6f}"})
+                epoch_bar.update(postfix={"loss": f"{train_loss:.6f}"})
         finally:
             epoch_bar.close()
 
@@ -308,6 +512,15 @@ class Trainer:
             "scheduler": type(self.scheduler).__name__ if self.scheduler is not None else None,
             "ema": self.ema.state_dict() if self.ema is not None else None,
             "checkpoint_dir": str(self.checkpoint_dir),
+            "metrics_path": str(self.metrics_path),
+            "validation": {
+                "enabled": self.validation_enabled,
+                "every_epochs": self.validation_every_epochs,
+                "seed": self.validation_seed,
+                "use_ema": self.validation_use_ema,
+                "last_loss": self.last_validation_loss,
+                "best_loss": self.best_validation_loss,
+            },
             "samples": {
                 "enabled": self.sample_enabled,
                 "every_epochs": self.sample_every_epochs,

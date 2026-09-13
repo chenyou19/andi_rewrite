@@ -218,6 +218,35 @@ class EvaluatorRefactorContractTest(unittest.TestCase):
         self.assertTrue(torch.equal(collected_labels, labels))
         self.assertEqual([item["subject_id"] for item in metadata], ["first", "second"])
 
+    def test_in_memory_collect_rejects_variable_depth_with_streaming_guidance(self) -> None:
+        batches = []
+        for index, depth in enumerate((4, 5), start=1):
+            image = torch.linspace(
+                0.0,
+                1.0,
+                2 * 3 * depth,
+                dtype=torch.float32,
+            ).reshape(1, 1, 2, 3, depth)
+            batches.append(
+                {
+                    "image": image,
+                    "label": image[:, 0] > 0.5,
+                    "metadata": {
+                        "subject_id": f"variable_{index}",
+                        "has_label": True,
+                    },
+                }
+            )
+
+        evaluator = _RecordingScoreEvaluator(_DummyDetector(), _evaluation_config())
+        with self.assertRaisesRegex(
+            RuntimeError,
+            r"in_memory.*volume 2.*\(2, 3, 5\).*\(2, 3, 4\).*disk_streaming",
+        ):
+            evaluator.collect(batches)
+
+        self.assertEqual(len(evaluator.volume_score_calls), 2)
+
     def test_legacy_csv_schema_and_mapping_order_are_preserved(self) -> None:
         scores: dict[Any, Any] = {
             0.1: {"dice": 0.25, "sensitivity": 0.5, "precision": 0.75},

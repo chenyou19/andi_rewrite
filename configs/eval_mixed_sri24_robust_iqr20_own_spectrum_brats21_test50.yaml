@@ -1,0 +1,127 @@
+experiment:
+  name: mixed_sri24_robust_iqr20_own_spectrum_brats21_test50
+runtime:
+  seed: 73
+  device: cuda
+  cudnn_benchmark: true
+  deterministic: false
+  accelerate: false
+data:
+  type: volume
+  dataset_path: C:/ML/data/BraTS_2021
+  path_to_csv: C:\ML\andi_test\Test\andi_rewrite\splits\BraTS21\scans_test_50.csv
+  image_size: 128
+  channels: 3
+  batch_size: 1
+  workers: 0
+  size_splits: 155
+  modalities:
+  - flair
+  - t1
+  - t2
+  segmentation_suffix: seg
+  filename_separator: _
+  histogram_normalization: false
+  intensity_normalization: robust_iqr
+  normalize_input: false
+  shift_naming: false
+  return_metadata: true
+model:
+  type: andi_unet
+  image_size: 128
+  in_channels: 3
+  out_channels: 3
+  time_dim: 256
+  checkpoint: C:\ML\andi_test\Test\andi_rewrite\outputs\runs\mixed_sri24_robust_iqr20_own_spectrum\epoch_0019.pt
+  use_ema: true
+diffusion:
+  steps: 1000
+  beta_start: 0.0001
+  beta_end: 0.02
+noise:
+  schedule:
+    type: static
+    sampler:
+      type: empirical_spectrum
+      stats_path: C:\ML\andi_test\Test\andi_rewrite\outputs\datasets\mpi_oasis3_fomo45k_sri24_robust_iqr\spectrum\mixed_train_robust_iqr_empirical_spectrum.npz
+      mode: radial
+      spectrum_key: mean_amplitude
+      radial_key: radial_amplitude
+      spectrum_power_key: mean_power
+      radial_power_key: radial_power
+      generation_method: filtered_gaussian
+      strength: 1.0
+      normalize: true
+      per_channel: true
+      eps: 1.0e-08
+anomaly:
+  t_lower: 75
+  t_upper: 200
+  aggregation:
+    type: geometric_mean
+    eps: 1.0e-08
+  modality_pool:
+    type: max
+  median_filter:
+    enabled: true
+    kernel_size: 5
+  threshold: yen
+metrics:
+  postprocess_mode: rewrite
+  threshold_method: yen
+  normalization_scope: dataset
+  output_csv: C:\ML\andi_test\Test\andi_rewrite\outputs\runs\mixed_sri24_robust_iqr20_own_spectrum\evaluation\brats21_test50\ANDi.csv
+  output_mf_csv: C:\ML\andi_test\Test\andi_rewrite\outputs\runs\mixed_sri24_robust_iqr20_own_spectrum\evaluation\brats21_test50\ANDi_mf.csv
+  thr_start: 0.01
+  thr_end: 0.3
+  thr_step: 0.001
+  threshold: 0.5
+  size_splits: 155
+  kernel_size: 5
+  rank: 3
+  connectivity: 1
+  median_filter:
+    enabled: true
+    kernel_size: 5
+    mode: 3d
+  postprocess:
+    score:
+      pipeline:
+      - type: normalize
+    score_mf:
+      pipeline:
+      - type: median_filter
+        kernel_size: 5
+        mode: 3d
+      - type: normalize
+    threshold_mask:
+      pipeline:
+      - type: binary_dilation
+        rank: 3
+        connectivity: 1
+        iterations: 1
+    yen_mask:
+      pipeline: []
+prediction_output:
+  enabled: true
+  directory: C:\ML\andi_test\Test\andi_rewrite\outputs\runs\mixed_sri24_robust_iqr20_own_spectrum\evaluation\brats21_test50\predictions
+  normalization_scope: dataset
+  binary_mask_source: score_mf
+  save_raw_score: true
+  save_median_filtered_score: true
+  save_binary_mask: true
+  save_threshold_mask: false
+  restore_native_grid: true
+  save_model_grid: false
+evaluation:
+  memory_mode: disk_streaming
+  cache:
+    directory: C:\ML\andi_test\Test\andi_rewrite\outputs\runs\mixed_sri24_robust_iqr20_own_spectrum\evaluation\brats21_test50\cache
+    resume: true
+    keep_on_success: true
+  compute_auprc: true
+  auprc_mode: sampled
+  auprc_max_samples: 5000000
+  auprc_seed: 73
+  progress:
+    enabled: true

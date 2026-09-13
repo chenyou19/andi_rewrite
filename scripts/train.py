@@ -63,11 +63,21 @@ def build_trainer_from_config(config: dict) -> tuple[Trainer, object]:
 
     runtime = config.get("runtime", {})
     seed = int(runtime.get("seed", 73))
+    if config.get("data", {}).get("intensity_normalization") == "robust_iqr":
+        if bool(config.get("training", {}).get("normalize_input", True)):
+            raise ValueError("robust_iqr data requires training.normalize_input=false.")
     set_seed(seed)
     configure_training_backend(runtime)
     accelerator = build_accelerator(config)
     device = accelerator.device if accelerator is not None else resolve_device(str(runtime.get("device", "auto")))
     dataloader = build_dataloader(config.get("data", {}))
+    validation_config = config.get("validation", {})
+    validation_dataloader = None
+    if isinstance(validation_config, dict) and bool(validation_config.get("enabled", False)):
+        validation_data_config = validation_config.get("data")
+        if not isinstance(validation_data_config, dict):
+            raise ValueError("validation.data must be a dataset configuration mapping when validation is enabled.")
+        validation_dataloader = build_dataloader(validation_data_config)
     model = build_model(config.get("model", {}), device=device)
     diffusion = build_diffusion(config.get("diffusion", {}), device=device)
     noise_plan = build_noise_plan(config.get("noise", {}))
@@ -81,8 +91,13 @@ def build_trainer_from_config(config: dict) -> tuple[Trainer, object]:
         device=device,
         steps_per_epoch=len(dataloader),
         accelerator=accelerator,
+        validation_config=validation_config if isinstance(validation_config, dict) else None,
     )
-    dataloader = trainer.prepare(dataloader)
+    prepared = trainer.prepare(dataloader, validation_dataloader)
+    if validation_dataloader is None:
+        dataloader = prepared
+    else:
+        dataloader, trainer.validation_dataloader = prepared
     return trainer, dataloader
 
 
@@ -125,7 +140,15 @@ def run_evaluation_from_config(eval_config_path: str | Path) -> dict:
     dataloader = build_dataloader(eval_config.get("data", {}))
     evaluator = VolumeEvaluator(
         detector=detector,
-        config={**eval_config.get("data", {}), **eval_config.get("metrics", {}), **eval_config.get("evaluation", {})},
+        config={
+            **eval_config.get("data", {}),
+            **eval_config.get("metrics", {}),
+            **eval_config.get("evaluation", {}),
+            "prediction_output": eval_config.get("prediction_output", {}),
+            "model": eval_config.get("model", {}),
+            "anomaly": eval_config.get("anomaly", {}),
+            "_run_config": eval_config,
+        },
         accelerator=accelerator,
     )
     dataloader = evaluator.prepare(dataloader)
@@ -182,7 +205,7 @@ def main() -> None:
 
     if args.run_one_step:
         batch = next(iter(dataloader))
-        result = trainer.train_step(batch, epoch=0)
+        result = trainer.run_one_step_diagnostics(batch, epoch=0)
         print("One-step training result:")
         print_config(result)
     elif args.sample_once:
@@ -191,7 +214,7 @@ def main() -> None:
         print_config({"path": str(path)})
     elif args.fit:
         train_start = datetime.now().astimezone()
-        trainer.fit(dataloader)
+        trainer.fit(dataloader, trainer.validation_dataloader)
         train_end = datetime.now().astimezone()
         if trainer.is_main_process:
             save_training_report(

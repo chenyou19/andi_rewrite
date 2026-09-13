@@ -1,0 +1,3868 @@
+{
+  "date": "2026-09-08",
+  "scope": "Report and source audit only; no new training/inference",
+  "head": "db4cb1f",
+  "inference_inventory": [
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\comparisons\\brats21_251_lemon_models_matched_noise\\lemon_brats21_noise\\inference_metrics_summary.csv",
+      "sha256": "5bc34c7e582c0de1beff33301c14ec7c3d58e22c762e5c6dfaf68f5a7d2a5f6a",
+      "experiment": "brats21_251_lemon_brats21_noise_model",
+      "cases": 251,
+      "split": "C:/ML/data/BraTS_2021_healthy_lmdb/scans_test.csv",
+      "checkpoint": "C:/ML/andi_test/Test/andi_rewrite/outputs/runs/lemon_t1_t2_flair_brats21_empirical_spectrum233/epoch_0232.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.14596345800514193",
+          "bestdice": "0.2638814394596935",
+          "yendice": "0.17729462799866122"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.1472114113879549",
+          "bestdice": "0.2767633384077692",
+          "yendice": "0.18855800407129694"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\comparisons\\brats21_251_lemon_models_matched_noise\\native_lemon\\inference_metrics_summary.csv",
+      "sha256": "1501e78e6ad1d35b1e24f6d737841d9a93fe8731d59161ad689d8a2507e71fe9",
+      "experiment": "brats21_251_native_lemon_model_matched_noise",
+      "cases": 251,
+      "split": "C:/ML/data/BraTS_2021_healthy_lmdb/scans_test.csv",
+      "checkpoint": "C:/ML/andi_test/Test/andi_rewrite/outputs/runs/lemon_t1_t2_flair_empirical_spectrum233/epoch_0232.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.1333485714698425",
+          "bestdice": "0.2207952973384527",
+          "yendice": "0.1912826588452534"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.13340841988417226",
+          "bestdice": "0.2307894915687819",
+          "yendice": "0.2069009828595698"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\comparisons\\brats21_mni_affine_pass_first50_epoch0232\\inference_metrics_summary.csv",
+      "sha256": "2439dfb4f962f12f9a47d4d6a74a958e905af6d4016ec5e811cc48eb6da63c48",
+      "experiment": "brats21_mni_affine_pass_first50_lemon_brats21_noise_epoch0232",
+      "cases": 50,
+      "split": "C:/ML/data/BraTS_2021_MPI_aligned/manifests/mni_affine_pass_first50.csv",
+      "checkpoint": "C:/ML/andi_test/Test/andi_rewrite/outputs/runs/lemon_t1_t2_flair_brats21_empirical_spectrum233/epoch_0232.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.2909352889852114",
+          "bestdice": "0.3770765356927177",
+          "yendice": "0.2247725392945218"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.31145351577072966",
+          "bestdice": "0.39838337828402925",
+          "yendice": "0.2775621402256128"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\5fold\\fold_0\\inference_metrics_summary.csv",
+      "sha256": "6eee8aaf38753729c74ba0c70e72be0bb8cae49f2bd061a7284fc2f1df49c2c8",
+      "experiment": "pyramid20_lmdb_5fold_fold_0_eval",
+      "cases": 251,
+      "split": "C:\\ML\\andi_test\\Test\\andi_rewrite\\splits\\BraTS21\\5fold\\fold_0\\scans_test.csv",
+      "checkpoint": "outputs\\checkpoints\\5fold\\pyramid20_lmdb_5fold_fold_0\\epoch_0019.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.5273175033613139",
+          "bestdice": "0.4505344612960142",
+          "yendice": "0.24127413978204196"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.849034669470985",
+          "bestdice": "0.7865265693994445",
+          "yendice": "0.7256453199437553"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\5fold\\fold_1\\inference_metrics_summary.csv",
+      "sha256": "b511e7876b6bd7389f864e5db3d5ad958e497706a42728267c74b3bf15289560",
+      "experiment": "pyramid20_lmdb_5fold_fold_1_eval",
+      "cases": 251,
+      "split": "C:\\ML\\andi_test\\Test\\andi_rewrite\\splits\\BraTS21\\5fold\\fold_1\\scans_test.csv",
+      "checkpoint": "outputs\\checkpoints\\5fold\\pyramid20_lmdb_5fold_fold_1\\epoch_0019.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.5430328806476434",
+          "bestdice": "0.4529632695459842",
+          "yendice": "0.2778293986156932"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.8506980597357022",
+          "bestdice": "0.7804740258932471",
+          "yendice": "0.6982162344243561"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\5fold\\fold_2\\inference_metrics_summary.csv",
+      "sha256": "be0582dddbe2108ef0e63ec9d7b20692d6628d7e7ca82347928e06d2db75db56",
+      "experiment": "pyramid20_lmdb_5fold_fold_2_eval",
+      "cases": 251,
+      "split": "C:\\ML\\andi_test\\Test\\andi_rewrite\\splits\\BraTS21\\5fold\\fold_2\\scans_test.csv",
+      "checkpoint": "outputs\\checkpoints\\5fold\\pyramid20_lmdb_5fold_fold_2\\epoch_0019.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.5214739020013659",
+          "bestdice": "0.4489353058861554",
+          "yendice": "0.2435954549707339"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.8291269016018665",
+          "bestdice": "0.7682524553051675",
+          "yendice": "0.7068722621849111"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\5fold\\fold_3\\inference_metrics_summary.csv",
+      "sha256": "af8a6db9507b6e4577304a883cf5b0efa97835d103297eed0426ff5d08d1dbfc",
+      "experiment": "pyramid20_lmdb_5fold_fold_3_eval",
+      "cases": 251,
+      "split": "C:\\ML\\andi_test\\Test\\andi_rewrite\\splits\\BraTS21\\5fold\\fold_3\\scans_test.csv",
+      "checkpoint": "outputs\\checkpoints\\5fold\\pyramid20_lmdb_5fold_fold_3\\epoch_0019.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.5473477450677087",
+          "bestdice": "0.46137561587100057",
+          "yendice": "0.26994922136595173"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.8469034353655509",
+          "bestdice": "0.784680649375938",
+          "yendice": "0.7267629722647266"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\5fold\\fold_4\\inference_metrics_summary.csv",
+      "sha256": "5c0c20d1f1e8601fbd87dcea6263e1d55f05822e432c186906ae54722d8ecb8a",
+      "experiment": "pyramid20_lmdb_5fold_fold_4_eval",
+      "cases": 251,
+      "split": "C:\\ML\\andi_test\\Test\\andi_rewrite\\splits\\BraTS21\\5fold\\fold_4\\scans_test.csv",
+      "checkpoint": "outputs\\checkpoints\\5fold\\pyramid20_lmdb_5fold_fold_4\\epoch_0019.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.5065603888197883",
+          "bestdice": "0.43645419716609213",
+          "yendice": "0.23323460924600728"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.8400845436070322",
+          "bestdice": "0.7833541788645266",
+          "yendice": "0.712067574333434"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\5fold_v2\\fold_0\\inference_metrics_summary.csv",
+      "sha256": "4cc92671c34c121d02b80e19c976df07d45d95286a8b7de58c426836d1a28f29",
+      "experiment": "empirical_spectrum_radial20_lmdb_5fold_v2_fold_0_eval",
+      "cases": 251,
+      "split": "C:\\ML\\ANDi\\splits\\BraTS21\\5fold\\fold_0\\scans_test.csv",
+      "checkpoint": "outputs\\checkpoints\\5fold_v2\\empirical_spectrum_radial20_lmdb_5fold_v2_fold_0\\epoch_0019.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.5943251400326882",
+          "bestdice": "0.5937509261913094",
+          "yendice": "0.5427568010185427"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.613390371609607",
+          "bestdice": "0.6046227408503081",
+          "yendice": "0.5738547484432757"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\5fold_v2\\fold_1\\inference_metrics_summary.csv",
+      "sha256": "d4afa72dea385866838c785fe0bc3af9d1825016bea32d5c6ddb5a5621bde51b",
+      "experiment": "empirical_spectrum_radial20_lmdb_5fold_v2_fold_1_eval",
+      "cases": 251,
+      "split": "C:\\ML\\ANDi\\splits\\BraTS21\\5fold\\fold_1\\scans_test.csv",
+      "checkpoint": "outputs\\checkpoints\\5fold_v2\\empirical_spectrum_radial20_lmdb_5fold_v2_fold_1\\epoch_0019.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.5439366027510507",
+          "bestdice": "0.5586749338400455",
+          "yendice": "0.5051489184594399"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.5583285142769973",
+          "bestdice": "0.5655248935292985",
+          "yendice": "0.5369317805972975"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\5fold_v2\\fold_2\\inference_metrics_summary.csv",
+      "sha256": "1c4f124c129ccd32b6223ff95f3db408a39be0cb753db5ce11dd6a0435869024",
+      "experiment": "empirical_spectrum_radial20_lmdb_5fold_v2_fold_2_eval",
+      "cases": 251,
+      "split": "C:\\ML\\ANDi\\splits\\BraTS21\\5fold\\fold_2\\scans_test.csv",
+      "checkpoint": "outputs\\checkpoints\\5fold_v2\\empirical_spectrum_radial20_lmdb_5fold_v2_fold_2\\epoch_0019.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.6049043752156932",
+          "bestdice": "0.5951438464834108",
+          "yendice": "0.5378721825506462"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.6173822613120071",
+          "bestdice": "0.6041889409155327",
+          "yendice": "0.5806737159771335"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\5fold_v2\\fold_3\\inference_metrics_summary.csv",
+      "sha256": "0384f45bbf0e740ccd4acaaeabd209d72fc60337140e3ccbe2cbbc7299192046",
+      "experiment": "empirical_spectrum_radial20_lmdb_5fold_v2_fold_3_eval",
+      "cases": 251,
+      "split": "C:\\ML\\ANDi\\splits\\BraTS21\\5fold\\fold_3\\scans_test.csv",
+      "checkpoint": "outputs\\checkpoints\\5fold_v2\\empirical_spectrum_radial20_lmdb_5fold_v2_fold_3\\epoch_0019.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.6247024322936796",
+          "bestdice": "0.6090526907314747",
+          "yendice": "0.5683006382613709"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.6350019656186056",
+          "bestdice": "0.6124064312428984",
+          "yendice": "0.5929166669794541"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\5fold_v2\\fold_4\\inference_metrics_summary.csv",
+      "sha256": "22f90925a1bb699548bdaabe74daab99fd5546d8c9cc777612e80df626e0c993",
+      "experiment": "empirical_spectrum_radial20_lmdb_5fold_v2_fold_4_eval",
+      "cases": 251,
+      "split": "C:\\ML\\ANDi\\splits\\BraTS21\\5fold\\fold_4\\scans_test.csv",
+      "checkpoint": "outputs\\checkpoints\\5fold_v2\\empirical_spectrum_radial20_lmdb_5fold_v2_fold_4\\epoch_0019.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.5113686540264762",
+          "bestdice": "0.5567387176368839",
+          "yendice": "0.49997769058530667"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.5163410427383663",
+          "bestdice": "0.561470840629423",
+          "yendice": "0.5215928038214501"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\brats21_10_checkpoint_comparison\\empirical_spectrum233\\inference_metrics_summary.csv",
+      "sha256": "d31cefdf9137abb473ac0d6e5a1d9e4ca5472be047c85e0e98012405787c5d2d",
+      "experiment": "brats21_10_empirical_spectrum233_epoch0232_gaussian_predictions",
+      "cases": 10,
+      "split": "C:/ML/andi_test/Test/andi_rewrite/splits/BraTS21/scans_test_10_comparison.csv",
+      "checkpoint": "C:/ML/andi_test/Test/andi_rewrite/outputs/checkpoints/empirical_spectrum233_lmdb_full_gaussian_20260609/epoch_0232.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "",
+          "bestdice": "0.30473302518107365",
+          "yendice": "0.14432446722346035"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "",
+          "bestdice": "0.305081707128881",
+          "yendice": "0.18294967287476435"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\brats21_10_checkpoint_comparison\\empirical_spectrum233_empirical_noise\\inference_metrics_summary.csv",
+      "sha256": "7f18a62fea8876ef3bcdef995ff9d2da7deafea92bd8cd0464d1d08a25985c2c",
+      "experiment": "brats21_10_empirical_spectrum233_epoch0232_empirical_noise_predictions",
+      "cases": 10,
+      "split": "C:/ML/andi_test/Test/andi_rewrite/splits/BraTS21/scans_test_10_comparison.csv",
+      "checkpoint": "C:/ML/andi_test/Test/andi_rewrite/outputs/checkpoints/empirical_spectrum233_lmdb_full_gaussian_20260609/epoch_0232.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "",
+          "bestdice": "0.7700557241065364",
+          "yendice": "0.5402325964619452"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "",
+          "bestdice": "0.7901702805578387",
+          "yendice": "0.5760646855179183"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\brats21_10_checkpoint_comparison\\pyramid233\\inference_metrics_summary.csv",
+      "sha256": "ea4f3c3b848a220ced560599056c1d41b83b668ab965c093364e991003fd7951",
+      "experiment": "brats21_10_pyramid233_epoch0232_gaussian_predictions",
+      "cases": 10,
+      "split": "C:/ML/andi_test/Test/andi_rewrite/splits/BraTS21/scans_test_10_comparison.csv",
+      "checkpoint": "C:/ML/andi_test/Test/andi_rewrite/outputs/checkpoints/pyramid233_lmdb_full_gaussian_save20/epoch_0232.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "",
+          "bestdice": "0.5829011854879895",
+          "yendice": "0.26876294964783803"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "",
+          "bestdice": "0.8012452605336264",
+          "yendice": "0.7368538574610646"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\brats21_50_all_checkpoints_fixed_magnitude\\epoch_0019\\inference_metrics_summary.csv",
+      "sha256": "913cf492adccac796cd12e0a6ec42438d2ea9548d41a240ed6472513386f0318",
+      "experiment": "brats21_50_all_checkpoints_fixed_magnitude_epoch_0019_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\checkpoints\\empirical_spectrum233_lmdb_full_gaussian_20260609\\epoch_0019.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.8183598314805897",
+          "bestdice": "0.755587816018733",
+          "yendice": "0.614942498314073"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.8512964132081127",
+          "bestdice": "0.7970129544130395",
+          "yendice": "0.7018103829428644"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\brats21_50_all_checkpoints_fixed_magnitude\\epoch_0039\\inference_metrics_summary.csv",
+      "sha256": "b2c9509ee1d59ae72d9d5c54215994f36d24f0914367fe83e6dae9cdb9b147ce",
+      "experiment": "brats21_50_all_checkpoints_fixed_magnitude_epoch_0039_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\checkpoints\\empirical_spectrum233_lmdb_full_gaussian_20260609\\epoch_0039.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.8441646021581988",
+          "bestdice": "0.7849284387520298",
+          "yendice": "0.6615721634268757"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.872907897547128",
+          "bestdice": "0.8208538864701477",
+          "yendice": "0.6890943161473058"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\brats21_50_all_checkpoints_fixed_magnitude\\epoch_0059\\inference_metrics_summary.csv",
+      "sha256": "55613b4d1a3f6dc4cc2ca3588028aa929fd79efc25f019522661161e3ba7cb61",
+      "experiment": "brats21_50_all_checkpoints_fixed_magnitude_epoch_0059_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\checkpoints\\empirical_spectrum233_lmdb_full_gaussian_20260609\\epoch_0059.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.8570748703997574",
+          "bestdice": "0.797527182349115",
+          "yendice": "0.6595240059233798"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.8823059586954595",
+          "bestdice": "0.8300022698321894",
+          "yendice": "0.6926874434596952"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\brats21_50_all_checkpoints_fixed_magnitude\\epoch_0079\\inference_metrics_summary.csv",
+      "sha256": "e4f751f1a5612b1858d99ec99a6565bc705058f8c58fe176d787af37f4e53f41",
+      "experiment": "brats21_50_all_checkpoints_fixed_magnitude_epoch_0079_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\checkpoints\\empirical_spectrum233_lmdb_full_gaussian_20260609\\epoch_0079.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.8615010560822083",
+          "bestdice": "0.8033300369204716",
+          "yendice": "0.6571036738255839"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.8831811710268235",
+          "bestdice": "0.8312014176140431",
+          "yendice": "0.6899781277912929"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\brats21_50_all_checkpoints_fixed_magnitude\\epoch_0099\\inference_metrics_summary.csv",
+      "sha256": "4e2f6cb53894108876aa037479d2c11d75e0465f4c57552f8df221d3019134e8",
+      "experiment": "brats21_50_all_checkpoints_fixed_magnitude_epoch_0099_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\checkpoints\\empirical_spectrum233_lmdb_full_gaussian_20260609\\epoch_0099.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.8646626846846908",
+          "bestdice": "0.8070551151830623",
+          "yendice": "0.6585191184992745"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.8849821876069626",
+          "bestdice": "0.8329675218349181",
+          "yendice": "0.6897414594296882"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\brats21_50_all_checkpoints_fixed_magnitude\\epoch_0119\\inference_metrics_summary.csv",
+      "sha256": "8bfd25120f03942c78e7957ad0ab9268efd72455443e9633bdb8929c91b84f98",
+      "experiment": "brats21_50_all_checkpoints_fixed_magnitude_epoch_0119_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\checkpoints\\empirical_spectrum233_lmdb_full_gaussian_20260609\\epoch_0119.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.8596649051657729",
+          "bestdice": "0.8029208767988827",
+          "yendice": "0.6679867203764487"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.878929212294791",
+          "bestdice": "0.8282468799659339",
+          "yendice": "0.6859800223156598"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\brats21_50_all_checkpoints_fixed_magnitude\\epoch_0139\\inference_metrics_summary.csv",
+      "sha256": "0ef29bbf4772ac7a332ff0a3ea2e7940cef194e38b8da29c873b81b17aff5930",
+      "experiment": "brats21_50_all_checkpoints_fixed_magnitude_epoch_0139_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\checkpoints\\empirical_spectrum233_lmdb_full_gaussian_20260609\\epoch_0139.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.8601975846258865",
+          "bestdice": "0.8029063705562595",
+          "yendice": "0.6592741609433571"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.8799135182849549",
+          "bestdice": "0.8279355245531133",
+          "yendice": "0.6813850695331588"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\brats21_50_all_checkpoints_fixed_magnitude\\epoch_0159\\inference_metrics_summary.csv",
+      "sha256": "64555d62399988265caf8ff617b132011e6a3feb0f27b0e9b3b7f0684fa795cf",
+      "experiment": "brats21_50_all_checkpoints_fixed_magnitude_epoch_0159_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\checkpoints\\empirical_spectrum233_lmdb_full_gaussian_20260609\\epoch_0159.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.8608881907923029",
+          "bestdice": "0.8034403045061451",
+          "yendice": "0.664358050711397"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.8791410399929014",
+          "bestdice": "0.8264305920149217",
+          "yendice": "0.7070659793835707"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\brats21_50_all_checkpoints_fixed_magnitude\\epoch_0179\\inference_metrics_summary.csv",
+      "sha256": "55aa1476b2de7e4c918fa4bde9032a7cbffe7353497d6d8761aacf512549f178",
+      "experiment": "brats21_50_all_checkpoints_fixed_magnitude_epoch_0179_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\checkpoints\\empirical_spectrum233_lmdb_full_gaussian_20260609\\epoch_0179.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.8583718012694423",
+          "bestdice": "0.8005019460713025",
+          "yendice": "0.6579997816851456"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.876349792054",
+          "bestdice": "0.8231458497236269",
+          "yendice": "0.6851060802579836"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\brats21_50_all_checkpoints_fixed_magnitude\\epoch_0199\\inference_metrics_summary.csv",
+      "sha256": "1f514c706bcc05fa52784d25428c8d7b8d3d26ea5dacf299b96317c46f86ffe8",
+      "experiment": "brats21_50_all_checkpoints_fixed_magnitude_epoch_0199_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\checkpoints\\empirical_spectrum233_lmdb_full_gaussian_20260609\\epoch_0199.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.8565740876551501",
+          "bestdice": "0.8005208159953341",
+          "yendice": "0.664600805883072"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.8746858212778204",
+          "bestdice": "0.8226940382132879",
+          "yendice": "0.6831689575700746"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\brats21_50_all_checkpoints_fixed_magnitude\\epoch_0219\\inference_metrics_summary.csv",
+      "sha256": "d85ffb4f7a565d965bd53cbcb5cd10648c6b9744f306453498ee0365347f23fb",
+      "experiment": "brats21_50_all_checkpoints_fixed_magnitude_epoch_0219_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\checkpoints\\empirical_spectrum233_lmdb_full_gaussian_20260609\\epoch_0219.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.8529750960099356",
+          "bestdice": "0.7984983580620226",
+          "yendice": "0.6634621522850673"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.8707015208149091",
+          "bestdice": "0.8202392487514024",
+          "yendice": "0.6821137528593261"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\brats21_50_all_checkpoints_fixed_magnitude\\epoch_0232\\inference_metrics_summary.csv",
+      "sha256": "89c7e699ca0728870515f3c778e1470ad5494aa075f223628d2cb237dd3fc5ba",
+      "experiment": "brats21_50_all_checkpoints_fixed_magnitude_epoch_0232_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\checkpoints\\empirical_spectrum233_lmdb_full_gaussian_20260609\\epoch_0232.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.8532715299738204",
+          "bestdice": "0.7975243609366421",
+          "yendice": "0.6629063629253581"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.8711440409195762",
+          "bestdice": "0.8199635757991217",
+          "yendice": "0.6823068276251812"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\brats21_50_pyramid233_epoch0232_empirical_spectrum\\inference_metrics_summary.csv",
+      "sha256": "25a4a8c12528aa3f4ae778cf8fe3b77f03c4c29a188dd8463f9e1cdf0ef6a7aa",
+      "experiment": "brats21_50_pyramid233_epoch0232_empirical_spectrum",
+      "cases": 50,
+      "split": "C:/ML/andi_test/Test/andi_rewrite/splits/BraTS21/scans_test_50.csv",
+      "checkpoint": "C:/ML/andi_test/Test/andi_rewrite/outputs/checkpoints/pyramid233_lmdb_full_gaussian/epoch_0232.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.29627531672649793",
+          "bestdice": "0.3877062452048252",
+          "yendice": "0.17595475062512045"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.37026186339100225",
+          "bestdice": "0.4433461794856942",
+          "yendice": "0.20308292153791516"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\brats21_50_pyramid233_epoch0232_pyramid\\inference_metrics_summary.csv",
+      "sha256": "09f2b1f2f87c6a2a47a6e49f4ca169f9bcb12da0e2046f77e630fdcf8aebdcd5",
+      "experiment": "brats21_50_pyramid233_epoch0232_pyramid",
+      "cases": 50,
+      "split": "C:/ML/andi_test/Test/andi_rewrite/splits/BraTS21/scans_test_50.csv",
+      "checkpoint": "C:/ML/andi_test/Test/andi_rewrite/outputs/checkpoints/pyramid233_lmdb_full_gaussian/epoch_0232.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.7254048114466763",
+          "bestdice": "0.6122116589522653",
+          "yendice": "0.49007846453134063"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.8615414290609026",
+          "bestdice": "0.8159553593027001",
+          "yendice": "0.7273526898895841"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\brats21_5_checkpoint_comparison\\empirical_spectrum233_empirical_noise\\inference_metrics_summary.csv",
+      "sha256": "6f435753ed25db60305caac57faceaace5cb90b2a0023e5d916ca1f50725fa26",
+      "experiment": "brats21_5_empirical_spectrum233_epoch0232_empirical_noise_predictions",
+      "cases": 5,
+      "split": "C:/ML/andi_test/Test/andi_rewrite/splits/BraTS21/scans_test_5_comparison.csv",
+      "checkpoint": "C:/ML/andi_test/Test/andi_rewrite/outputs/checkpoints/empirical_spectrum233_lmdb_full_gaussian_20260609/epoch_0232.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "",
+          "bestdice": "0.7706601462091349",
+          "yendice": "0.6071253923822675"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "",
+          "bestdice": "0.7836504043049912",
+          "yendice": "0.6473201738566604"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\brats21_5_checkpoint_comparison\\pyramid233_gaussian\\inference_metrics_summary.csv",
+      "sha256": "15981bd5cbe0a86b98a583fc4f0ea3d932c06db5c3bb447b5aa0232c54f901d0",
+      "experiment": "brats21_5_pyramid233_epoch0232_gaussian_predictions",
+      "cases": 5,
+      "split": "C:/ML/andi_test/Test/andi_rewrite/splits/BraTS21/scans_test_5_comparison.csv",
+      "checkpoint": "C:/ML/andi_test/Test/andi_rewrite/outputs/checkpoints/pyramid233_lmdb_full_gaussian_save20/epoch_0232.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "",
+          "bestdice": "0.61295898578014",
+          "yendice": "0.17664039444385798"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "",
+          "bestdice": "0.8143578778057469",
+          "yendice": "0.7893526492528854"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\brats21_5_dual_yen_mask_comparison\\empirical_spectrum233_empirical_noise\\inference_metrics_summary.csv",
+      "sha256": "eea84a1684c28a00585151c5354952c738b4d69a3565b0369a2ca85afb7b038f",
+      "experiment": "brats21_5_empirical_spectrum233_epoch0232_empirical_noise_dual_yen_masks",
+      "cases": 5,
+      "split": "C:/ML/andi_test/Test/andi_rewrite/splits/BraTS21/scans_test_5_comparison.csv",
+      "checkpoint": "C:/ML/andi_test/Test/andi_rewrite/outputs/checkpoints/empirical_spectrum233_lmdb_full_gaussian_20260609/epoch_0232.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "",
+          "bestdice": "0.7706601462091349",
+          "yendice": "0.6071253923822675"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "",
+          "bestdice": "0.7836504043049912",
+          "yendice": "0.6474300343373658"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\brats21_5_dual_yen_mask_comparison\\pyramid233_gaussian\\inference_metrics_summary.csv",
+      "sha256": "3313553e369b7541f2ddc401e5e00c2756ef4cc58c810f4a3705a1156be729eb",
+      "experiment": "brats21_5_pyramid233_epoch0232_gaussian_dual_yen_masks",
+      "cases": 5,
+      "split": "C:/ML/andi_test/Test/andi_rewrite/splits/BraTS21/scans_test_5_comparison.csv",
+      "checkpoint": "C:/ML/andi_test/Test/andi_rewrite/outputs/checkpoints/pyramid233_lmdb_full_gaussian_save20/epoch_0232.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "",
+          "bestdice": "0.6129564955448071",
+          "yendice": "0.17664039444385798"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "",
+          "bestdice": "0.8143910689204585",
+          "yendice": "0.7893775461467587"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\brats21_full_empirical_spectrum_epoch0232_20260609\\inference_metrics_summary.csv",
+      "sha256": "ae364a0eaa544b0e2ca3105f643dccb2cfb0410d6aeb035a3978dff5f8542b3c",
+      "experiment": "brats21_full_empirical_spectrum_epoch0232_20260609",
+      "cases": 251,
+      "split": "C:/ML/data/BraTS_2021_healthy_lmdb/scans_test.csv",
+      "checkpoint": "C:/ML/andi_test/Test/andi_rewrite/outputs/checkpoints/empirical_spectrum233_lmdb_full_gaussian_20260609/epoch_0232.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.8332378703480793",
+          "bestdice": "0.7884656161626421",
+          "yendice": "0.6037990425852975"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.8483824942417524",
+          "bestdice": "0.8020787735725811",
+          "yendice": "0.6398926072936154"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\brats21_full_empirical_spectrum_epoch0232_20260609_otsu\\inference_metrics_summary.csv",
+      "sha256": "a72ef14869a23b4feaff64b05d9d4985460b50c4740f1c6f136989083daecdf5",
+      "experiment": "brats21_full_empirical_spectrum_epoch0232_20260609_otsu",
+      "cases": 251,
+      "split": "C:/ML/data/BraTS_2021_healthy_lmdb/scans_test.csv",
+      "checkpoint": "C:/ML/andi_test/Test/andi_rewrite/outputs/checkpoints/empirical_spectrum233_lmdb_full_gaussian_20260609/epoch_0232.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.8331707957848746",
+          "bestdice": "0.7884655773807262",
+          "yendice": ""
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.8481383200319779",
+          "bestdice": "0.8020788794211547",
+          "yendice": ""
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\brats21_full_filtered_gaussian_epoch0232_20260609\\inference_metrics_summary.csv",
+      "sha256": "9e99f70f269d57ee43fb7dec48651d33dedc4a499cffcccacea221e70d0ecb59",
+      "experiment": "brats21_full_filtered_gaussian_epoch0232_20260609",
+      "cases": 251,
+      "split": "C:/ML/ANDi/splits/BraTS21/scans_test.csv",
+      "checkpoint": "C:/ML/andi_test/Test/andi_rewrite/outputs/checkpoints/empirical_spectrum233_lmdb_full_gaussian_20260609/epoch_0232.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.8323499642756887",
+          "bestdice": "0.7877909984559307",
+          "yendice": "0.5985561869929051"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.8476388926350917",
+          "bestdice": "0.8014463404749657",
+          "yendice": "0.6370237382553002"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\brats23_250_empirical_spectrum_radial40_epoch0010_full_gaussian\\inference_metrics_summary.csv",
+      "sha256": "27b4f00cf49a80b535df6d9fb38e942c7967118aca79af509f8cc717482d5cc5",
+      "experiment": "brats23_250_empirical_spectrum_radial40_epoch0010_full_gaussian",
+      "cases": 250,
+      "split": "C:/ML/andi_test/Test/andi_rewrite/splits/BraTS23/scans_test_250.csv",
+      "checkpoint": "C:/ML/andi_test/Test/andi_rewrite/outputs/checkpoints/empirical_spectrum_radial40_lmdb/epoch_0010.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.8053243489479442",
+          "bestdice": "0.7457150019236005",
+          "yendice": "0.6856759365089972"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.8241471734248357",
+          "bestdice": "0.7686533617470871",
+          "yendice": "0.730321046185929"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\brats23_251_empirical_spectrum233_epoch0232_fixed_magnitude\\inference_metrics_summary.csv",
+      "sha256": "dcd52488f2b3bf52da81a784bef216693451922b7cc5aee9296bfa8016de29ef",
+      "experiment": "brats23_251_empirical_spectrum233_epoch0232_fixed_magnitude",
+      "cases": 251,
+      "split": "C:/ML/ANDi/splits/BraTS23/scans_test.csv",
+      "checkpoint": "C:/ML/andi_test/Test/andi_rewrite/outputs/checkpoints/empirical_spectrum233_lmdb_full_gaussian_20260609/epoch_0232.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.8620385427786481",
+          "bestdice": "0.8101227169493654",
+          "yendice": "0.6740610340320438"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.8758423429599017",
+          "bestdice": "0.8208808678684393",
+          "yendice": "0.6914357315091335"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\brats_flair_t1_t2_empirical_spectrum233_brats21_251\\completed_epoch_20\\inference_metrics_summary.csv",
+      "sha256": "3c4098dae293543b858c4e4374cd8cdcbe8eec0d1f85368a47bee38a4686f615",
+      "experiment": "brats21_251_brats_flair_t1_t2_empirical_spectrum233_all_checkpoints_completed_epoch_20_50",
+      "cases": 251,
+      "split": "splits\\BraTS21\\scans_test.csv",
+      "checkpoint": "outputs\\runs\\brats_flair_t1_t2_empirical_spectrum233\\epoch_0019.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.8267894004834225",
+          "bestdice": "0.7743860743467331",
+          "yendice": "0.5869645215726922"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.8531080198849293",
+          "bestdice": "0.8046884382234619",
+          "yendice": "0.6588396911063602"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\brats_flair_t1_t2_empirical_spectrum233_brats21_50\\completed_epoch_100\\inference_metrics_summary.csv",
+      "sha256": "049a7821dfa1d658ec6c4ea6acfd27a582e317819cba4f5ea963fd737b40f414",
+      "experiment": "brats21_251_brats_flair_t1_t2_empirical_spectrum233_all_checkpoints_completed_epoch_100_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\runs\\brats_flair_t1_t2_empirical_spectrum233\\epoch_0099.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.8698332277465626",
+          "bestdice": "0.8033792027024584",
+          "yendice": "0.5953905655888403"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.8862044250315807",
+          "bestdice": "0.8265892028443027",
+          "yendice": "0.6208520299550684"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\brats_flair_t1_t2_empirical_spectrum233_brats21_50\\completed_epoch_20\\inference_metrics_summary.csv",
+      "sha256": "f0cb00464871a5e4adcfec1d63fd7ff1f1b47f6fd22e2d97162a9dbb6328baac",
+      "experiment": "brats21_251_brats_flair_t1_t2_empirical_spectrum233_all_checkpoints_completed_epoch_20_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\runs\\brats_flair_t1_t2_empirical_spectrum233\\epoch_0019.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.8383232449093316",
+          "bestdice": "0.7792788683683726",
+          "yendice": "0.585981995924619"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.8670631172854852",
+          "bestdice": "0.8166808039656928",
+          "yendice": "0.6323831669352304"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\brats_flair_t1_t2_empirical_spectrum233_brats21_50\\completed_epoch_40\\inference_metrics_summary.csv",
+      "sha256": "389acd7633f1e228d63c25904f5d1d9a6aa20b38631d2e8c43259c262ff1508d",
+      "experiment": "brats21_251_brats_flair_t1_t2_empirical_spectrum233_all_checkpoints_completed_epoch_40_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\runs\\brats_flair_t1_t2_empirical_spectrum233\\epoch_0039.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.8642341068815603",
+          "bestdice": "0.8004616427190672",
+          "yendice": "0.6208562813392128"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.8887113509200337",
+          "bestdice": "0.8325993509143588",
+          "yendice": "0.6394695182104262"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\brats_flair_t1_t2_empirical_spectrum233_brats21_50\\completed_epoch_60\\inference_metrics_summary.csv",
+      "sha256": "27dbb2275e627e1e1123062fe3471077d09665adf6f3da6e39b76ee452e84b98",
+      "experiment": "brats21_251_brats_flair_t1_t2_empirical_spectrum233_all_checkpoints_completed_epoch_60_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\runs\\brats_flair_t1_t2_empirical_spectrum233\\epoch_0059.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.8677246755655157",
+          "bestdice": "0.8025075660845755",
+          "yendice": "0.6012203979304221"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.887236411320236",
+          "bestdice": "0.8283383046006171",
+          "yendice": "0.6247946436630167"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\brats_flair_t1_t2_empirical_spectrum233_brats21_50\\completed_epoch_80\\inference_metrics_summary.csv",
+      "sha256": "994dc727fdf271a1a0bb73f8fecc02843ccf7f110419a5e95b4b0cbb27e6add5",
+      "experiment": "brats21_251_brats_flair_t1_t2_empirical_spectrum233_all_checkpoints_completed_epoch_80_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\runs\\brats_flair_t1_t2_empirical_spectrum233\\epoch_0079.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.8689391449673098",
+          "bestdice": "0.8046430006320565",
+          "yendice": "0.6028683503152741"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.886808372129473",
+          "bestdice": "0.8277211115173213",
+          "yendice": "0.6096327325913229"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\brats_flair_t1_t2_empirical_spectrum233_epoch0232_brats21_251\\inference_metrics_summary.csv",
+      "sha256": "0e8b89aa937f8f6c80f6a6b8f0223669b8c34aa44b3caaa80ecc586d7a2ccb7d",
+      "experiment": "brats21_251_brats_flair_t1_t2_empirical_spectrum233_epoch0232",
+      "cases": 251,
+      "split": "splits/BraTS21/scans_test.csv",
+      "checkpoint": "C:/ML/andi_test/Test/andi_rewrite/outputs/runs/brats_flair_t1_t2_empirical_spectrum233/epoch_0232.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.834115646582013",
+          "bestdice": "0.78668933868591",
+          "yendice": "0.5971299596078886"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.8477582103543115",
+          "bestdice": "0.8013577914748599",
+          "yendice": "0.6303500000328556"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\brats_t1_t2_empirical_spectrum20_eval50\\inference_metrics_summary.csv",
+      "sha256": "da2e7c0c69549b6c5a7cbaa8c6795088df4618486c8a25243c7b4702e01475d1",
+      "experiment": "brats21_50_t1_t2_empirical_spectrum20",
+      "cases": 50,
+      "split": "splits/BraTS21/scans_test_50.csv",
+      "checkpoint": "outputs/runs/brats_t1_t2_empirical_spectrum20_eval50/epoch_0019.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.7007685298618073",
+          "bestdice": "0.6420039698965057",
+          "yendice": "0.42684211476023604"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.750689427685586",
+          "bestdice": "0.685284124476759",
+          "yendice": "0.47930928315791405"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\empirical_filtered_gaussian40_lmdb_stability_run01_gaussian50\\completed_epoch_20\\inference_metrics_summary.csv",
+      "sha256": "200ac4d7b66d70be1f850e42616562fae81cacafaa001f107cf078a12cb307a1",
+      "experiment": "empirical_filtered_gaussian40_stability_gaussian50_completed_epoch_20_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\checkpoints\\empirical_filtered_gaussian40_lmdb_stability_run01\\epoch_0019.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.6235396619952703",
+          "bestdice": "0.599687684249936",
+          "yendice": "0.492885998459428"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.6462948978699062",
+          "bestdice": "0.6189232242825785",
+          "yendice": "0.5621339738674371"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\empirical_filtered_gaussian40_lmdb_stability_run01_gaussian50\\completed_epoch_30\\inference_metrics_summary.csv",
+      "sha256": "215ca4ac7971cd319aabd1154f310efc61be0ca4a7057f31d780742dd34405af",
+      "experiment": "empirical_filtered_gaussian40_stability_gaussian50_completed_epoch_30_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\checkpoints\\empirical_filtered_gaussian40_lmdb_stability_run01\\epoch_0029.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.47909116019288595",
+          "bestdice": "0.49496736933708746",
+          "yendice": "0.40978553467149537"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.49514928343525155",
+          "bestdice": "0.5003695582218728",
+          "yendice": "0.4435694209417374"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\empirical_filtered_gaussian40_lmdb_stability_run01_gaussian50\\completed_epoch_40\\inference_metrics_summary.csv",
+      "sha256": "d8e26895610a17df1162518148faba64725b2b8d755878d67fd28178768facca",
+      "experiment": "empirical_filtered_gaussian40_stability_gaussian50_completed_epoch_40_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\checkpoints\\empirical_filtered_gaussian40_lmdb_stability_run01\\epoch_0039.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.41683899122730705",
+          "bestdice": "0.44612221937867375",
+          "yendice": "0.3749961297784632"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.42712224788012215",
+          "bestdice": "0.445067248291481",
+          "yendice": "0.3991880505252298"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\empirical_filtered_gaussian40_lmdb_stability_run01_gaussian50_raw\\completed_epoch_20\\inference_metrics_summary.csv",
+      "sha256": "94e9f5d49a2ee0500f065b2fd7b8aa9838ebc6d4cd98da9913ca8332904a4adb",
+      "experiment": "empirical_filtered_gaussian40_stability_gaussian50_raw_completed_epoch_20_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\checkpoints\\empirical_filtered_gaussian40_lmdb_stability_run01\\epoch_0019.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.6128283030959379",
+          "bestdice": "0.5804051753952898",
+          "yendice": "0.4925765661899347"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.63533675225486",
+          "bestdice": "0.5978429312608119",
+          "yendice": "0.55147082894933"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\empirical_filtered_gaussian40_lmdb_stability_run01_gaussian50_raw\\completed_epoch_30\\inference_metrics_summary.csv",
+      "sha256": "bd9c802875c58911af3c6dcdb940fa9e4a0aba05a8fcf77e710ff35031b3d644",
+      "experiment": "empirical_filtered_gaussian40_stability_gaussian50_raw_completed_epoch_30_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\checkpoints\\empirical_filtered_gaussian40_lmdb_stability_run01\\epoch_0029.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.4864821570252214",
+          "bestdice": "0.5024256902824127",
+          "yendice": "0.4216188249581374"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.5052800365543919",
+          "bestdice": "0.5114947531058296",
+          "yendice": "0.44865232563903695"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\empirical_filtered_gaussian40_lmdb_stability_run01_gaussian50_raw\\completed_epoch_40\\inference_metrics_summary.csv",
+      "sha256": "ce00d2af0033b80d8332fd8077dc6cfc3b7ea3c7df548ae60b30847625531fd6",
+      "experiment": "empirical_filtered_gaussian40_stability_gaussian50_raw_completed_epoch_40_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\checkpoints\\empirical_filtered_gaussian40_lmdb_stability_run01\\epoch_0039.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.4012657245226979",
+          "bestdice": "0.42387564792801286",
+          "yendice": "0.3642787837330929"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.40798173547226796",
+          "bestdice": "0.42019360282682877",
+          "yendice": "0.37908500725280736"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\empirical_filtered_gaussian40_lmdb_stability_run01_matched_empirical50\\completed_epoch_20\\inference_metrics_summary.csv",
+      "sha256": "a332b8dc20106b9267396aff2d222679c769fd9daa79b2e687643e12c90a8c2a",
+      "experiment": "empirical_filtered_gaussian40_stability_matched_empirical50_completed_epoch_20_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\checkpoints\\empirical_filtered_gaussian40_lmdb_stability_run01\\epoch_0019.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.8126362794427043",
+          "bestdice": "0.7583317967805608",
+          "yendice": "0.6346921011999112"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.848467006655297",
+          "bestdice": "0.8003463337357853",
+          "yendice": "0.7017170825218229"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\empirical_filtered_gaussian40_lmdb_stability_run01_matched_empirical50\\completed_epoch_30\\inference_metrics_summary.csv",
+      "sha256": "3c39cca3a12b8ef41c6c36acca66e7ee39f20bcee26ea49bf94ce9bc660ed222",
+      "experiment": "empirical_filtered_gaussian40_stability_matched_empirical50_completed_epoch_30_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\checkpoints\\empirical_filtered_gaussian40_lmdb_stability_run01\\epoch_0029.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.8204526980288332",
+          "bestdice": "0.7682834359888026",
+          "yendice": "0.6374508199943826"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.8557149113194794",
+          "bestdice": "0.8108093155016912",
+          "yendice": "0.7016281916802973"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\empirical_filtered_gaussian40_lmdb_stability_run01_matched_empirical50\\completed_epoch_40\\inference_metrics_summary.csv",
+      "sha256": "e31e62eb965530dd7ac5cd2dc1c7e789da3ee5ac38d692ffc3fc331d3b7a3b49",
+      "experiment": "empirical_filtered_gaussian40_stability_matched_empirical50_completed_epoch_40_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\checkpoints\\empirical_filtered_gaussian40_lmdb_stability_run01\\epoch_0039.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.825273167114198",
+          "bestdice": "0.773653871196347",
+          "yendice": "0.6428011363151407"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.8585104296275181",
+          "bestdice": "0.8127568350198324",
+          "yendice": "0.6970328396507603"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\empirical_filtered_gaussian60_lmdb_gaussian50\\epoch_0019\\inference_metrics_summary.csv",
+      "sha256": "f5780c3b3670a1ced195f661a5e6f0e2c25181806ae8b68911717898f363ded5",
+      "experiment": "gaussian50_from_empirical_filtered_gaussian60_lmdb_epoch_0019_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\checkpoints\\empirical_filtered_gaussian60_lmdb\\epoch_0019.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.6137504994457947",
+          "bestdice": "0.5983660399263748",
+          "yendice": "0.5030678928184944"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.6368095794650072",
+          "bestdice": "0.6203065538491499",
+          "yendice": "0.5685952804714828"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\empirical_filtered_gaussian60_lmdb_gaussian50\\epoch_0039\\inference_metrics_summary.csv",
+      "sha256": "161b27db89a648f5151b258e986cb98e008b07bc847a720e5a524459d6c1ca38",
+      "experiment": "gaussian50_from_empirical_filtered_gaussian60_lmdb_epoch_0039_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\checkpoints\\empirical_filtered_gaussian60_lmdb\\epoch_0039.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.37653026557721503",
+          "bestdice": "0.4170839257464714",
+          "yendice": "0.3567273354843977"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.3902764992896566",
+          "bestdice": "0.42412271267004376",
+          "yendice": "0.39496676511674933"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\empirical_filtered_gaussian60_lmdb_gaussian50\\epoch_0059\\inference_metrics_summary.csv",
+      "sha256": "a3d2496effda01e0dee123080a1dcf4769907c57fe0497e95c00918d0ddc31f1",
+      "experiment": "gaussian50_from_empirical_filtered_gaussian60_lmdb_epoch_0059_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\checkpoints\\empirical_filtered_gaussian60_lmdb\\epoch_0059.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.27249432579993715",
+          "bestdice": "0.34462942974435146",
+          "yendice": "0.2923860530473948"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.2835966389846134",
+          "bestdice": "0.34786914885052794",
+          "yendice": "0.32059141023833637"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\empirical_spectrum20_lmdb_gaussian50_re\\inference_metrics_summary.csv",
+      "sha256": "565131e55cd1cdd5482316c3b014591ca6d61e04103d4479344ca77acb7996b7",
+      "experiment": "gaussian50_from_empirical_spectrum20_lmdb_re",
+      "cases": 50,
+      "split": "C:/ML/andi_test/Test/andi_rewrite/splits/BraTS21/scans_test_50.csv",
+      "checkpoint": "outputs/checkpoints/empirical_spectrum20_lmdb_gaussian50_re/epoch_0019.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.6265726435297619",
+          "bestdice": "0.6157066949717019",
+          "yendice": "0.5573486237997626"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.6375145506213311",
+          "bestdice": "0.6226248058791775",
+          "yendice": "0.5888465921885863"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\empirical_spectrum20_lmdb_zbalanced_gaussian50\\inference_metrics_summary.csv",
+      "sha256": "50850b74aa2b48e8a8c8db183f35d59f658e626034f5492ceb763dcd5592e674",
+      "experiment": "gaussian50_from_empirical_spectrum20_lmdb_zbalanced",
+      "cases": 50,
+      "split": "C:/ML/andi_test/Test/andi_rewrite/splits/BraTS21/scans_test_50.csv",
+      "checkpoint": "outputs/checkpoints/empirical_spectrum20_lmdb_zbalanced_gaussian50/epoch_0019.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.558464682076355",
+          "bestdice": "0.5789344678187485",
+          "yendice": "0.4857047362554331"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.5718610983389723",
+          "bestdice": "0.5886378536725477",
+          "yendice": "0.5235093453636256"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\empirical_spectrum233_50_gaussian\\inference_metrics_summary.csv",
+      "sha256": "4ce8e3b0c82e2f425c3d12d2c172bf468cd097f3f5b4880f5bd92f1d2a461702",
+      "experiment": "50_gaussian_from_empirical_spectrum233_lmdb",
+      "cases": 251,
+      "split": "C:/ML/ANDi/splits/BraTS21/scans_test.csv",
+      "checkpoint": "outputs/checkpoints/empirical_spectrum20_lmdb_gaussian50/epoch_0019.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.6354227679178979",
+          "bestdice": "0.6146004848843779",
+          "yendice": "0.5818955267898299"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.6412678656291907",
+          "bestdice": "0.6157306499847206",
+          "yendice": "0.6050100948219371"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\empirical_spectrum233_full_gaussian\\inference_metrics_summary.csv",
+      "sha256": "2ada5a05a9b10270f44006f21b9440642180a269f7531c2f73f70bce19aba560",
+      "experiment": "full_gaussian_from_empirical_spectrum233_lmdb",
+      "cases": 251,
+      "split": "C:/ML/ANDi/splits/BraTS21/scans_test.csv",
+      "checkpoint": "outputs/checkpoints/empirical_spectrum233_lmdb_full_gaussian/epoch_0232.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.27982921014854695",
+          "bestdice": "0.38443930797726605",
+          "yendice": "0.3128111009864708"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.2910530356442093",
+          "bestdice": "0.3954229588392545",
+          "yendice": "0.3715145212081355"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\empirical_spectrum233_lmdb_full_gaussian_20260609_50\\epoch_0019\\inference_metrics_summary.csv",
+      "sha256": "2f37a101964bd6d500ebbb11e2c122a83dfac2bc2f73eb9b7b96ab59ae34d805",
+      "experiment": "233_gaussian_from_empirical_spectrum233_lmdb_20260609_epoch_0019_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\checkpoints\\empirical_spectrum233_lmdb_full_gaussian_20260609\\epoch_0019.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.7254641397058637",
+          "bestdice": "0.6831213492048098",
+          "yendice": "0.5275371240724557"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.7584769707622689",
+          "bestdice": "0.7121532013585384",
+          "yendice": "0.6254607776078678"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\empirical_spectrum233_lmdb_full_gaussian_20260609_50\\epoch_0039\\inference_metrics_summary.csv",
+      "sha256": "0229da3eb523ccaea93ad0658b2433e3e6246872a217d22dccbde79f3e5be8d9",
+      "experiment": "233_gaussian_from_empirical_spectrum233_lmdb_20260609_epoch_0039_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\checkpoints\\empirical_spectrum233_lmdb_full_gaussian_20260609\\epoch_0039.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.6223637062266653",
+          "bestdice": "0.6021152694040973",
+          "yendice": "0.4702818197596892"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.6426591326641234",
+          "bestdice": "0.6132686498634904",
+          "yendice": "0.5240958812367413"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\empirical_spectrum233_lmdb_full_gaussian_20260609_50\\epoch_0059\\inference_metrics_summary.csv",
+      "sha256": "26b1a3f17275f689a0ecc92ab205aa4adc62395ad5328eeaa12b1119271e2cb4",
+      "experiment": "233_gaussian_from_empirical_spectrum233_lmdb_20260609_epoch_0059_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\checkpoints\\empirical_spectrum233_lmdb_full_gaussian_20260609\\epoch_0059.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.5307496297390932",
+          "bestdice": "0.5298924333954328",
+          "yendice": "0.42462405150159876"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.5525479497488796",
+          "bestdice": "0.5457305524887252",
+          "yendice": "0.464237183765624"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\empirical_spectrum233_lmdb_full_gaussian_20260609_50\\epoch_0079\\inference_metrics_summary.csv",
+      "sha256": "52c85dbd281e254f0372fb0cba53bf9fad8b13b7315fc3ce7bce34601f5cdddd",
+      "experiment": "233_gaussian_from_empirical_spectrum233_lmdb_20260609_epoch_0079_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\checkpoints\\empirical_spectrum233_lmdb_full_gaussian_20260609\\epoch_0079.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.4831376170896686",
+          "bestdice": "0.5033523276039419",
+          "yendice": "0.38388510338725895"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.5101210223008822",
+          "bestdice": "0.5216063892887276",
+          "yendice": "0.43283670580522915"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\empirical_spectrum233_lmdb_full_gaussian_20260609_50\\epoch_0099\\inference_metrics_summary.csv",
+      "sha256": "a8c0bcee294f34729534495afac8f2b7efd9941fb0dcee65c986918c93297cf1",
+      "experiment": "233_gaussian_from_empirical_spectrum233_lmdb_20260609_epoch_0099_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\checkpoints\\empirical_spectrum233_lmdb_full_gaussian_20260609\\epoch_0099.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.4857890460710544",
+          "bestdice": "0.5192636536938443",
+          "yendice": "0.39146120179166244"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.5142961606387588",
+          "bestdice": "0.5403501701654324",
+          "yendice": "0.45469205497575027"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\empirical_spectrum233_lmdb_full_gaussian_20260609_50\\epoch_0119\\inference_metrics_summary.csv",
+      "sha256": "466f87a182d77fca08574b052d0a6e59a43045089ad552c7ce5da056eb36e6f2",
+      "experiment": "233_gaussian_from_empirical_spectrum233_lmdb_20260609_epoch_0119_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\checkpoints\\empirical_spectrum233_lmdb_full_gaussian_20260609\\epoch_0119.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.4570298458644781",
+          "bestdice": "0.49901502144511384",
+          "yendice": "0.35290903043834654"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.48773585054460206",
+          "bestdice": "0.5224028835686415",
+          "yendice": "0.42467381509000623"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\empirical_spectrum233_lmdb_full_gaussian_20260609_50\\epoch_0139\\inference_metrics_summary.csv",
+      "sha256": "676d9dc0822f2a831e7f064f95f543f6ceb063e4e82644ec9b7a0a3407058cf3",
+      "experiment": "233_gaussian_from_empirical_spectrum233_lmdb_20260609_epoch_0139_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\checkpoints\\empirical_spectrum233_lmdb_full_gaussian_20260609\\epoch_0139.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.3695000264274022",
+          "bestdice": "0.46709909668221966",
+          "yendice": "0.29881443307078187"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.3805383674481509",
+          "bestdice": "0.47192813682199",
+          "yendice": "0.33818466424962357"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\empirical_spectrum233_lmdb_full_gaussian_20260609_50\\epoch_0159\\inference_metrics_summary.csv",
+      "sha256": "4af132703c283b6dbf2d7043cf4fe1389880e4a13e2a28e8fb344bc10584b3d0",
+      "experiment": "233_gaussian_from_empirical_spectrum233_lmdb_20260609_epoch_0159_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\checkpoints\\empirical_spectrum233_lmdb_full_gaussian_20260609\\epoch_0159.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.3123154115543709",
+          "bestdice": "0.3957841211320893",
+          "yendice": "0.2570090388972417"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.3430828687691149",
+          "bestdice": "0.415911764459901",
+          "yendice": "0.32438954361750283"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\empirical_spectrum233_lmdb_full_gaussian_20260609_50\\epoch_0179\\inference_metrics_summary.csv",
+      "sha256": "411ed21f6c92179b9e017ecc8c14067fb40b53a634f44a2eddb51e2aba72735c",
+      "experiment": "233_gaussian_from_empirical_spectrum233_lmdb_20260609_epoch_0179_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\checkpoints\\empirical_spectrum233_lmdb_full_gaussian_20260609\\epoch_0179.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.29683485126721715",
+          "bestdice": "0.3995270291954849",
+          "yendice": "0.21891712996263887"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.31754648519234163",
+          "bestdice": "0.41131499141318195",
+          "yendice": "0.2958894266170784"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\empirical_spectrum233_lmdb_full_gaussian_20260609_50\\epoch_0199\\inference_metrics_summary.csv",
+      "sha256": "2e9614a0a54000e171f8c515098d6f57257eb83da12f8037fddefbd81c000475",
+      "experiment": "233_gaussian_from_empirical_spectrum233_lmdb_20260609_epoch_0199_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\checkpoints\\empirical_spectrum233_lmdb_full_gaussian_20260609\\epoch_0199.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.2905926109802374",
+          "bestdice": "0.38218476675394114",
+          "yendice": "0.23213609043198158"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.3155047740628733",
+          "bestdice": "0.39475799985987114",
+          "yendice": "0.2953952995353539"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\empirical_spectrum233_lmdb_full_gaussian_20260609_50\\epoch_0219\\inference_metrics_summary.csv",
+      "sha256": "81d5ed9ef73827483b0ca00cc1a685f9e5fc2dc896eed83db47a86645e1ae70e",
+      "experiment": "233_gaussian_from_empirical_spectrum233_lmdb_20260609_epoch_0219_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\checkpoints\\empirical_spectrum233_lmdb_full_gaussian_20260609\\epoch_0219.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.271101869930409",
+          "bestdice": "0.3565517802254666",
+          "yendice": "0.20179246582197335"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.29779395366071826",
+          "bestdice": "0.37024944503500246",
+          "yendice": "0.25431649977418735"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\empirical_spectrum233_lmdb_full_gaussian_20260609_50\\epoch_0232\\inference_metrics_summary.csv",
+      "sha256": "06d4082868086a57a1aa5bc57c751b14ba61881efca217e3498d6cad0891a98a",
+      "experiment": "233_gaussian_from_empirical_spectrum233_lmdb_20260609_epoch_0232_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\checkpoints\\empirical_spectrum233_lmdb_full_gaussian_20260609\\epoch_0232.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.29651265178156955",
+          "bestdice": "0.37677982159675516",
+          "yendice": "0.2218196518127674"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.3207016372954597",
+          "bestdice": "0.39008996064412793",
+          "yendice": "0.2860942545930817"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\empirical_spectrum233_lmdb_zbalanced_save20_gaussian50\\epoch_0019\\inference_metrics_summary.csv",
+      "sha256": "2cff8af72b71309447d53469ca1b4041510fe2437bd2c84d1ef8aeac971f8d80",
+      "experiment": "gaussian50_from_empirical_spectrum233_zbalanced_save20_epoch_0019_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\checkpoints\\empirical_spectrum233_lmdb_zbalanced_save20\\epoch_0019.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.40769842063085254",
+          "bestdice": "0.43695261287719483",
+          "yendice": "0.33165247529518466"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.42555266668590563",
+          "bestdice": "0.43811980950717405",
+          "yendice": "0.3879496770048601"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\empirical_spectrum233_lmdb_zbalanced_save20_gaussian50\\epoch_0039\\inference_metrics_summary.csv",
+      "sha256": "5db99e1521d719cc1a508df95303e69220e5c3e7b89981a85c0cec48be85cfd6",
+      "experiment": "gaussian50_from_empirical_spectrum233_zbalanced_save20_epoch_0039_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\checkpoints\\empirical_spectrum233_lmdb_zbalanced_save20\\epoch_0039.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.33933723080392764",
+          "bestdice": "0.4053794938058183",
+          "yendice": "0.29475496175051125"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.366512824222728",
+          "bestdice": "0.4134779814751032",
+          "yendice": "0.3412350583588787"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\empirical_spectrum233_lmdb_zbalanced_save20_gaussian50\\epoch_0059\\inference_metrics_summary.csv",
+      "sha256": "dcf0ffa4193d0cc31044362eeef14689b1cf737f510784ec531675ccf1bf0a75",
+      "experiment": "gaussian50_from_empirical_spectrum233_zbalanced_save20_epoch_0059_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\checkpoints\\empirical_spectrum233_lmdb_zbalanced_save20\\epoch_0059.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.26155609892334525",
+          "bestdice": "0.36378727935984",
+          "yendice": "0.2489073233911994"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.26732017755138926",
+          "bestdice": "0.35222620875793853",
+          "yendice": "0.29903181952990837"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\empirical_spectrum233_lmdb_zbalanced_save20_gaussian50\\epoch_0079\\inference_metrics_summary.csv",
+      "sha256": "bd654f95c62ae1ff0d8cc47530ff1a4a32267d2e7bf73220c6a41b81e248d31e",
+      "experiment": "gaussian50_from_empirical_spectrum233_zbalanced_save20_epoch_0079_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\checkpoints\\empirical_spectrum233_lmdb_zbalanced_save20\\epoch_0079.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.233155363920318",
+          "bestdice": "0.3408425502302411",
+          "yendice": "0.22867213701936837"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.24435923568676515",
+          "bestdice": "0.33543576884817994",
+          "yendice": "0.28267425921659983"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\empirical_spectrum233_lmdb_zbalanced_save20_gaussian50\\epoch_0099\\inference_metrics_summary.csv",
+      "sha256": "622c93094e44cbd4eeaa4affe804c0065665f7da95d352f523e3ba9bee1aeb25",
+      "experiment": "gaussian50_from_empirical_spectrum233_zbalanced_save20_epoch_0099_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\checkpoints\\empirical_spectrum233_lmdb_zbalanced_save20\\epoch_0099.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.2572234795879399",
+          "bestdice": "0.3512770714972075",
+          "yendice": "0.21720714004756903"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.28375031352071356",
+          "bestdice": "0.36312602283666934",
+          "yendice": "0.28443009121288704"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\empirical_spectrum233_lmdb_zbalanced_save20_gaussian50\\epoch_0119\\inference_metrics_summary.csv",
+      "sha256": "9955cfab96330eca0502f0ad9be180ca2cb2bfa1cb68be38c8467625179bc6cc",
+      "experiment": "gaussian50_from_empirical_spectrum233_zbalanced_save20_epoch_0119_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\checkpoints\\empirical_spectrum233_lmdb_zbalanced_save20\\epoch_0119.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.2007479663778482",
+          "bestdice": "0.3130522733868677",
+          "yendice": "0.1811791733902334"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.21306339463801646",
+          "bestdice": "0.31145294586008615",
+          "yendice": "0.23911357267955735"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\empirical_spectrum233_lmdb_zbalanced_save20_gaussian50\\epoch_0139\\inference_metrics_summary.csv",
+      "sha256": "b8023e0c24e76891cbf1798b3c0914297a2c3aa0ed9c9cae23d4d67f9f528c78",
+      "experiment": "gaussian50_from_empirical_spectrum233_zbalanced_save20_epoch_0139_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\checkpoints\\empirical_spectrum233_lmdb_zbalanced_save20\\epoch_0139.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.22415064026139353",
+          "bestdice": "0.3315524470767082",
+          "yendice": "0.21483843255346724"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.24468795505110777",
+          "bestdice": "0.33256570227418986",
+          "yendice": "0.2528872880504703"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\empirical_spectrum233_lmdb_zbalanced_save20_gaussian50\\epoch_0159\\inference_metrics_summary.csv",
+      "sha256": "5ded122259ccd7da312fd6bb7c2c6bd1cb4f4a9dfeb38e12c058ff81bc08f216",
+      "experiment": "gaussian50_from_empirical_spectrum233_zbalanced_save20_epoch_0159_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\checkpoints\\empirical_spectrum233_lmdb_zbalanced_save20\\epoch_0159.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.15055315073162315",
+          "bestdice": "0.2621722326351115",
+          "yendice": "0.14211240101731284"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.14843362305442112",
+          "bestdice": "0.24491977681055108",
+          "yendice": "0.20095109356881705"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\empirical_spectrum233_lmdb_zbalanced_save20_gaussian50\\epoch_0179\\inference_metrics_summary.csv",
+      "sha256": "d95c5a63255d5ccda47a5bae556b1237341dc83c75b8146ddc93c68df9a0987a",
+      "experiment": "gaussian50_from_empirical_spectrum233_zbalanced_save20_epoch_0179_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\checkpoints\\empirical_spectrum233_lmdb_zbalanced_save20\\epoch_0179.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.11330188163515884",
+          "bestdice": "0.21979368055468018",
+          "yendice": "0.11080688652550574"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.10972401973213416",
+          "bestdice": "0.2032136056040786",
+          "yendice": "0.15418918343552956"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\empirical_spectrum233_lmdb_zbalanced_save20_gaussian50\\epoch_0199\\inference_metrics_summary.csv",
+      "sha256": "f8d244f8afb6d1fa635f97d7b1edd102b923212713305adfe70c17910b186aa6",
+      "experiment": "gaussian50_from_empirical_spectrum233_zbalanced_save20_epoch_0199_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\checkpoints\\empirical_spectrum233_lmdb_zbalanced_save20\\epoch_0199.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.10067532835442716",
+          "bestdice": "0.20559594763078676",
+          "yendice": "0.11378835482082991"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.0964230700965206",
+          "bestdice": "0.1861784118361078",
+          "yendice": "0.13654182009632332"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\empirical_spectrum233_lmdb_zbalanced_save20_gaussian50\\epoch_0219\\inference_metrics_summary.csv",
+      "sha256": "7dec7b81dc13f8645e454aaf6f13bf92770b148845d21f029f37435cf307e4f4",
+      "experiment": "gaussian50_from_empirical_spectrum233_zbalanced_save20_epoch_0219_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\checkpoints\\empirical_spectrum233_lmdb_zbalanced_save20\\epoch_0219.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.08637166869767737",
+          "bestdice": "0.1832421217043552",
+          "yendice": "0.10189845521475639"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.08140858345173839",
+          "bestdice": "0.16189044245016448",
+          "yendice": "0.12354979712737613"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\empirical_spectrum233_lmdb_zbalanced_save20_gaussian50\\epoch_0232\\inference_metrics_summary.csv",
+      "sha256": "dd0c875d9f03c0f496e49230f1991642ff625fee88f987fff67735d9191757b2",
+      "experiment": "gaussian50_from_empirical_spectrum233_zbalanced_save20_epoch_0232_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\checkpoints\\empirical_spectrum233_lmdb_zbalanced_save20\\epoch_0232.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.09203325400092933",
+          "bestdice": "0.19577575628039448",
+          "yendice": "0.10291828116279145"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.08735167567810413",
+          "bestdice": "0.17531357183067808",
+          "yendice": "0.12381606898350217"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\empirical_spectrum_radial40_epoch0011_full_gaussian\\inference_metrics_summary.csv",
+      "sha256": "dd3ca4ceabc928c827fd0e59734e581fba6904bfbd1135f0bf71f02f9fffa6d1",
+      "experiment": "full_gaussian_from_empirical_spectrum40_epoch0011_lmdb",
+      "cases": 251,
+      "split": "C:/ML/ANDi/splits/BraTS21/scans_test.csv",
+      "checkpoint": "C:/ML/andi_test/Test/andi_rewrite/outputs/checkpoints/empirical_spectrum_radial40_lmdb/epoch_0011.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.7634380858487229",
+          "bestdice": "0.7159006123513446",
+          "yendice": "0.645713851110434"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.7852687172086011",
+          "bestdice": "0.7382772749750997",
+          "yendice": "0.7015455995949141"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\empirical_spectrum_radial40_lmdb_gaussian50_all\\epoch_0000\\inference_metrics_summary.csv",
+      "sha256": "f51a2e9119b5c2e0fc57661035126465e001da8c8b25d57734959f0ec6132802",
+      "experiment": "gaussian50_from_empirical_spectrum40_lmdb_epoch_0000_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\checkpoints\\empirical_spectrum_radial40_lmdb\\epoch_0000.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.3566760521649388",
+          "bestdice": "0.43184351461662773",
+          "yendice": "0.16210404697194072"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.4882758631452616",
+          "bestdice": "0.5222240469264111",
+          "yendice": "0.3992583376707649"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\empirical_spectrum_radial40_lmdb_gaussian50_all\\epoch_0001\\inference_metrics_summary.csv",
+      "sha256": "f9c5f2196cf6d4b62d35d0d980d57616e425700f99f01c942aa31ad87ea1156a",
+      "experiment": "gaussian50_from_empirical_spectrum40_lmdb_epoch_0001_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\checkpoints\\empirical_spectrum_radial40_lmdb\\epoch_0001.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.49174329890938606",
+          "bestdice": "0.5305506626420571",
+          "yendice": "0.2909353157680699"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.6084668819302057",
+          "bestdice": "0.612052806628795",
+          "yendice": "0.4742966327270468"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\empirical_spectrum_radial40_lmdb_gaussian50_all\\epoch_0002\\inference_metrics_summary.csv",
+      "sha256": "3a1b59b7259840a06bc97b6dd81607c6fe71ff8af99389c29cd8d17e4042a7d9",
+      "experiment": "gaussian50_from_empirical_spectrum40_lmdb_epoch_0002_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\checkpoints\\empirical_spectrum_radial40_lmdb\\epoch_0002.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.5715692213455482",
+          "bestdice": "0.5899219300402634",
+          "yendice": "0.41432745587084424"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.6624332348615819",
+          "bestdice": "0.6648141161893367",
+          "yendice": "0.5582206255443211"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\empirical_spectrum_radial40_lmdb_gaussian50_all\\epoch_0003\\inference_metrics_summary.csv",
+      "sha256": "f56260a3b343a6231d7b6bf965477893664ee42849917fe54ac40e34d77a44e4",
+      "experiment": "gaussian50_from_empirical_spectrum40_lmdb_epoch_0003_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\checkpoints\\empirical_spectrum_radial40_lmdb\\epoch_0003.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.6567762517186777",
+          "bestdice": "0.6332134983648104",
+          "yendice": "0.4856416793167294"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.7347274367061551",
+          "bestdice": "0.702632230410536",
+          "yendice": "0.6075417514689088"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\empirical_spectrum_radial40_lmdb_gaussian50_all\\epoch_0004\\inference_metrics_summary.csv",
+      "sha256": "ecef3f826557058a5c27b4cd39331cccc885eff941bfc7d57063557ca06a1c40",
+      "experiment": "gaussian50_from_empirical_spectrum40_lmdb_epoch_0004_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\checkpoints\\empirical_spectrum_radial40_lmdb\\epoch_0004.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.6865811577341459",
+          "bestdice": "0.6520354220014337",
+          "yendice": "0.5157678789029734"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.7513517310980428",
+          "bestdice": "0.7133749184845405",
+          "yendice": "0.6530034068422674"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\empirical_spectrum_radial40_lmdb_gaussian50_all\\epoch_0005\\inference_metrics_summary.csv",
+      "sha256": "e9ed069f748e284b7d4dcff9a225f764bdf7baaed64ecf44b53cd6684c318db5",
+      "experiment": "gaussian50_from_empirical_spectrum40_lmdb_epoch_0005_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\checkpoints\\empirical_spectrum_radial40_lmdb\\epoch_0005.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.7083842704456288",
+          "bestdice": "0.6697856995739909",
+          "yendice": "0.535965771566886"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.7657457069152168",
+          "bestdice": "0.725247431508997",
+          "yendice": "0.6623269056868089"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\empirical_spectrum_radial40_lmdb_gaussian50_all\\epoch_0006\\inference_metrics_summary.csv",
+      "sha256": "ad2469411ffbc5a34093be5b66a53cece4905f4507a58b7d865ed6d46614782f",
+      "experiment": "gaussian50_from_empirical_spectrum40_lmdb_epoch_0006_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\checkpoints\\empirical_spectrum_radial40_lmdb\\epoch_0006.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.7543119989557319",
+          "bestdice": "0.7039269340877995",
+          "yendice": "0.5818440139918831"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.7946771626589423",
+          "bestdice": "0.7457745105058926",
+          "yendice": "0.704997290345923"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\empirical_spectrum_radial40_lmdb_gaussian50_all\\epoch_0007\\inference_metrics_summary.csv",
+      "sha256": "616d5d52d2c4b551eb30642aa97d2c391c05b9b627e233e80353b642a49a810f",
+      "experiment": "gaussian50_from_empirical_spectrum40_lmdb_epoch_0007_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\checkpoints\\empirical_spectrum_radial40_lmdb\\epoch_0007.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.7568295372996002",
+          "bestdice": "0.7004256008361027",
+          "yendice": "0.5693637039565808"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.7955406312836666",
+          "bestdice": "0.7412096028026123",
+          "yendice": "0.6965731001671303"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\empirical_spectrum_radial40_lmdb_gaussian50_all\\epoch_0008\\inference_metrics_summary.csv",
+      "sha256": "92f8ee4e7e6524551eed8363987bd42500c3bf076a74355834405168cd83566c",
+      "experiment": "gaussian50_from_empirical_spectrum40_lmdb_epoch_0008_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\checkpoints\\empirical_spectrum_radial40_lmdb\\epoch_0008.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.7628453328661503",
+          "bestdice": "0.7134270190618821",
+          "yendice": "0.605300031289608"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.7973702921850169",
+          "bestdice": "0.7495137842722629",
+          "yendice": "0.7031666643705998"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\empirical_spectrum_radial40_lmdb_gaussian50_all\\epoch_0009\\inference_metrics_summary.csv",
+      "sha256": "fbabef5a2ef220b0886770f980da74e46fb805f829aa17ce4341d1a33e20c1a3",
+      "experiment": "gaussian50_from_empirical_spectrum40_lmdb_epoch_0009_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\checkpoints\\empirical_spectrum_radial40_lmdb\\epoch_0009.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.7595610133914549",
+          "bestdice": "0.7056120670115602",
+          "yendice": "0.5910678693873428"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.7914264585337414",
+          "bestdice": "0.7378490106567347",
+          "yendice": "0.6842697616672652"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\empirical_spectrum_radial40_lmdb_gaussian50_all\\epoch_0010\\inference_metrics_summary.csv",
+      "sha256": "3947c9bc6e141badd8f2f361ef11de5a5359b5ccf9677067f4c233c607239294",
+      "experiment": "gaussian50_from_empirical_spectrum40_lmdb_epoch_0010_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\checkpoints\\empirical_spectrum_radial40_lmdb\\epoch_0010.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.7756362731067697",
+          "bestdice": "0.7220018463684581",
+          "yendice": "0.614039313176634"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.8025402668900689",
+          "bestdice": "0.7516209493584971",
+          "yendice": "0.6957075913044731"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\empirical_spectrum_radial40_lmdb_gaussian50_all\\epoch_0011\\inference_metrics_summary.csv",
+      "sha256": "7b856bea8b205e95a54f3733e9e11b9b6f96a4ece1420e29f2c7f17e967cef77",
+      "experiment": "gaussian50_from_empirical_spectrum40_lmdb_epoch_0011_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\checkpoints\\empirical_spectrum_radial40_lmdb\\epoch_0011.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.7620423895065238",
+          "bestdice": "0.7135589453606993",
+          "yendice": "0.5995183614565728"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.7898153390922682",
+          "bestdice": "0.742249822109907",
+          "yendice": "0.6870577055647498"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\empirical_spectrum_radial40_lmdb_gaussian50_all\\epoch_0012\\inference_metrics_summary.csv",
+      "sha256": "b10c1f5cebd752c8b2e44a17683f4d797876ba22229fd4466862084a1aa4a252",
+      "experiment": "gaussian50_from_empirical_spectrum40_lmdb_epoch_0012_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\checkpoints\\empirical_spectrum_radial40_lmdb\\epoch_0012.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.7675821115386067",
+          "bestdice": "0.7149093875845991",
+          "yendice": "0.6033061627607913"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.7953007316371316",
+          "bestdice": "0.7445974426155388",
+          "yendice": "0.6887612371990035"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\empirical_spectrum_radial40_lmdb_gaussian50_all\\epoch_0013\\inference_metrics_summary.csv",
+      "sha256": "148b88267b6d977b00ab3b3d4848f983178e01db783cac54845ad125177cf701",
+      "experiment": "gaussian50_from_empirical_spectrum40_lmdb_epoch_0013_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\checkpoints\\empirical_spectrum_radial40_lmdb\\epoch_0013.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.751953440975537",
+          "bestdice": "0.7093759469686711",
+          "yendice": "0.5937886030302422"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.774567162361984",
+          "bestdice": "0.7318181410845586",
+          "yendice": "0.6759188052075135"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\empirical_spectrum_radial40_lmdb_gaussian50_all\\epoch_0014\\inference_metrics_summary.csv",
+      "sha256": "dca9a121780fc4c394228232a89c6d4b2a6ab829755c6dc23145c9728ff09be0",
+      "experiment": "gaussian50_from_empirical_spectrum40_lmdb_epoch_0014_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\checkpoints\\empirical_spectrum_radial40_lmdb\\epoch_0014.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.7433117401356578",
+          "bestdice": "0.6996026942967815",
+          "yendice": "0.6030223300865872"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.7641232925499806",
+          "bestdice": "0.7207455305919267",
+          "yendice": "0.669775958419955"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\empirical_spectrum_radial40_lmdb_gaussian50_all\\epoch_0015\\inference_metrics_summary.csv",
+      "sha256": "11992e76e14ea23ba756467b2ead87996eb6c90ccaf93f4338ee64fb6990a16a",
+      "experiment": "gaussian50_from_empirical_spectrum40_lmdb_epoch_0015_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\checkpoints\\empirical_spectrum_radial40_lmdb\\epoch_0015.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.717611300884809",
+          "bestdice": "0.6815875932069124",
+          "yendice": "0.5842864223239953"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.7392282156571003",
+          "bestdice": "0.7003999017348598",
+          "yendice": "0.6439589885898431"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\empirical_spectrum_radial40_lmdb_gaussian50_all\\epoch_0016\\inference_metrics_summary.csv",
+      "sha256": "258d0e9cd332f8955a0e8181074409b2cb7761fef2213ca71cad690e607c9c6a",
+      "experiment": "gaussian50_from_empirical_spectrum40_lmdb_epoch_0016_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\checkpoints\\empirical_spectrum_radial40_lmdb\\epoch_0016.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.7272856590340591",
+          "bestdice": "0.698455904129151",
+          "yendice": "0.6061014403439188"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.747431185941107",
+          "bestdice": "0.7168349634112725",
+          "yendice": "0.6686904920935903"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\empirical_spectrum_radial40_lmdb_gaussian50_all\\epoch_0017\\inference_metrics_summary.csv",
+      "sha256": "3ac52ed9a7bbecd399512d2af53d6fac3934d11afdeec0e1d0b3ba86176594eb",
+      "experiment": "gaussian50_from_empirical_spectrum40_lmdb_epoch_0017_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\checkpoints\\empirical_spectrum_radial40_lmdb\\epoch_0017.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.7099814527206355",
+          "bestdice": "0.6773729181303629",
+          "yendice": "0.5895142600676376"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.7274202848652279",
+          "bestdice": "0.6918314235372316",
+          "yendice": "0.6525418572235967"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\empirical_spectrum_radial40_lmdb_gaussian50_all\\epoch_0018\\inference_metrics_summary.csv",
+      "sha256": "cf8710fb3208d33a3edf8a1828b7adb4b86fdb76e8251d79954448bbca95abda",
+      "experiment": "gaussian50_from_empirical_spectrum40_lmdb_epoch_0018_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\checkpoints\\empirical_spectrum_radial40_lmdb\\epoch_0018.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.6947035398489242",
+          "bestdice": "0.6691916748071867",
+          "yendice": "0.5873957124015071"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.7124229406115592",
+          "bestdice": "0.6832692019751119",
+          "yendice": "0.6413784177081571"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\empirical_spectrum_radial40_lmdb_gaussian50_all\\epoch_0019\\inference_metrics_summary.csv",
+      "sha256": "8f4e988924c6f8456f7ab57ef4000b4dab57838d1d1be5148251846651ebff2c",
+      "experiment": "gaussian50_from_empirical_spectrum40_lmdb_epoch_0019_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\checkpoints\\empirical_spectrum_radial40_lmdb\\epoch_0019.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.6985815148505752",
+          "bestdice": "0.6718001724174911",
+          "yendice": "0.5849682509735408"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.7175931829329434",
+          "bestdice": "0.6872904468338485",
+          "yendice": "0.6365939058668695"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\empirical_spectrum_radial40_lmdb_gaussian50_all\\epoch_0020\\inference_metrics_summary.csv",
+      "sha256": "4d4e7f6f01bf8013e7d9f7d5e19a9c231af97d29ab97765cee3e2b2ad9364ba7",
+      "experiment": "gaussian50_from_empirical_spectrum40_lmdb_epoch_0020_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\checkpoints\\empirical_spectrum_radial40_lmdb\\epoch_0020.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.6659641607424763",
+          "bestdice": "0.6519136528892537",
+          "yendice": "0.5659796367105464"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.6867171453109736",
+          "bestdice": "0.6680387841187927",
+          "yendice": "0.612672484870201"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\empirical_spectrum_radial40_lmdb_gaussian50_all\\epoch_0021\\inference_metrics_summary.csv",
+      "sha256": "c4e5aac492331fef5384922079ac80e0dae43023bdd24a5783f1bfb0aace033f",
+      "experiment": "gaussian50_from_empirical_spectrum40_lmdb_epoch_0021_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\checkpoints\\empirical_spectrum_radial40_lmdb\\epoch_0021.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.6647340995380385",
+          "bestdice": "0.6560036064229317",
+          "yendice": "0.5790066031146286"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.6842141446091996",
+          "bestdice": "0.6694294785276999",
+          "yendice": "0.6289151507074174"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\empirical_spectrum_radial40_lmdb_gaussian50_all\\epoch_0022\\inference_metrics_summary.csv",
+      "sha256": "ef27a3a5f32ea02cf59e2bd82716098785becd0dba0f77a69fbae80e805de375",
+      "experiment": "gaussian50_from_empirical_spectrum40_lmdb_epoch_0022_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\checkpoints\\empirical_spectrum_radial40_lmdb\\epoch_0022.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.6434965414777187",
+          "bestdice": "0.6377417171446175",
+          "yendice": "0.5521165582101794"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.6634198294411993",
+          "bestdice": "0.6503987260518018",
+          "yendice": "0.6075839321907406"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\empirical_spectrum_radial40_lmdb_gaussian50_all\\epoch_0023\\inference_metrics_summary.csv",
+      "sha256": "d2a248637c5147464af25550c1083f5a1f2df81191f6e6caefff6554bdeba4d9",
+      "experiment": "gaussian50_from_empirical_spectrum40_lmdb_epoch_0023_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\checkpoints\\empirical_spectrum_radial40_lmdb\\epoch_0023.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.6456590975673527",
+          "bestdice": "0.6401707176550298",
+          "yendice": "0.5652869010398291"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.6618290732925576",
+          "bestdice": "0.6492970478870767",
+          "yendice": "0.601667998067265"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\empirical_spectrum_radial40_lmdb_gaussian50_all\\epoch_0024\\inference_metrics_summary.csv",
+      "sha256": "54876fda301c3f753e89d6396b215bb36a4964545aa06d8d933d8afe511dfc8b",
+      "experiment": "gaussian50_from_empirical_spectrum40_lmdb_epoch_0024_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\checkpoints\\empirical_spectrum_radial40_lmdb\\epoch_0024.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.6592035496127413",
+          "bestdice": "0.6553641870418736",
+          "yendice": "0.5732490872946517"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.677015215971647",
+          "bestdice": "0.6680839721848841",
+          "yendice": "0.6074814520053005"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\empirical_spectrum_radial40_lmdb_gaussian50_all\\epoch_0025\\inference_metrics_summary.csv",
+      "sha256": "9c5383fde423abd174fafb1b5ab79fe38dcc5a6aafe5e3ff3b7bdf5df22c06d1",
+      "experiment": "gaussian50_from_empirical_spectrum40_lmdb_epoch_0025_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\checkpoints\\empirical_spectrum_radial40_lmdb\\epoch_0025.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.6468483150983949",
+          "bestdice": "0.6443228153285853",
+          "yendice": "0.5533384041825182"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.664122035648091",
+          "bestdice": "0.6575713024961375",
+          "yendice": "0.6053599214798012"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\fold4_full251\\fold_4\\inference_metrics_summary.csv",
+      "sha256": "bae24e4737403d274964b907dea2dc06a765841a619f599fd8aec1ce0c04e61f",
+      "experiment": "pyramid20_lmdb_fold4_full251_fold_4_eval",
+      "cases": 251,
+      "split": "C:\\ML\\ANDi\\splits\\BraTS21\\5fold\\fold_4\\scans_test.csv",
+      "checkpoint": "outputs\\checkpoints\\fold4_full251\\pyramid20_lmdb_fold4_full251_fold_4\\epoch_0019.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.500743375317131",
+          "bestdice": "0.4336866846918232",
+          "yendice": "0.2340527888654447"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.8373055435631069",
+          "bestdice": "0.780986886308906",
+          "yendice": "0.7124145946317889"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\lemon_t1_t2_flair_brats21_empirical_spectrum233_brats21_50\\epoch_0019\\inference_metrics_summary.csv",
+      "sha256": "5359734afef228729ded184ce76a57acb8e1232db1b4ae46d0bad1e98e9c4057",
+      "experiment": "brats21_50_lemon_brats21_empirical_spectrum_all_checkpoints_epoch_0019_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\runs\\lemon_t1_t2_flair_brats21_empirical_spectrum233\\epoch_0019.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.13763739067635752",
+          "bestdice": "0.2236140018258577",
+          "yendice": "0.14188358803795828"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.14029963131242565",
+          "bestdice": "0.23578707985178496",
+          "yendice": "0.17423346897448297"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\lemon_t1_t2_flair_brats21_empirical_spectrum233_brats21_50\\epoch_0039\\inference_metrics_summary.csv",
+      "sha256": "47767f6c314c3fac677af106df855a0e570d72f051dcd0d3d296de75f3f20d4e",
+      "experiment": "brats21_50_lemon_brats21_empirical_spectrum_all_checkpoints_epoch_0039_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\runs\\lemon_t1_t2_flair_brats21_empirical_spectrum233\\epoch_0039.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.14242198266046227",
+          "bestdice": "0.2305891879603565",
+          "yendice": "0.14840052486930622"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.14493419869162166",
+          "bestdice": "0.2407809652528366",
+          "yendice": "0.17531315083941423"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\lemon_t1_t2_flair_brats21_empirical_spectrum233_brats21_50\\epoch_0059\\inference_metrics_summary.csv",
+      "sha256": "e0b85ae6738f13b2487e0512bfcc0e4755893c17a6e47424c66bac78f562dc3d",
+      "experiment": "brats21_50_lemon_brats21_empirical_spectrum_all_checkpoints_epoch_0059_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\runs\\lemon_t1_t2_flair_brats21_empirical_spectrum233\\epoch_0059.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.14764718523887604",
+          "bestdice": "0.24713350920262067",
+          "yendice": "0.15320668854832203"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.14977708011504318",
+          "bestdice": "0.2587174526121782",
+          "yendice": "0.17376493260721276"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\lemon_t1_t2_flair_brats21_empirical_spectrum233_brats21_50\\epoch_0079\\inference_metrics_summary.csv",
+      "sha256": "2ebe45f6b22118f61e62e8fc5a7c4c2c2490d8d2559f5147206b9394c354fab4",
+      "experiment": "brats21_50_lemon_brats21_empirical_spectrum_all_checkpoints_epoch_0079_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\runs\\lemon_t1_t2_flair_brats21_empirical_spectrum233\\epoch_0079.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.14533713794066516",
+          "bestdice": "0.25305110307393475",
+          "yendice": "0.16970201315809974"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.14664866786933803",
+          "bestdice": "0.26456456152978225",
+          "yendice": "0.18539047695018318"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\lemon_t1_t2_flair_brats21_empirical_spectrum233_brats21_50\\epoch_0099\\inference_metrics_summary.csv",
+      "sha256": "cca3ea068c7f6d181c1be21e8808679785528f18f466093c7483c236aa4d5242",
+      "experiment": "brats21_50_lemon_brats21_empirical_spectrum_all_checkpoints_epoch_0099_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\runs\\lemon_t1_t2_flair_brats21_empirical_spectrum233\\epoch_0099.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.1580500962596351",
+          "bestdice": "0.2674689155687009",
+          "yendice": "0.1656903707221308"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.1602516556388212",
+          "bestdice": "0.2808453234055894",
+          "yendice": "0.18673640565982044"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\lemon_t1_t2_flair_brats21_empirical_spectrum233_brats21_50\\epoch_0119\\inference_metrics_summary.csv",
+      "sha256": "9568e919db83bfb598b32184a01066eef718dde36aae66b6c6b9293b764a37cc",
+      "experiment": "brats21_50_lemon_brats21_empirical_spectrum_all_checkpoints_epoch_0119_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\runs\\lemon_t1_t2_flair_brats21_empirical_spectrum233\\epoch_0119.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.1657450336714398",
+          "bestdice": "0.27654779330887724",
+          "yendice": "0.16763127978995812"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.16847329883714418",
+          "bestdice": "0.2897759407299695",
+          "yendice": "0.20530060962313315"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\lemon_t1_t2_flair_brats21_empirical_spectrum233_brats21_50\\epoch_0139\\inference_metrics_summary.csv",
+      "sha256": "0fd997d9a2a25e7a75c02bb8336603f4abd4740028d143879046f32d342bc357",
+      "experiment": "brats21_50_lemon_brats21_empirical_spectrum_all_checkpoints_epoch_0139_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\runs\\lemon_t1_t2_flair_brats21_empirical_spectrum233\\epoch_0139.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.18023045829736217",
+          "bestdice": "0.2990998362219387",
+          "yendice": "0.16548430353874405"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.183176802487217",
+          "bestdice": "0.31641672917815783",
+          "yendice": "0.2187461769405776"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\lemon_t1_t2_flair_brats21_empirical_spectrum233_brats21_50\\epoch_0159\\inference_metrics_summary.csv",
+      "sha256": "9e233ff6747100e556f283c61fb622ad6cb947a048692e2a43392bb56577aea8",
+      "experiment": "brats21_50_lemon_brats21_empirical_spectrum_all_checkpoints_epoch_0159_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\runs\\lemon_t1_t2_flair_brats21_empirical_spectrum233\\epoch_0159.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.18516792543260277",
+          "bestdice": "0.3075423230129445",
+          "yendice": "0.1831695472970224"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.189223386765138",
+          "bestdice": "0.3251475887115833",
+          "yendice": "0.21939802081955195"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\lemon_t1_t2_flair_brats21_empirical_spectrum233_brats21_50\\epoch_0179\\inference_metrics_summary.csv",
+      "sha256": "bd94b0af40da57904f7a6319d7a89185102ae28d2c6f3e05a27caac42179f659",
+      "experiment": "brats21_50_lemon_brats21_empirical_spectrum_all_checkpoints_epoch_0179_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\runs\\lemon_t1_t2_flair_brats21_empirical_spectrum233\\epoch_0179.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.16788032172510764",
+          "bestdice": "0.2950064596064508",
+          "yendice": "0.181088713495302"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.1713614915120615",
+          "bestdice": "0.3118702232866658",
+          "yendice": "0.2045410517014899"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\lemon_t1_t2_flair_brats21_empirical_spectrum233_brats21_50\\epoch_0199\\inference_metrics_summary.csv",
+      "sha256": "ef2182d954a395534e1c5c301be3032bfb89d7c677e360d3719aef7ac6d9106c",
+      "experiment": "brats21_50_lemon_brats21_empirical_spectrum_all_checkpoints_epoch_0199_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\runs\\lemon_t1_t2_flair_brats21_empirical_spectrum233\\epoch_0199.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.18085448881156302",
+          "bestdice": "0.3055989354243579",
+          "yendice": "0.192233267767038"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.18496509445436332",
+          "bestdice": "0.32237789770453995",
+          "yendice": "0.2137775494255198"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\lemon_t1_t2_flair_brats21_empirical_spectrum233_brats21_50\\epoch_0219\\inference_metrics_summary.csv",
+      "sha256": "a42c086bb8ae8f57769b2fdcc8daed14ad98a0cacbead773b7d54117121f9817",
+      "experiment": "brats21_50_lemon_brats21_empirical_spectrum_all_checkpoints_epoch_0219_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\runs\\lemon_t1_t2_flair_brats21_empirical_spectrum233\\epoch_0219.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.17636793076748977",
+          "bestdice": "0.29753009807232944",
+          "yendice": "0.1712993801661408"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.18001779006922014",
+          "bestdice": "0.3140071503172941",
+          "yendice": "0.20583494817353884"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\lemon_t1_t2_flair_brats21_empirical_spectrum233_brats21_50\\epoch_0232\\inference_metrics_summary.csv",
+      "sha256": "b7b9ac9d28e9304f7ee650658b535dd310fa12b2083559712c0c11958e688b7c",
+      "experiment": "brats21_50_lemon_brats21_empirical_spectrum_all_checkpoints_epoch_0232_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\runs\\lemon_t1_t2_flair_brats21_empirical_spectrum233\\epoch_0232.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.1583786462460868",
+          "bestdice": "0.274585061342818",
+          "yendice": "0.1764761559645053"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.16082555982281294",
+          "bestdice": "0.28825960982662585",
+          "yendice": "0.1825588139219341"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\ljubljana_ms_empirical_spectrum233_epoch0232_filtered_gaussian\\inference_metrics_summary.csv",
+      "sha256": "18e53db8491ce72be959474bf2a7db0cade36718676aed3ed9c9499507fc8bdc",
+      "experiment": "ljubljana_ms_empirical_spectrum233_epoch0232_filtered_gaussian",
+      "cases": 25,
+      "split": null,
+      "checkpoint": "C:/ML/andi_test/Test/andi_rewrite/outputs/checkpoints/empirical_spectrum233_lmdb_full_gaussian_20260609/epoch_0232.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.03884071135678643",
+          "bestdice": "0.11843364525817415",
+          "yendice": "0.05095882391902398"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.03270748762546378",
+          "bestdice": "0.10739932048561479",
+          "yendice": "0.04381605920113115"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\ljubljana_ms_empirical_spectrum_radial40_epoch0010_gaussian\\inference_metrics_summary.csv",
+      "sha256": "e8f1b66e76267f69e98be8a2cb4512d095cbb3a43d35a85f10d2730d9c451466",
+      "experiment": "ljubljana_ms_empirical_spectrum_radial40_epoch0010_gaussian",
+      "cases": 25,
+      "split": null,
+      "checkpoint": "C:/ML/andi_test/Test/andi_rewrite/outputs/checkpoints/empirical_spectrum_radial40_lmdb/epoch_0010.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.09728912390396363",
+          "bestdice": "0.19232471880536056",
+          "yendice": "0.14404545747437317"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.0573334311088828",
+          "bestdice": "0.13473372760024258",
+          "yendice": "0.13865318893309383"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\ljubljana_ms_pyramid233_zbalanced_epoch0232_gaussian\\inference_metrics_summary.csv",
+      "sha256": "bed90da0969066eb343975e7602c3cff0488600a31614924583907b85fbbf0a0",
+      "experiment": "ljubljana_ms_pyramid233_zbalanced_epoch0232_gaussian",
+      "cases": 25,
+      "split": null,
+      "checkpoint": "C:/ML/andi_test/Test/andi_rewrite/outputs/checkpoints/pyramid233_lmdb_zbalanced_save20/epoch_0232.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.04013497477829397",
+          "bestdice": "0.16768744050714854",
+          "yendice": "0.026244339614685915"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.02937941728037487",
+          "bestdice": "0.16479220071385126",
+          "yendice": "0.11912484611673912"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\pyramid233_lmdb_full_gaussian_save20_50\\epoch_0019\\inference_metrics_summary.csv",
+      "sha256": "51b4cf94a912301f4b7b052a648db546c26e51c4abe30a5278dd182c9c23737a",
+      "experiment": "full_gaussian_from_pyramid233_epoch_0019_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\checkpoints\\pyramid233_lmdb_full_gaussian_save20\\epoch_0019.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.5149047278883111",
+          "bestdice": "0.4385187078971111",
+          "yendice": "0.22268769578506273"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.8524186882410447",
+          "bestdice": "0.7868448034491122",
+          "yendice": "0.6939104166941473"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\pyramid233_lmdb_full_gaussian_save20_50\\epoch_0039\\inference_metrics_summary.csv",
+      "sha256": "ef129644c29ffaa554344b816467df85d77c858926bf72d92159d76586c1b180",
+      "experiment": "full_gaussian_from_pyramid233_epoch_0039_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\checkpoints\\pyramid233_lmdb_full_gaussian_save20\\epoch_0039.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.5821376789112179",
+          "bestdice": "0.4826282493551441",
+          "yendice": "0.27855656726862926"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.8724308959724487",
+          "bestdice": "0.8000804613914667",
+          "yendice": "0.7123687022227183"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\pyramid233_lmdb_full_gaussian_save20_50\\epoch_0059\\inference_metrics_summary.csv",
+      "sha256": "dd9532f4b73c61fc8a50f2f04de9debbf490d2ad853db8c52fe65dad7723916b",
+      "experiment": "full_gaussian_from_pyramid233_epoch_0059_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\checkpoints\\pyramid233_lmdb_full_gaussian_save20\\epoch_0059.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.5893461875007603",
+          "bestdice": "0.4907555048339263",
+          "yendice": "0.26402109476333974"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.8754154204811304",
+          "bestdice": "0.8050490141914309",
+          "yendice": "0.7185601837973574"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\pyramid233_lmdb_full_gaussian_save20_50\\epoch_0079\\inference_metrics_summary.csv",
+      "sha256": "d8beb3df5d333c39d9f7d9ab7563cc1e79317829633f3c4a82d8c9d698f455ab",
+      "experiment": "full_gaussian_from_pyramid233_epoch_0079_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\checkpoints\\pyramid233_lmdb_full_gaussian_save20\\epoch_0079.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.5893383317300595",
+          "bestdice": "0.4911999372165283",
+          "yendice": "0.2725260841861067"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.8757287995972465",
+          "bestdice": "0.8088381838383226",
+          "yendice": "0.7458316400785384"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\pyramid233_lmdb_full_gaussian_save20_50\\epoch_0099\\inference_metrics_summary.csv",
+      "sha256": "b57855313cddb8a39f95b116670881e9c7623edeff9ddaca1260b4ce1a4c38f4",
+      "experiment": "full_gaussian_from_pyramid233_epoch_0099_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\checkpoints\\pyramid233_lmdb_full_gaussian_save20\\epoch_0099.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.5996336107161125",
+          "bestdice": "0.4986642374720665",
+          "yendice": "0.2978328978795439"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.8739312394513151",
+          "bestdice": "0.8120539677181103",
+          "yendice": "0.749317573957131"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\pyramid233_lmdb_full_gaussian_save20_50\\epoch_0119\\inference_metrics_summary.csv",
+      "sha256": "204ece30a8050b6b65917c1f659c230d28d756528eb8afd9b4443749294fb43b",
+      "experiment": "full_gaussian_from_pyramid233_epoch_0119_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\checkpoints\\pyramid233_lmdb_full_gaussian_save20\\epoch_0119.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.614422960020657",
+          "bestdice": "0.5078799894077834",
+          "yendice": "0.31509758988555325"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.881074625144844",
+          "bestdice": "0.8159216708007597",
+          "yendice": "0.7483588232848116"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\pyramid233_lmdb_full_gaussian_save20_50\\epoch_0139\\inference_metrics_summary.csv",
+      "sha256": "8be80691f7d8db4ca21b4eb6a581ff17a51aab54875964885f32a80946afea05",
+      "experiment": "full_gaussian_from_pyramid233_epoch_0139_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\checkpoints\\pyramid233_lmdb_full_gaussian_save20\\epoch_0139.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.6468600738958631",
+          "bestdice": "0.526812126791053",
+          "yendice": "0.35751165466234014"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.8877033423511002",
+          "bestdice": "0.8209437996445235",
+          "yendice": "0.7622362943188119"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\pyramid233_lmdb_full_gaussian_save20_50\\epoch_0159\\inference_metrics_summary.csv",
+      "sha256": "d8ac7f4b5f55ded3b6e8c545306fe608bebc71d7f23513e6e38727d2defd9ab9",
+      "experiment": "full_gaussian_from_pyramid233_epoch_0159_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\checkpoints\\pyramid233_lmdb_full_gaussian_save20\\epoch_0159.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.6611797080249093",
+          "bestdice": "0.5391224671896166",
+          "yendice": "0.3840284013494798"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.8832668281174462",
+          "bestdice": "0.8163567723468725",
+          "yendice": "0.7711362352422025"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\pyramid233_lmdb_full_gaussian_save20_50\\epoch_0179\\inference_metrics_summary.csv",
+      "sha256": "23758554834e70ba23ce489cb502c78562e1bb08dbdb1b52b52e154522c8c699",
+      "experiment": "full_gaussian_from_pyramid233_epoch_0179_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\checkpoints\\pyramid233_lmdb_full_gaussian_save20\\epoch_0179.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.6544501959866743",
+          "bestdice": "0.5302052400002821",
+          "yendice": "0.36157656645322933"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.8826437355399464",
+          "bestdice": "0.8148415618435191",
+          "yendice": "0.7580473276999817"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\pyramid233_lmdb_full_gaussian_save20_50\\epoch_0199\\inference_metrics_summary.csv",
+      "sha256": "0393a4c584a7ca56452e85adb79eb3387c284d3c5d0dee7935f477aee56a9608",
+      "experiment": "full_gaussian_from_pyramid233_epoch_0199_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\checkpoints\\pyramid233_lmdb_full_gaussian_save20\\epoch_0199.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.6631053684004331",
+          "bestdice": "0.5348033312354744",
+          "yendice": "0.38343085396278626"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.8791456779952183",
+          "bestdice": "0.8100328947192612",
+          "yendice": "0.7582517397403857"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\pyramid233_lmdb_full_gaussian_save20_50\\epoch_0219\\inference_metrics_summary.csv",
+      "sha256": "067df01a36588cc4e82c8cd5e58c718663537acdff49adb54ef7508e4179f8c3",
+      "experiment": "full_gaussian_from_pyramid233_epoch_0219_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\checkpoints\\pyramid233_lmdb_full_gaussian_save20\\epoch_0219.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.6742857361598559",
+          "bestdice": "0.5437587151723805",
+          "yendice": "0.3964304673575235"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.8793569754776454",
+          "bestdice": "0.8101835961612683",
+          "yendice": "0.7382513642135633"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\pyramid233_lmdb_full_gaussian_save20_50\\epoch_0232\\inference_metrics_summary.csv",
+      "sha256": "2bf80d3946af578e670824ef9e81c67434e3811dd38e00b38f312cddf92d60ce",
+      "experiment": "full_gaussian_from_pyramid233_epoch_0232_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\checkpoints\\pyramid233_lmdb_full_gaussian_save20\\epoch_0232.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.6846208652467737",
+          "bestdice": "0.552195600555442",
+          "yendice": "0.41536090838105466"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.883343697458415",
+          "bestdice": "0.8137541993780587",
+          "yendice": "0.7653677220685969"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\pyramid233_lmdb_zbalanced_save20_gaussian50\\epoch_0019\\inference_metrics_summary.csv",
+      "sha256": "0c36043023bac429b37fcb30facb250ba74c74c68a37c2d4cfe099ab025518bb",
+      "experiment": "gaussian50_from_pyramid233_zbalanced_save20_epoch_0019_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\checkpoints\\pyramid233_lmdb_zbalanced_save20\\epoch_0019.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.5367088168639917",
+          "bestdice": "0.44657167223237676",
+          "yendice": "0.2423861780239627"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.8526952584615743",
+          "bestdice": "0.7862980652382919",
+          "yendice": "0.6872819095313464"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\pyramid233_lmdb_zbalanced_save20_gaussian50\\epoch_0039\\inference_metrics_summary.csv",
+      "sha256": "82ecfb79c3fc48c3e45050a71bae83f7b326bdd8f8ef054551841a84073202a1",
+      "experiment": "gaussian50_from_pyramid233_zbalanced_save20_epoch_0039_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\checkpoints\\pyramid233_lmdb_zbalanced_save20\\epoch_0039.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.595100804097201",
+          "bestdice": "0.49300281333327817",
+          "yendice": "0.28486610213603536"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.8654611175909639",
+          "bestdice": "0.7967734027706878",
+          "yendice": "0.7167172447218684"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\pyramid233_lmdb_zbalanced_save20_gaussian50\\epoch_0059\\inference_metrics_summary.csv",
+      "sha256": "402e7c696b21e1d9ea89b197a3278f0e68c3c630ed927ad4a1ad0711ef8b814c",
+      "experiment": "gaussian50_from_pyramid233_zbalanced_save20_epoch_0059_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\checkpoints\\pyramid233_lmdb_zbalanced_save20\\epoch_0059.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.6248974213998293",
+          "bestdice": "0.5129171037280247",
+          "yendice": "0.325668290079472"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.8772214824442865",
+          "bestdice": "0.8066873066346665",
+          "yendice": "0.7261760981426404"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\pyramid233_lmdb_zbalanced_save20_gaussian50\\epoch_0079\\inference_metrics_summary.csv",
+      "sha256": "b965def49a324a18ab966cab0d09706ca98f3f5cbba2dfa299f996d58c12dc30",
+      "experiment": "gaussian50_from_pyramid233_zbalanced_save20_epoch_0079_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\checkpoints\\pyramid233_lmdb_zbalanced_save20\\epoch_0079.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.6542965196971372",
+          "bestdice": "0.5275834298456652",
+          "yendice": "0.3509347121417023"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.8813187800320016",
+          "bestdice": "0.8113746765392055",
+          "yendice": "0.7677853104868053"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\pyramid233_lmdb_zbalanced_save20_gaussian50\\epoch_0099\\inference_metrics_summary.csv",
+      "sha256": "07fae2266e548841645dfca8ff3947a133cc15c25eee978bb15947d0e5f992dd",
+      "experiment": "gaussian50_from_pyramid233_zbalanced_save20_epoch_0099_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\checkpoints\\pyramid233_lmdb_zbalanced_save20\\epoch_0099.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.6655322856597699",
+          "bestdice": "0.5383050688288266",
+          "yendice": "0.3920061794464478"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.8750500695317905",
+          "bestdice": "0.8051856131028623",
+          "yendice": "0.7173382931453655"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\pyramid233_lmdb_zbalanced_save20_gaussian50\\epoch_0119\\inference_metrics_summary.csv",
+      "sha256": "42175e4d0ea66d74fbfad1c285ab0fa7471932db6688464708b861ce27152f96",
+      "experiment": "gaussian50_from_pyramid233_zbalanced_save20_epoch_0119_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\checkpoints\\pyramid233_lmdb_zbalanced_save20\\epoch_0119.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.6874293060930005",
+          "bestdice": "0.5542497582674596",
+          "yendice": "0.40849323147120925"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.8785356574806298",
+          "bestdice": "0.8090537190878564",
+          "yendice": "0.7287974265333932"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\pyramid233_lmdb_zbalanced_save20_gaussian50\\epoch_0139\\inference_metrics_summary.csv",
+      "sha256": "bde58bb07317e18398cfc00e3bae3e06eab22cf2eecf2356944affb7ffd017d7",
+      "experiment": "gaussian50_from_pyramid233_zbalanced_save20_epoch_0139_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\checkpoints\\pyramid233_lmdb_zbalanced_save20\\epoch_0139.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.6960044111365863",
+          "bestdice": "0.5616604506654589",
+          "yendice": "0.41550854329111836"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.8715990784824629",
+          "bestdice": "0.8001338118549348",
+          "yendice": "0.707038701661546"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\pyramid233_lmdb_zbalanced_save20_gaussian50\\epoch_0159\\inference_metrics_summary.csv",
+      "sha256": "ce6130efbf60d32f8509b4eee4e7672b2cefad192b8d285d095d6d3e92566a2b",
+      "experiment": "gaussian50_from_pyramid233_zbalanced_save20_epoch_0159_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\checkpoints\\pyramid233_lmdb_zbalanced_save20\\epoch_0159.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.7059450015686243",
+          "bestdice": "0.5725207486891911",
+          "yendice": "0.45741643598163995"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.8696033489408279",
+          "bestdice": "0.7994068502109805",
+          "yendice": "0.6980428210623537"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\pyramid233_lmdb_zbalanced_save20_gaussian50\\epoch_0179\\inference_metrics_summary.csv",
+      "sha256": "443210139ecbfdb5e5ea36a8bd0a7f2ba6bc1f487b8bd0140fb641663e72ae5a",
+      "experiment": "gaussian50_from_pyramid233_zbalanced_save20_epoch_0179_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\checkpoints\\pyramid233_lmdb_zbalanced_save20\\epoch_0179.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.7147874810677561",
+          "bestdice": "0.5820740806556778",
+          "yendice": "0.45134360633967174"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.865614029254378",
+          "bestdice": "0.7962649449731765",
+          "yendice": "0.6896373893413361"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\pyramid233_lmdb_zbalanced_save20_gaussian50\\epoch_0199\\inference_metrics_summary.csv",
+      "sha256": "307c9e869fec4f69d2f52f49a479fba5e29966e5540fc14c85f0e93758c556b9",
+      "experiment": "gaussian50_from_pyramid233_zbalanced_save20_epoch_0199_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\checkpoints\\pyramid233_lmdb_zbalanced_save20\\epoch_0199.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.7200682135911298",
+          "bestdice": "0.5874272308234241",
+          "yendice": "0.46779602325247294"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.8636788610419449",
+          "bestdice": "0.7971401787654766",
+          "yendice": "0.7144650034743936"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\pyramid233_lmdb_zbalanced_save20_gaussian50\\epoch_0219\\inference_metrics_summary.csv",
+      "sha256": "edf0981ef93730c879cbff66a6a498e980ee958c13fbfe2d0acda7fd369aedc6",
+      "experiment": "gaussian50_from_pyramid233_zbalanced_save20_epoch_0219_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\checkpoints\\pyramid233_lmdb_zbalanced_save20\\epoch_0219.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.7257833254975943",
+          "bestdice": "0.5948162768714454",
+          "yendice": "0.4801338865285863"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.8628146990956016",
+          "bestdice": "0.7953495242470983",
+          "yendice": "0.7069004096199589"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\pyramid233_lmdb_zbalanced_save20_gaussian50\\epoch_0232\\inference_metrics_summary.csv",
+      "sha256": "3e62a40157b39f11f2c05abb40770dfff21aca670d5374ae1a227e3523d105b1",
+      "experiment": "gaussian50_from_pyramid233_zbalanced_save20_epoch_0232_50",
+      "cases": 50,
+      "split": "splits\\BraTS21\\scans_test_50.csv",
+      "checkpoint": "outputs\\checkpoints\\pyramid233_lmdb_zbalanced_save20\\epoch_0232.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.7240801820788126",
+          "bestdice": "0.5929084390482057",
+          "yendice": "0.4599307044609721"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.8579512969170225",
+          "bestdice": "0.7907266165629643",
+          "yendice": "0.7099679281096986"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\ucsf_pdgm_251_empirical_spectrum233_epoch0232\\inference_metrics_summary.csv",
+      "sha256": "2bbc8c006c5fa411e0a90a60ba235b99c463ee5627ed60a2dd6df298196fff5d",
+      "experiment": "ucsf_pdgm_251_empirical_spectrum233_epoch0232",
+      "cases": 251,
+      "split": "C:/ML/andi_test/Test/andi_rewrite/splits/UCSF-PDGM/scans_test_251.csv",
+      "checkpoint": "C:/ML/andi_test/Test/andi_rewrite/outputs/checkpoints/empirical_spectrum233_lmdb_full_gaussian_20260609/epoch_0232.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.8356088815719315",
+          "bestdice": "0.7750380761430657",
+          "yendice": "0.6088033761814077"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.8579030107775102",
+          "bestdice": "0.7909777910655399",
+          "yendice": "0.6460954918837621"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\ucsf_pdgm_251_pyramid233_save20_gaussian\\inference_metrics_summary.csv",
+      "sha256": "700942bd84f36554bd1dc663121225e3c901825aa9ecc1bff68edcc079806073",
+      "experiment": "ucsf_pdgm_251_pyramid233_save20_gaussian",
+      "cases": 251,
+      "split": "C:/ML/andi_test/Test/andi_rewrite/splits/UCSF-PDGM/scans_test_251.csv",
+      "checkpoint": "C:/ML/andi_test/Test/andi_rewrite/outputs/checkpoints/pyramid233_lmdb_full_gaussian_save20/epoch_0232.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.6116660495279295",
+          "bestdice": "0.4866903102554631",
+          "yendice": "0.32898552338749065"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.8565191650733391",
+          "bestdice": "0.780431512259303",
+          "yendice": "0.7596675409516754"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\metrics\\ucsf_pdgm_pyramid233_gaussian\\inference_metrics_summary.csv",
+      "sha256": "f0592cd36126128a726873dec9240328a0ad25a62ec3dcca8726692db6cb80fd",
+      "experiment": "ucsf_pdgm_pyramid233_gaussian",
+      "cases": 1,
+      "split": null,
+      "checkpoint": "outputs/checkpoints/pyramid233_lmdb_full_gaussian/epoch_0232.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.6317271472310566",
+          "bestdice": "0.6597255499891092",
+          "yendice": "0.5832530083019807"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.8780535476289731",
+          "bestdice": "0.9091296928327645",
+          "yendice": "0.9083930830873049"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\refactor_smoke_ucsf_20260813\\metrics\\inference_metrics_summary.csv",
+      "sha256": "f0592cd36126128a726873dec9240328a0ad25a62ec3dcca8726692db6cb80fd",
+      "experiment": "refactor_smoke_ucsf_20260813",
+      "cases": 1,
+      "split": null,
+      "checkpoint": "outputs/checkpoints/pyramid233_lmdb_full_gaussian/epoch_0232.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.6317271472310566",
+          "bestdice": "0.6597255499891092",
+          "yendice": "0.5832530083019807"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.8780535476289731",
+          "bestdice": "0.9091296928327645",
+          "yendice": "0.9083930830873049"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\refactor_smoke_ucsf_final_20260813\\metrics\\inference_metrics_summary.csv",
+      "sha256": "f0592cd36126128a726873dec9240328a0ad25a62ec3dcca8726692db6cb80fd",
+      "experiment": "refactor_smoke_ucsf_final_20260813",
+      "cases": 1,
+      "split": null,
+      "checkpoint": "outputs/checkpoints/pyramid233_lmdb_full_gaussian/epoch_0232.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.6317271472310566",
+          "bestdice": "0.6597255499891092",
+          "yendice": "0.5832530083019807"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.8780535476289731",
+          "bestdice": "0.9091296928327645",
+          "yendice": "0.9083930830873049"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\runs\\fomo45k_nimh_flair_t1_t2_empirical_spectrum233\\evaluation\\brats21_test50\\inference_metrics_summary.csv",
+      "sha256": "e7e3d5e4a9a941d9cad942ba77640bc1e5886e4481cc7af568034c16e207329f",
+      "experiment": "brats21_50_fomo45k_nimh_model_matched_noise",
+      "cases": 50,
+      "split": "C:/ML/andi_test/Test/andi_rewrite/splits/BraTS21/scans_test_50.csv",
+      "checkpoint": "C:/ML/andi_test/Test/andi_rewrite/outputs/runs/fomo45k_nimh_flair_t1_t2_empirical_spectrum233/epoch_0232.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.48016557648341873",
+          "bestdice": "0.4564100658602209",
+          "yendice": "0.3252603218538323"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.5089853491375623",
+          "bestdice": "0.4693414860195342",
+          "yendice": "0.390910226092561"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\runs\\fomo45k_robust_iqr20_b\\evaluation\\brats_val50\\inference_metrics_summary.csv",
+      "sha256": "bf4daaad796df7c0d2c697888c720205cfb92284a266fe59c16942b2260343c5",
+      "experiment": "brats_val50_robust_iqr20_b",
+      "cases": 50,
+      "split": "outputs/datasets/fomo45k_sri24_robust_iqr/brats_validation50.csv",
+      "checkpoint": "outputs/runs/fomo45k_robust_iqr20_b/epoch_0019.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.6863198208493707",
+          "bestdice": "0.6233130838463451",
+          "yendice": "0.5183516083232834"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.747485967322364",
+          "bestdice": "0.6725535525061116",
+          "yendice": "0.5608413362502249"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\runs\\fomo45k_sri24_brats_histmatch_empirical_spectrum40\\evaluation\\brats21_test50_epoch0020\\inference_metrics_summary.csv",
+      "sha256": "38c67d24c85cc4e69a7dc15ea06bd4156e7aad80b288e1188643c8c72ddebc98",
+      "experiment": "brats21_test50_fomo45k_sri24_brats_histmatch_empirical_spectrum40_epoch0020",
+      "cases": 50,
+      "split": "splits/BraTS21/scans_test_50.csv",
+      "checkpoint": "outputs/runs/fomo45k_sri24_brats_histmatch_empirical_spectrum40/epoch_0019.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.6670567807488125",
+          "bestdice": "0.6517356893777883",
+          "yendice": "0.5154465055886083"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.6874976526185237",
+          "bestdice": "0.6718525961659744",
+          "yendice": "0.5754663833386435"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\runs\\fomo45k_sri24_brats_histmatch_empirical_spectrum40\\evaluation\\brats21_test50_epoch0040\\inference_metrics_summary.csv",
+      "sha256": "fd0e5f0bb60a95696da99b078e157e094c772e25fedd9bb4e2eaa9475f6907bb",
+      "experiment": "brats21_test50_fomo45k_sri24_brats_histmatch_empirical_spectrum40_epoch0040",
+      "cases": 50,
+      "split": "splits/BraTS21/scans_test_50.csv",
+      "checkpoint": "outputs/runs/fomo45k_sri24_brats_histmatch_empirical_spectrum40/epoch_0039.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.6788786662255111",
+          "bestdice": "0.6563450359501911",
+          "yendice": "0.5149346550027871"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.6985278273550778",
+          "bestdice": "0.6704478507260814",
+          "yendice": "0.555818845385452"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\runs\\fomo45k_sri24_brats_histmatch_zbucket29_69k_empirical_spectrum20\\evaluation\\brats21_test50\\inference_metrics_summary.csv",
+      "sha256": "340cd03ed016cee3c8d00a2c65a799efdf47352edb1f0efb33ed5ff1fa793772",
+      "experiment": "brats21_test50_fomo45k_sri24_brats_histmatch_zbucket29_69k_empirical_spectrum20",
+      "cases": 50,
+      "split": "splits/BraTS21/scans_test_50.csv",
+      "checkpoint": "outputs/runs/fomo45k_sri24_brats_histmatch_zbucket29_69k_empirical_spectrum20/epoch_0019.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.6748971467834963",
+          "bestdice": "0.6549490943601151",
+          "yendice": "0.5013508825587647"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.6954513758989997",
+          "bestdice": "0.6731865817955202",
+          "yendice": "0.5452590050981185"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\runs\\fomo45k_sri24_flair_t1_t2_empirical_spectrum233\\evaluation\\brats21_test251\\inference_metrics_summary.csv",
+      "sha256": "8ce7140d7e95bc72559e96eeef3a0726d68d7796632e2df426e5c6f718364dfa",
+      "experiment": "brats21_251_fomo45k_sri24_flair_t1_t2_empirical_spectrum233_epoch0232",
+      "cases": 251,
+      "split": "C:/ML/andi_test/Test/andi_rewrite/splits/BraTS21/scans_test.csv",
+      "checkpoint": "C:/ML/andi_test/Test/andi_rewrite/outputs/runs/fomo45k_sri24_flair_t1_t2_empirical_spectrum233/epoch_0232.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.44508451815979344",
+          "bestdice": "0.47653162328160836",
+          "yendice": "0.3108624851360259"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.47021173099001035",
+          "bestdice": "0.4934101753365216",
+          "yendice": "0.3628926888135155"
+        }
+      ]
+    },
+    {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\runs\\fomo45k_sri24_flair_t1_t2_gaussian233\\evaluation\\brats21_test251\\inference_metrics_summary.csv",
+      "sha256": "2711cc091004394e78260426e8aca791ee59ca1957dcde7fd90fb8c038c07b69",
+      "experiment": "brats21_251_fomo45k_sri24_flair_t1_t2_gaussian233_epoch0232",
+      "cases": 251,
+      "split": "C:/ML/andi_test/Test/andi_rewrite/splits/BraTS21/scans_test.csv",
+      "checkpoint": "C:/ML/andi_test/Test/andi_rewrite/outputs/runs/fomo45k_sri24_flair_t1_t2_gaussian233/epoch_0232.pt",
+      "metrics": [
+        {
+          "version": "raw",
+          "AUPRC": "0.2710507669478494",
+          "bestdice": "0.30796071130954783",
+          "yendice": "0.0804585847107931"
+        },
+        {
+          "version": "median_filter",
+          "AUPRC": "0.4880518811699871",
+          "bestdice": "0.5062035173785007",
+          "yendice": "0.3516057867782099"
+        }
+      ]
+    }
+  ],
+  "training_inventory": [
+    {
+      "run": "brats_flair_t1_t2_empirical_spectrum233",
+      "recorded_epochs": 233,
+      "last_row": {
+        "epoch_index": "232",
+        "completed_epoch": "233",
+        "train_loss": "0.0026018648915876346",
+        "validation_loss": "0.005071448904378002",
+        "learning_rate": "2e-05",
+        "ema_step": "310123",
+        "finite_status": "PASS",
+        "elapsed_seconds": "593.3687737998553",
+        "gpu_peak_bytes": "7137346560",
+        "checkpoint_path": "outputs\\runs\\brats_flair_t1_t2_empirical_spectrum233\\epoch_0232.pt"
+      }
+    },
+    {
+      "run": "brats_t1_t2_empirical_spectrum20_eval50",
+      "recorded_epochs": 20,
+      "last_row": {
+        "epoch_index": "19",
+        "completed_epoch": "20",
+        "train_loss": "0.005442015694016581",
+        "validation_loss": "",
+        "learning_rate": "2e-05",
+        "ema_step": "26620",
+        "finite_status": "PASS",
+        "elapsed_seconds": "525.0088044998702",
+        "gpu_peak_bytes": "7127512064",
+        "checkpoint_path": "outputs\\runs\\brats_t1_t2_empirical_spectrum20_eval50\\epoch_0019.pt"
+      }
+    },
+    {
+      "run": "brats_t1_t2_empirical_spectrum233_resume_epoch0019",
+      "recorded_epochs": 34,
+      "last_row": {
+        "epoch_index": "53",
+        "completed_epoch": "54",
+        "train_loss": "0.004460310709947691",
+        "validation_loss": "",
+        "learning_rate": "2e-05",
+        "ema_step": "71874",
+        "finite_status": "PASS",
+        "elapsed_seconds": "537.6771442999598",
+        "gpu_peak_bytes": "7126278144",
+        "checkpoint_path": ""
+      }
+    },
+    {
+      "run": "fomo45k_nimh_flair_t1_t2_empirical_spectrum233",
+      "recorded_epochs": 233,
+      "last_row": {
+        "epoch_index": "232",
+        "completed_epoch": "233",
+        "train_loss": "0.0031184725022515283",
+        "validation_loss": "0.006562527870183777",
+        "learning_rate": "2e-05",
+        "ema_step": "151450",
+        "finite_status": "PASS",
+        "elapsed_seconds": "264.0377174001187",
+        "gpu_peak_bytes": "7136007168",
+        "checkpoint_path": "outputs\\runs\\fomo45k_nimh_flair_t1_t2_empirical_spectrum233\\epoch_0232.pt"
+      }
+    },
+    {
+      "run": "fomo45k_robust_iqr20_b",
+      "recorded_epochs": 20,
+      "last_row": {
+        "epoch_index": "19",
+        "completed_epoch": "20",
+        "train_loss": "0.017458059735331887",
+        "validation_loss": "0.017927069390570243",
+        "learning_rate": "2e-05",
+        "ema_step": "11840",
+        "finite_status": "PASS",
+        "elapsed_seconds": "243.4929881002754",
+        "gpu_peak_bytes": "7135118336",
+        "checkpoint_path": "outputs\\runs\\fomo45k_robust_iqr20_b\\epoch_0019.pt"
+      }
+    },
+    {
+      "run": "fomo45k_sri24_brats_histmatch_empirical_spectrum40",
+      "recorded_epochs": 40,
+      "last_row": {
+        "epoch_index": "39",
+        "completed_epoch": "40",
+        "train_loss": "0.006764831605077897",
+        "validation_loss": "0.0069552478177318695",
+        "learning_rate": "2e-05",
+        "ema_step": "23680",
+        "finite_status": "PASS",
+        "elapsed_seconds": "242.74476120015606",
+        "gpu_peak_bytes": "7136297984",
+        "checkpoint_path": "outputs\\runs\\fomo45k_sri24_brats_histmatch_empirical_spectrum40\\epoch_0039.pt"
+      }
+    },
+    {
+      "run": "fomo45k_sri24_brats_histmatch_zbucket29_69k_empirical_spectrum20",
+      "recorded_epochs": 20,
+      "last_row": {
+        "epoch_index": "19",
+        "completed_epoch": "20",
+        "train_loss": "0.00524966511308499",
+        "validation_loss": "0.007044063357187949",
+        "learning_rate": "2e-05",
+        "ema_step": "26540",
+        "finite_status": "PASS",
+        "elapsed_seconds": "533.6886118003167",
+        "gpu_peak_bytes": "7135904768",
+        "checkpoint_path": "outputs\\runs\\fomo45k_sri24_brats_histmatch_zbucket29_69k_empirical_spectrum20\\epoch_0019.pt"
+      }
+    },
+    {
+      "run": "fomo45k_sri24_flair_t1_t2_empirical_spectrum233",
+      "recorded_epochs": 233,
+      "last_row": {
+        "epoch_index": "232",
+        "completed_epoch": "233",
+        "train_loss": "0.004110738010314054",
+        "validation_loss": "0.0065190766626484105",
+        "learning_rate": "2e-05",
+        "ema_step": "137936",
+        "finite_status": "PASS",
+        "elapsed_seconds": "241.74486940004863",
+        "gpu_peak_bytes": "7136166912",
+        "checkpoint_path": "outputs\\runs\\fomo45k_sri24_flair_t1_t2_empirical_spectrum233\\epoch_0232.pt"
+      }
+    },
+    {
+      "run": "fomo45k_sri24_flair_t1_t2_gaussian233",
+      "recorded_epochs": 233,
+      "last_row": {
+        "epoch_index": "232",
+        "completed_epoch": "233",
+        "train_loss": "0.006087373584631604",
+        "validation_loss": "0.006971873657025439",
+        "learning_rate": "2e-05",
+        "ema_step": "137936",
+        "finite_status": "PASS",
+        "elapsed_seconds": "242.22542789997533",
+        "gpu_peak_bytes": "7134856192",
+        "checkpoint_path": "outputs\\runs\\fomo45k_sri24_flair_t1_t2_gaussian233\\epoch_0232.pt"
+      }
+    },
+    {
+      "run": "lemon_t1_t2_flair_brats21_empirical_spectrum233",
+      "recorded_epochs": 233,
+      "last_row": {
+        "epoch_index": "232",
+        "completed_epoch": "233",
+        "train_loss": "0.0055895457691374755",
+        "validation_loss": "0.00860290295958262",
+        "learning_rate": "2e-05",
+        "ema_step": "59648",
+        "finite_status": "PASS",
+        "elapsed_seconds": "102.63261870003771",
+        "gpu_peak_bytes": "7136457728",
+        "checkpoint_path": "outputs\\runs\\lemon_t1_t2_flair_brats21_empirical_spectrum233\\epoch_0232.pt"
+      }
+    },
+    {
+      "run": "lemon_t1_t2_flair_empirical_spectrum233",
+      "recorded_epochs": 233,
+      "last_row": {
+        "epoch_index": "232",
+        "completed_epoch": "233",
+        "train_loss": "0.008086671000007052",
+        "validation_loss": "0.011600715276014445",
+        "learning_rate": "2e-05",
+        "ema_step": "59648",
+        "finite_status": "PASS",
+        "elapsed_seconds": "102.79428599996027",
+        "gpu_peak_bytes": "7136822272",
+        "checkpoint_path": "outputs\\runs\\lemon_t1_t2_flair_empirical_spectrum233\\epoch_0232.pt"
+      }
+    }
+  ],
+  "splits": {
+    "val50": {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\outputs\\datasets\\fomo45k_sri24_robust_iqr\\brats_validation50.csv",
+      "count": 50,
+      "id_column": "BraTS21ID",
+      "sha256": "4532e3c6befbb8f2e7ca337262ca9435f1f2456733aa6948781db6808284dfd0"
+    },
+    "test50": {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\splits\\BraTS21\\scans_test_50.csv",
+      "count": 50,
+      "id_column": "BraTS21ID",
+      "sha256": "95d7cf5f33ef7b77652584e10949ca72434c2bb163d7a2f1b8bad9e1f59e7d30"
+    },
+    "test251": {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\splits\\BraTS21\\scans_test.csv",
+      "count": 251,
+      "id_column": "BraTS21ID",
+      "sha256": "ea88ffdb4be91decc1768c6a5e86007f0077558d6aa013675548c1c85d1d139e"
+    },
+    "old_train": {
+      "path": "C:\\ML\\andi_test\\Test\\andi_rewrite\\splits\\BraTS21\\scans_train.csv",
+      "count": 938,
+      "id_column": "BraTS21ID",
+      "sha256": "4f8f1ce01cfe3c36293ce256aa9e9ee7b0a6501b597e8ab3a0e3ebc7f3dd8899"
+    }
+  },
+  "intersections": {
+    "val50/test251": 0,
+    "val50/old_train": 50,
+    "test50/test251": 50
+  }
+}
