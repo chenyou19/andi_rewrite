@@ -1,0 +1,92 @@
+"""Domain-shift classifiers used by the controlled ANDi audit.
+
+The package deliberately keeps data preparation separate from model training.
+The data-side implementation is expected to provide
+``data.domain_classifier.DomainClassifierDataset``; the runner only consumes
+its stable ``records`` and ``load_slice`` interface.
+"""
+
+from .metrics import (
+    aggregate_subject_predictions,
+    bootstrap_subject_auc,
+    compute_binary_metrics,
+    compute_dataset_metrics,
+    paired_heldout_swap_test,
+)
+from .models import (
+    SmallCNN,
+    build_model,
+    replace_batchnorm_with_groupnorm,
+)
+from .runner import (
+    DomainClassifierRunner,
+    ManifestDataset,
+    TrainConfig,
+    TrainOnlyStandardizer,
+    extract_statistical_features,
+    evaluate_negative_gate,
+    evaluate_positive_gate,
+    evaluate_tiny_gate,
+    formal_expansion_plan,
+    fit_shared_train_scalar,
+    fit_statistical_logistic,
+    iter_retrained_pair_permutation_control,
+    permutation_control_status,
+    permute_pair_labels,
+    retrained_pair_permutation_control,
+    run_statistical_control,
+    materialize_dataset,
+    materialize_registered_dataset,
+    materialize_tensor_dataset,
+    materialize_tensor_datasets,
+    dataset_with_shared_train_scalar,
+    dataset_with_stage,
+    dataset_with_modalities,
+    make_same_cohort_negative_records,
+    select_tiny_records,
+    seed_matrix_gate,
+    shuffle_participant_labels,
+    subset_dataset,
+    subject_balanced_bce_with_logits,
+    write_prediction_rows,
+)
+
+__all__ = [
+    "DomainClassifierRunner",
+    "ManifestDataset",
+    "SmallCNN",
+    "TrainConfig",
+    "TrainOnlyStandardizer",
+    "aggregate_subject_predictions",
+    "bootstrap_subject_auc",
+    "build_model",
+    "compute_binary_metrics",
+    "compute_dataset_metrics",
+    "extract_statistical_features",
+    "evaluate_negative_gate",
+    "evaluate_positive_gate",
+    "evaluate_tiny_gate",
+    "formal_expansion_plan",
+    "fit_statistical_logistic",
+    "fit_shared_train_scalar",
+    "iter_retrained_pair_permutation_control",
+    "materialize_dataset",
+    "materialize_registered_dataset",
+    "materialize_tensor_dataset",
+    "materialize_tensor_datasets",
+    "paired_heldout_swap_test",
+    "permutation_control_status",
+    "permute_pair_labels",
+    "retrained_pair_permutation_control",
+    "replace_batchnorm_with_groupnorm",
+    "run_statistical_control",
+    "dataset_with_shared_train_scalar",
+    "dataset_with_stage",
+    "dataset_with_modalities",
+    "make_same_cohort_negative_records",
+    "seed_matrix_gate",
+    "select_tiny_records",
+    "shuffle_participant_labels",
+    "subject_balanced_bce_with_logits",
+    "write_prediction_rows",
+]

@@ -176,19 +176,24 @@ def center_spectrum_image(image: np.ndarray, valid_mask: np.ndarray, mode: str) 
 
 def source_manifest_provenance(path: Path) -> dict[str, object]:
     digest = hashlib.sha256(path.read_bytes()).hexdigest()
-    with path.open(newline="", encoding="utf-8") as handle:
-        reader = csv.DictReader(handle)
-        rows = list(reader)
-        fieldnames = list(reader.fieldnames or [])
+    if path.suffix == ".jsonl":
+        with path.open(encoding="utf-8") as handle:
+            rows = [json.loads(line) for line in handle if line.strip()]
+        fieldnames = list(rows[0]) if rows else []
+    else:
+        with path.open(newline="", encoding="utf-8") as handle:
+            reader = csv.DictReader(handle)
+            rows = list(reader)
+            fieldnames = list(reader.fieldnames or [])
     split_counts: dict[str, int] = {}
     subject_ids: set[str] = set()
     session_ids: set[str] = set()
     subject_column = next(
         (name for name in ("participant_id", "case_id", "subject_id") if name in fieldnames),
-        fieldnames[0] if fieldnames else None,
+        None if path.suffix == ".jsonl" else fieldnames[0] if fieldnames else None,
     )
     for row in rows:
-        split = str(row.get("split", "")).strip()
+        split = str(row.get("split") or row.get("source_split") or "").strip()
         if split:
             split_counts[split] = split_counts.get(split, 0) + 1
         if subject_column and row.get(subject_column):
@@ -234,8 +239,9 @@ def compute(args: argparse.Namespace) -> None:
     source_content_digest = hashlib.sha256()
     if args.mask_mode == 'robust_iqr_background':
         spec = json.loads((lmdb_path/'normalization.json').read_text())
-        if spec.get('type') != 'robust_iqr' or spec.get('version') != 1 or spec.get('background') != -1.0:
-            raise ValueError('robust_iqr_background requires robust-IQR v1 with background -1')
+        compatible = {'robust_iqr', 'andi_histmatch_mean888_robust_iqr'}
+        if spec.get('type') not in compatible or spec.get('version') != 1 or spec.get('background') != -1.0:
+            raise ValueError('robust_iqr_background requires a compatible v1 LMDB with background -1')
 
     for raw_value in maybe_progress(values, total_entries, enabled=not args.no_progress):
         if args.max_slices is not None and seen >= args.max_slices:
