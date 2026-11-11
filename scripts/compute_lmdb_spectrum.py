@@ -240,7 +240,7 @@ def compute(args: argparse.Namespace) -> None:
     if args.mask_mode == 'robust_iqr_background':
         spec = json.loads((lmdb_path/'normalization.json').read_text())
         compatible = {'robust_iqr', 'andi_histmatch_mean888_robust_iqr',
-                      'andi_histmatch_mean888_raw_source'}
+                      'andi_histmatch_mean888_raw_source', 'andi_histmatch_mean888_mean_std'}
         if spec.get('type') not in compatible or spec.get('version') != 1 or spec.get('background') != -1.0:
             raise ValueError('robust_iqr_background requires a compatible v1 LMDB with background -1')
 

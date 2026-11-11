@@ -5,6 +5,8 @@ from __future__ import annotations
 import warnings
 from typing import Any
 
+import torch
+
 from .policies import OriginalANDiPostprocessPolicy, PostprocessPolicy, RewritePostprocessPolicy
 from .threshold import _validate_threshold_method, supported_threshold_methods
 
@@ -15,6 +17,7 @@ def build_postprocess_policy(
     *,
     warn_legacy: bool = True,
     legacy_profile: str = "evaluator",
+    median_cuda_device: torch.device | None = None,
 ) -> PostprocessPolicy:
     """Build an explicit policy while retaining legacy rewrite configuration."""
 
@@ -52,6 +55,7 @@ def build_postprocess_policy(
         return OriginalANDiPostprocessPolicy(
             original_config,
             threshold_method=threshold_method,
+            median_cuda_device=median_cuda_device,
         )
     if mode == "rewrite":
         return RewritePostprocessPolicy(
@@ -60,6 +64,7 @@ def build_postprocess_policy(
             threshold_method=threshold_method,
             legacy_compatibility=legacy_compatibility,
             legacy_profile=legacy_profile,
+            median_cuda_device=median_cuda_device,
         )
     raise ValueError(
         f"Unknown metrics.postprocess_mode: {configured_mode!r}. "

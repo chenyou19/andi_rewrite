@@ -1,0 +1,116 @@
+anomaly:
+  aggregation:
+    eps: 1.0e-08
+    type: geometric_mean
+  median_filter:
+    enabled: true
+    kernel_size: 5
+  modality_pool:
+    type: max
+  t_lower: 75
+  t_upper: 200
+  threshold: yen
+data:
+  batch_size: 1
+  channels: 3
+  dataset_path: C:/ML/data/BraTS_2021
+  filename_separator: _
+  histogram_normalization: false
+  image_size: 128
+  intensity_normalization: robust_iqr
+  modalities:
+  - flair
+  - t1
+  - t2
+  normalize_input: false
+  path_to_csv: C:\ML\andi_test\Test\andi_rewrite\splits\BraTS21\scans_test.csv
+  return_metadata: true
+  segmentation_suffix: seg
+  shift_naming: false
+  size_splits: 155
+  type: volume
+  workers: 0
+diffusion:
+  beta_end: 0.02
+  beta_start: 0.0001
+  steps: 1000
+evaluation:
+  auprc_max_samples: 5000000
+  auprc_mode: sampled
+  auprc_seed: 73
+  cache:
+    directory: C:\ML\andi_test\Test\andi_rewrite\outputs\runs\mixed_sri24_robust_iqr_andi_histmatch_mean888_pyramid200_20261005\evaluation\brats21_test251\cache
+    keep_on_success: true
+    resume: true
+  compute_auprc: true
+  memory_mode: disk_streaming
+  progress:
+    enabled: true
+experiment:
+  name: mixed_sri24_robust_iqr_andi_histmatch_mean888_pyramid200_20261005_brats21_test251
+metrics:
+  connectivity: 1
+  kernel_size: 5
+  median_filter:
+    enabled: true
+    kernel_size: 5
+    mode: 3d
+  normalization_scope: dataset
+  output_csv: C:\ML\andi_test\Test\andi_rewrite\outputs\runs\mixed_sri24_robust_iqr_andi_histmatch_mean888_pyramid200_20261005\evaluation\brats21_test251\ANDi.csv
+  output_mf_csv: C:\ML\andi_test\Test\andi_rewrite\outputs\runs\mixed_sri24_robust_iqr_andi_histmatch_mean888_pyramid200_20261005\evaluation\brats21_test251\ANDi_mf.csv
+  postprocess:
+    score:
+      pipeline:
+      - type: normalize
+    score_mf:
+      pipeline:
+      - kernel_size: 5
+        mode: 3d
+        type: median_filter
+      - type: normalize
+    threshold_mask:
+      pipeline:
+      - connectivity: 1
+        iterations: 1
+        rank: 3
+        type: binary_dilation
+    yen_mask:
+      pipeline: []
+  postprocess_mode: rewrite
+  rank: 3
+  size_splits: 155
+  thr_end: 0.3
+  thr_start: 0.01
+  thr_step: 0.001
+  threshold: 0.5
+  threshold_method: yen
+model:
+  checkpoint: C:\ML\andi_test\Test\andi_rewrite\outputs\runs\mixed_sri24_robust_iqr_andi_histmatch_mean888_pyramid200_20261005\epoch_0199.pt
+  image_size: 128
+  in_channels: 3
+  out_channels: 3
+  time_dim: 256
+  type: andi_unet
+  use_ema: true
+noise:
+  schedule:
+    type: static
+    sampler:
+      type: gaussian
+prediction_output:
+  binary_mask_source: score_mf
+  directory: C:\ML\andi_test\Test\andi_rewrite\outputs\runs\mixed_sri24_robust_iqr_andi_histmatch_mean888_pyramid200_20261005\evaluation\brats21_test251\predictions
+  enabled: true
+  normalization_scope: dataset
+  restore_native_grid: true
+  save_binary_mask: true
+  save_median_filtered_score: true
+  save_model_grid: false
+  save_raw_score: true
+  save_threshold_mask: false
+runtime:
+  accelerate: false
+  cudnn_benchmark: true
+  deterministic: false
+  device: cuda
+  seed: 73

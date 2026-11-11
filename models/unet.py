@@ -8,10 +8,11 @@ import torch.nn.functional as F
 class SelfAttention(nn.Module):
     """原版 ANDi attention block，保留給 full-size UNet 重用。"""
 
-    def __init__(self, channels: int, size: int):
+    def __init__(self, channels: int, size: int, *, need_weights: bool = True):
         super().__init__()
         self.channels = int(channels)
         self.size = int(size)
+        self.need_weights = need_weights
         self.mha = nn.MultiheadAttention(channels, 4, batch_first=True)
         self.ln = nn.LayerNorm([channels])
         self.ff_self = nn.Sequential(
@@ -24,7 +25,7 @@ class SelfAttention(nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = x.view(-1, self.channels, self.size * self.size).swapaxes(1, 2).contiguous()
         x_ln = self.ln(x)
-        attention_value, _ = self.mha(x_ln, x_ln, x_ln)
+        attention_value, _ = self.mha(x_ln, x_ln, x_ln, need_weights=self.need_weights)
         attention_value = attention_value + x
         attention_value = self.ff_self(attention_value) + attention_value
         return attention_value.swapaxes(2, 1).view(-1, self.channels, self.size, self.size).contiguous()
@@ -97,25 +98,31 @@ class ANDiUNet(nn.Module):
         out_channels: int = 4,
         image_size: int = 128,
         time_dim: int = 256,
+        *,
+        attention_backend: str = "legacy",
     ):
         super().__init__()
+        if attention_backend not in {"legacy", "no_weights"}:
+            raise ValueError("model.attention_backend must be 'legacy' or 'no_weights'.")
+        self.attention_backend = attention_backend
+        need_weights = attention_backend == "legacy"
         self.time_dim = int(time_dim)
         self.inc = DoubleConv(in_channels, 32)
         self.inc2 = DoubleConv(32, 32, residual=True)
         self.down1 = Down(32, 64, self.time_dim)
         self.down2 = Down(64, 128, self.time_dim)
-        self.sa1 = SelfAttention(128, int(image_size / 4))
+        self.sa1 = SelfAttention(128, int(image_size / 4), need_weights=need_weights)
         self.down3 = Down(128, 256, self.time_dim)
-        self.sa2 = SelfAttention(256, int(image_size / 8))
+        self.sa2 = SelfAttention(256, int(image_size / 8), need_weights=need_weights)
         self.down4 = Down(256, 256, self.time_dim)
-        self.sa3 = SelfAttention(256, int(image_size / 16))
+        self.sa3 = SelfAttention(256, int(image_size / 16), need_weights=need_weights)
         self.bot1 = DoubleConv(256, 512)
         self.bot3 = DoubleConv(512, 256)
-        self.sa4 = SelfAttention(256, int(image_size / 16))
+        self.sa4 = SelfAttention(256, int(image_size / 16), need_weights=need_weights)
         self.up1 = Up(512, 128, self.time_dim)
-        self.sa5 = SelfAttention(128, int(image_size / 8))
+        self.sa5 = SelfAttention(128, int(image_size / 8), need_weights=need_weights)
         self.up2 = Up(256, 64, self.time_dim)
-        self.sa6 = SelfAttention(64, int(image_size / 4))
+        self.sa6 = SelfAttention(64, int(image_size / 4), need_weights=need_weights)
         self.up3 = Up(128, 32, self.time_dim)
         self.up4 = Up(64, 32, self.time_dim)
         self.outc = nn.Conv2d(32, out_channels, kernel_size=1)

@@ -122,11 +122,15 @@ python -B scripts\eval.py --config <prepared-eval-config.yaml> --run-eval
 
 執行前必須確認 volume root、CSV 與 `model.checkpoint` 均有效且 checkpoint 非空；`configs/eval.yaml` 的 checkpoint 是空值，直接執行會評估 random-initialized model。
 
-CLI 唯一通用的 evaluation override 是 threshold method：
+可用 `--inference-profile` 選擇推論版本。省略時採用 YAML 的 `evaluation.inference_profile`，預設為 `original`。
 
 ```powershell
+python -B scripts\eval.py --config <prepared-eval-config.yaml> --run-eval --inference-profile engineering125
+python -B scripts\eval.py --config <prepared-eval-config.yaml> --run-eval --inference-profile fast12
 python -B scripts\eval.py --config <prepared-eval-config.yaml> --run-eval --threshold-method otsu
 ```
+
+`engineering125` 評分 125 個時間點，`fast12` 評分 12 個時間點。兩個模式各有專用的報表、預測和快取目錄。詳細設定與比較結果見 [推論模式](docs/configuration.md#推論模式)。
 
 這些命令在執行前都必須先修改 YAML 中的 dataset、CSV、checkpoint、spectrum 與 output paths。許多 checked-in config 是特定 Windows 實驗的快照，包含本機絕對路徑；`configs/train.yaml` 的預設 CSV path 也不指向 repository 內同名資料。Config loader 不會展開 environment variable、做 include/inheritance 或驗證完整 schema。
 

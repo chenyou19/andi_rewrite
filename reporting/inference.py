@@ -75,6 +75,8 @@ def _build_inference_report(
         anomaly.get("threshold"),
         "yen",
     )
+    describe_inference = _get_attr(_get_attr(evaluator, "detector"), "describe_inference")
+    inference_options = describe_inference() if callable(describe_inference) else {}
 
     return {
         "basic_info": {
@@ -90,6 +92,7 @@ def _build_inference_report(
             "git_commit_hash": _git_commit_hash(),
         },
         "inference_settings": {
+            **inference_options,
             "checkpoint_path": model.get("checkpoint"),
             "dataset_path": data.get("dataset_path"),
             "scan_csv_or_test_csv_path": data.get("path_to_csv"),
@@ -148,6 +151,10 @@ def _build_inference_report(
             "median_filter_mode": _first_present(
                 policy_median.get("mode"),
                 median_filter.get("mode"),
+            ),
+            "median_filter_backend": _first_present(
+                policy_median.get("backend"),
+                "scipy" if policy_median.get("enabled") else None,
             ),
             "dilation_enabled": _first_present(
                 policy_dilation.get("enabled"),

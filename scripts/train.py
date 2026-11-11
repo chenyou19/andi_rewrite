@@ -112,6 +112,10 @@ def load_model_if_configured(model: torch.nn.Module, config: dict, device: torch
 
 
 def build_detector_from_config(config: dict) -> tuple[ANDiDetector, object | None]:
+    if "inference_profile" in config.get("evaluation", {}):
+        from andi_rewrite.scripts.eval import build_detector_from_config as build_profile_detector
+
+        return build_profile_detector(config)
     seed = int(config.get("runtime", {}).get("seed", 73))
     set_seed(seed)
     accelerator = build_accelerator(config)

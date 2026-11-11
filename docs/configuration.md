@@ -111,7 +111,7 @@ Standalone `scripts/eval.py` 給 evaluator 的 shallow merge：
 data < metrics < evaluation
 ```
 
-也就是同名 key 以 `evaluation` 優先，接著另外注入完整的 top-level `prediction_output`、`model`、`anomaly` 與 `_run_config`。CLI `--threshold-method` 再覆蓋 `metrics.threshold_method`。
+也就是同名 key 以 `evaluation` 優先，接著另外注入完整的 top-level `prediction_output`、`model`、`anomaly` 與 `_run_config`。CLI `--threshold-method` 覆蓋 `metrics.threshold_method`，`--inference-profile` 覆蓋 `evaluation.inference_profile`。
 
 兩個路徑不是完全等價：
 
@@ -675,6 +675,7 @@ evaluation:
 | Key | Default / behavior |
 |---|---|
 | `progress` | bool 或 `{enabled: bool}`; true |
+| `inference_profile` | `original` 預設，可選 `engineering125` 或 `fast12` |
 | `memory_mode` | `in_memory` default / `disk_streaming` |
 | `size_splits` / `slice_batch_size` | `155`; often inherited from data via merge |
 | `normalize_input` | `true`; often inherited from data |
@@ -682,6 +683,27 @@ evaluation:
 | `connectivity` | `1` |
 | `median_filter.enabled` | `true` legacy fallback |
 | `median_filter.kernel_size` / `kernel_size` | `5` |
+
+### 推論模式
+
+```yaml
+evaluation:
+  inference_profile: engineering125
+```
+
+| 值 | 時間點選擇 | 推論運算 |
+|---|---|---|
+| `original` | 依 YAML 的 `anomaly.t_lower`（含）到 `anomaly.t_upper`（不含）逐點由大到小評分，預設為 199 到 75 | 堆疊時間點後聚合，ANDi U-Net 使用原有 attention |
+| `engineering125` | 199 到 75 的全部 125 點 | 逐點累積分數，ANDi U-Net 使用 `no_weights` attention |
+| `fast12` | 將同一區間等分後取各段中心，順序為 194、184、173、163、153、142、132、121、111、101、90、80 | 與 `engineering125` 使用相同運算設定 |
+
+兩個加速模式都需要 `diffusion.steps >= 200`，會將 `cudnn_benchmark` 關閉。在 CUDA 上，模型前向使用 FP16 autocast，transition residual 與時間點聚合使用 FP32。分數流程裡相容的 3D 奇數核 median filter 使用分塊 CUDA 運算與 SciPy 一致的反射邊界。CPU 使用 FP32 與 SciPy median filter。加權及自訂時間聚合仍以堆疊方式執行。每個時間點都從輸入獨立取樣，12 點指的是 anomaly score 的取樣數。
+
+命令列指定 `--inference-profile original` 可切回原版。若未指定任何模式，可透過 `anomaly.num_timesteps`、`anomaly.streaming`、`model.attention_backend` 和 `runtime.amp_dtype` 個別設定；明確指定模式時以模式的設定為準。
+
+兩種加速模式同時支援 `in_memory` 和 `disk_streaming`。CSV 與報表寫到原 CSV 的上層目錄下的模式子目錄，例如 `outputs/eval/fast12/ANDi.csv`。預測目錄加一層模式名稱，快取則在原目錄旁另建帶模式名稱的目錄，例如 `outputs/eval/cache_fast12`。報表與預測 metadata 會記錄實際時間點、串流聚合、精度和 attention 設定。
+
+在 BraTS 2021 測試集 251 例的既有比較中，native-grid median-filter 分數的 macro best Dice 分別為 `original` 0.759905、`engineering125` 0.759907、`fast12` 0.759791。該比較逐病例用 ground truth 掃描所有可能的閾值，與直接用 Yen 閾值的 Dice 定義不同。原始比較記錄存於 `F:/andi_archive/andi_rewrite/bestdice251_20261108/comparison.json`。
 
 ### Disk streaming cache
 

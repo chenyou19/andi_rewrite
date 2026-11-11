@@ -32,14 +32,18 @@ def slice_scores(
     )
     try:
         for chunk_index, chunk in enumerate(chunks, start=1):
-            deviations = detector.compute_deviation_stack(
-                chunk,
-                progress=progress_enabled,
-                progress_description=f"{volume_label} chunk {chunk_index} timesteps",
-                progress_leave=False,
-            )
-            per_modality = detector.aggregate_time(deviations)
-            scores.append(detector.pool_modalities(per_modality).detach())
+            progress_options = {
+                "progress": progress_enabled,
+                "progress_description": f"{volume_label} chunk {chunk_index} timesteps",
+                "progress_leave": False,
+            }
+            if getattr(detector, "streams_timesteps", False):
+                score = detector.compute_scores_streaming(chunk, **progress_options)
+            else:
+                deviations = detector.compute_deviation_stack(chunk, **progress_options)
+                per_modality = detector.aggregate_time(deviations)
+                score = detector.pool_modalities(per_modality)
+            scores.append(score.detach())
             chunk_bar.update()
     finally:
         chunk_bar.close()

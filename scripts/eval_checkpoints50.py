@@ -19,6 +19,7 @@ except ImportError:
 
 bootstrap()
 
+from andi_rewrite.anomaly.inference_profiles import profile_csv, resolve_inference_profile
 from andi_rewrite.data import build_dataloader
 from andi_rewrite.engine import VolumeEvaluator
 from andi_rewrite.scripts.eval import build_detector_from_config
@@ -172,7 +173,9 @@ def _resolved_path(value: str | Path) -> Path:
 
 
 def completed_output(config: dict, checkpoint: Path, expected_subjects: int) -> bool:
-    output_dir = Path(config["metrics"]["output_csv"]).parent
+    profile_selection = config.get("evaluation", {}).get("inference_profile")
+    profile = resolve_inference_profile(profile_selection)
+    output_dir = profile_csv(Path(config["metrics"]["output_csv"]), profile).parent
     required = [
         output_dir / "ANDi.csv",
         output_dir / "ANDi_mf.csv",
@@ -184,11 +187,17 @@ def completed_output(config: dict, checkpoint: Path, expected_subjects: int) -> 
         return False
     try:
         report = json.loads((output_dir / "inference_report.json").read_text(encoding="utf-8"))
-        reported_checkpoint = report["inference_settings"]["checkpoint_path"]
+        inference_settings = report["inference_settings"]
+        reported_checkpoint = inference_settings["checkpoint_path"]
+        reported_profile = inference_settings.get("profile", "original")
         subjects = int(report["evaluation_result"]["subjects"])
     except (KeyError, TypeError, ValueError, json.JSONDecodeError, OSError):
         return False
-    return _resolved_path(reported_checkpoint) == _resolved_path(checkpoint) and subjects == expected_subjects
+    return (
+        _resolved_path(reported_checkpoint) == _resolved_path(checkpoint)
+        and reported_profile == profile
+        and subjects == expected_subjects
+    )
 
 
 def config_for_checkpoint(base_config: dict, checkpoint: Path, args: argparse.Namespace) -> dict:
@@ -214,7 +223,9 @@ def config_for_checkpoint(base_config: dict, checkpoint: Path, args: argparse.Na
 
 
 def run_one(config: dict, checkpoint: Path, args: argparse.Namespace) -> dict:
-    output_csv = Path(config["metrics"]["output_csv"])
+    profile_selection = config.get("evaluation", {}).get("inference_profile")
+    profile = resolve_inference_profile(profile_selection)
+    output_csv = profile_csv(Path(config["metrics"]["output_csv"]), profile)
     if args.skip_existing and completed_output(config, checkpoint, args.expected_subjects):
         print(f"Skipping {checkpoint.name}; complete output already exists: {output_csv.parent}")
         return {"checkpoint": str(checkpoint), "skipped": True, "output": str(output_csv)}
@@ -222,9 +233,12 @@ def run_one(config: dict, checkpoint: Path, args: argparse.Namespace) -> dict:
     print(f"Running evaluation for {checkpoint.name}")
     detector, accelerator = build_detector_from_config(config)
     dataloader = build_dataloader(config.get("data", {}))
+    evaluator_config = {**config.get("data", {}), **config.get("metrics", {}), **config.get("evaluation", {})}
+    if profile != "original":
+        evaluator_config["_run_config"] = config
     evaluator = VolumeEvaluator(
         detector=detector,
-        config={**config.get("data", {}), **config.get("metrics", {}), **config.get("evaluation", {})},
+        config=evaluator_config,
         accelerator=accelerator,
     )
     dataloader = evaluator.prepare(dataloader)

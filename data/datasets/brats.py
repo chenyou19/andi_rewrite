@@ -15,6 +15,7 @@ from torchvision import transforms
 from .common import _shape_text, _subject_file_path
 from .imaging import histogram_normalize_volume, normalize_volume
 from ..robust_normalization import ROBUST_METHOD, robust_normalize_volume
+from ..mean_std_normalization import MEAN_STD_METHOD, mean_std_normalize_volume
 
 
 def _subject_frame_from_directory(dataset_path: Path) -> pd.DataFrame:
@@ -113,10 +114,10 @@ class MRIDataVolume(Dataset):
         self.filename_separator = filename_separator
         self.return_metadata = bool(return_metadata)
         self.intensity_normalization = str(intensity_normalization)
-        if self.intensity_normalization not in {"p99", ROBUST_METHOD}:
+        if self.intensity_normalization not in {"p99", ROBUST_METHOD, MEAN_STD_METHOD}:
             raise ValueError(f"Unknown intensity_normalization: {intensity_normalization}")
         if self.histogram_normalization and self.intensity_normalization != "p99":
-            raise ValueError("Histogram equalization and robust_iqr cannot be combined.")
+            raise ValueError("Histogram equalization and robust_iqr/mean_std cannot be combined.")
 
     def __len__(self) -> int:
         return self.df.shape[0]
@@ -168,6 +169,8 @@ class MRIDataVolume(Dataset):
         image_array = np.stack(images, axis=0)
         if self.intensity_normalization == ROBUST_METHOD:
             volume = robust_normalize_volume(torch.from_numpy(image_array).float())
+        elif self.intensity_normalization == MEAN_STD_METHOD:
+            volume = mean_std_normalize_volume(torch.from_numpy(image_array).float())
         elif self.histogram_normalization:
             volume = histogram_normalize_volume(image_array)
         else:
@@ -214,8 +217,9 @@ def build_brats_healthy_slices_dataset(config: dict[str, Any]) -> BraTSHealthySl
 
 def build_mri_volume_dataset(config: dict[str, Any]) -> MRIDataVolume:
     image_size = int(config.get("image_size", 128))
-    if config.get("intensity_normalization") == ROBUST_METHOD and bool(config.get("normalize_input", True)):
-        raise ValueError("robust_iqr requires data.normalize_input=false (already in model units).")
+    method = config.get("intensity_normalization")
+    if method in {ROBUST_METHOD, MEAN_STD_METHOD} and bool(config.get("normalize_input", True)):
+        raise ValueError(f"{method} requires data.normalize_input=false (already in model units).")
     return MRIDataVolume(
         csv_path=config.get("path_to_csv"),
         dataset_path=config["dataset_path"],

@@ -67,6 +67,35 @@ def median_filter_tensor(
     return torch.from_numpy(filtered).to(device=tensor.device, dtype=tensor.dtype)
 
 
+def median_filter_torch_3d(
+    tensor: torch.Tensor,
+    kernel_size: int,
+    *,
+    device: torch.device | str,
+) -> torch.Tensor:
+    """Apply a tiled cubic median using SciPy's half-sample reflect edges."""
+
+    if kernel_size == 1 or tensor.numel() == 0:
+        return tensor
+    source = tensor.to(device)
+    result = torch.empty_like(source)
+    radius = kernel_size // 2
+    tile_rows = 8
+    for batch_index, volume in enumerate(source):
+        padded = volume
+        for axis, length in enumerate(volume.shape):
+            indices = torch.arange(-radius, length + radius, device=source.device) % (2 * length)
+            indices = torch.where(indices >= length, 2 * length - 1 - indices, indices)
+            padded = padded.index_select(axis, indices)
+        windows = padded.unfold(0, kernel_size, 1).unfold(1, kernel_size, 1).unfold(2, kernel_size, 1)
+        for start in range(0, volume.shape[0], tile_rows):
+            stop = min(start + tile_rows, volume.shape[0])
+            neighbors = windows[start:stop].contiguous().view(-1, kernel_size**3)
+            values = neighbors.median(dim=-1).values
+            result[batch_index, start:stop] = values.view(stop - start, *volume.shape[1:])
+    return result.to(tensor.device)
+
+
 def gray_dilation_tensor(
     tensor: torch.Tensor,
     kernel_size: int | tuple[int, ...] | None = 3,
@@ -186,11 +215,30 @@ class NormalizePostprocessor(BasePostprocessor):
 class MedianFilterPostprocessor(BasePostprocessor):
     name = "median_filter"
 
-    def __init__(self, kernel_size: int | tuple[int, ...] = 5, mode: str = "3d"):
+    def __init__(
+        self,
+        kernel_size: int | tuple[int, ...] = 5,
+        mode: str = "3d",
+        *,
+        cuda_device: torch.device | None = None,
+    ):
         self.kernel_size = kernel_size
         self.mode = str(mode)
+        self.cuda_device = cuda_device
+
+    @property
+    def uses_cuda(self) -> bool:
+        return (
+            self.cuda_device is not None
+            and self.mode.lower() == "3d"
+            and type(self.kernel_size) is int
+            and self.kernel_size > 1
+            and self.kernel_size % 2 == 1
+        )
 
     def __call__(self, tensor: torch.Tensor) -> torch.Tensor:
+        if self.uses_cuda and tensor.ndim == 4 and tensor.is_floating_point():
+            return median_filter_torch_3d(tensor, self.kernel_size, device=self.cuda_device)
         return apply_median_filter_tensor(
             tensor,
             kernel_size=self.kernel_size,
@@ -198,7 +246,10 @@ class MedianFilterPostprocessor(BasePostprocessor):
         )
 
     def describe(self) -> dict[str, Any]:
-        return {"type": self.name, "kernel_size": self.kernel_size, "mode": self.mode}
+        description = {"type": self.name, "kernel_size": self.kernel_size, "mode": self.mode}
+        if self.uses_cuda:
+            description["backend"] = "cuda"
+        return description
 
 
 @register_score_postprocessor("gray_dilation", "grey_dilation")

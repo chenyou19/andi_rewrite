@@ -8,7 +8,7 @@ from typing import Any
 
 import torch
 
-from ._runtime import apply_median_filter_tensor, apply_normalize_minmax
+from ._runtime import apply_normalize_minmax
 from .base import BasePostprocessor, MASK_POSTPROCESSORS, SCORE_POSTPROCESSORS
 from .numerics import _validate_normalization_scope, normalize_minmax, sanitize_scores
 from .pipeline import (
@@ -25,7 +25,6 @@ from .transforms import (
     GrayDilationPostprocessor,
     MedianFilterPostprocessor,
     NormalizePostprocessor,
-    median_filter_tensor,
 )
 
 
@@ -33,7 +32,8 @@ def _step_label(step: BasePostprocessor, normalization_scope: str) -> str:
     if isinstance(step, NormalizePostprocessor):
         return f"{normalization_scope}_minmax"
     if isinstance(step, MedianFilterPostprocessor):
-        return f"median_filter_{step.mode.lower()}(kernel={step.kernel_size})"
+        backend = ", backend=cuda" if step.uses_cuda else ""
+        return f"median_filter_{step.mode.lower()}(kernel={step.kernel_size}{backend})"
     if isinstance(step, GrayDilationPostprocessor):
         return f"gray_dilation(kernel={step.kernel_size})"
     if isinstance(step, BinaryDilationPostprocessor):
@@ -193,6 +193,7 @@ class OriginalANDiPostprocessPolicy(PostprocessPolicy):
         eps: float = 1.0e-8,
         *,
         threshold_method: str = "yen",
+        median_cuda_device: torch.device | None = None,
     ):
         try:
             from scipy import ndimage as _scipy_ndimage  # noqa: F401
@@ -209,6 +210,11 @@ class OriginalANDiPostprocessPolicy(PostprocessPolicy):
         self.median_mode = str(median_config.get("mode", "3d")).lower()
         if self.median_mode != "3d":
             raise ValueError("original_andi median_filter.mode must be '3d'.")
+        self.median_filter = MedianFilterPostprocessor(
+            kernel_size=self.median_kernel_size,
+            mode=self.median_mode,
+            cuda_device=median_cuda_device,
+        )
         self.eps = float(config.get("eps", eps))
 
         binary_mask_config = config.get("binary_mask")
@@ -248,15 +254,7 @@ class OriginalANDiPostprocessPolicy(PostprocessPolicy):
     ) -> PostprocessResult:
         scope = _validate_normalization_scope(normalization_scope or self.normalization_scope)
         raw_finite = sanitize_scores(raw_maps)
-        raw_mf = (
-            apply_median_filter_tensor(
-                raw_finite,
-                kernel_size=self.median_kernel_size,
-                mode=self.median_mode,
-            )
-            if self.median_enabled
-            else raw_finite.clone()
-        )
+        raw_mf = self.median_filter(raw_finite) if self.median_enabled else raw_finite.clone()
         # The branches are intentionally normalized independently and only
         # after the MF branch has filtered the unnormalized raw anomaly map.
         score_raw = apply_normalize_minmax(raw_finite, eps=self.eps, scope=scope)
@@ -266,12 +264,7 @@ class OriginalANDiPostprocessPolicy(PostprocessPolicy):
     def score_pipeline_spec(self) -> ScorePipelineSpec:
         mf_steps: list[BasePostprocessor] = []
         if self.median_enabled:
-            mf_steps.append(
-                MedianFilterPostprocessor(
-                    kernel_size=self.median_kernel_size,
-                    mode=self.median_mode,
-                )
-            )
+            mf_steps.append(self.median_filter)
         mf_steps.append(NormalizePostprocessor(eps=self.eps))
         return ScorePipelineSpec(
             raw_steps=(NormalizePostprocessor(eps=self.eps),),
@@ -283,7 +276,7 @@ class OriginalANDiPostprocessPolicy(PostprocessPolicy):
         scope = self.normalization_scope
         mf_pipeline = ["nan_to_num"]
         if self.median_enabled:
-            mf_pipeline.append(f"median_filter_3d(kernel={self.median_kernel_size})")
+            mf_pipeline.append(_step_label(self.median_filter, scope))
         mf_pipeline.append(f"{scope}_minmax")
         binary_mask_pipeline = [
             f"subject_{self.threshold_method}_threshold",
@@ -312,6 +305,8 @@ class OriginalANDiPostprocessPolicy(PostprocessPolicy):
                 "constant_volume_threshold": "constant value; empty mask with RuntimeWarning",
             },
         }
+        if self.median_enabled and self.median_filter.uses_cuda:
+            description["median_filter_settings"]["backend"] = "cuda"
         if self.threshold_method == "yen":
             description.update(
                 {
@@ -363,6 +358,7 @@ class RewritePostprocessPolicy(PostprocessPolicy):
         threshold_method: str = "yen",
         legacy_compatibility: bool = False,
         legacy_profile: str = "evaluator",
+        median_cuda_device: torch.device | None = None,
     ):
         config = config or {}
         anomaly_config = anomaly_config or {}
@@ -409,6 +405,10 @@ class RewritePostprocessPolicy(PostprocessPolicy):
             _legacy_score_pipeline,
             "score-map",
         )
+        if median_cuda_device is not None:
+            for step in (*raw_steps, *mf_steps):
+                if type(step) is MedianFilterPostprocessor:
+                    step.cuda_device = median_cuda_device
         if legacy_compatibility and self.legacy_profile == "evaluator":
             self.raw_score_steps = _compile_legacy_normalization_steps(
                 raw_steps,

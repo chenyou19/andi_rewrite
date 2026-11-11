@@ -209,6 +209,8 @@ def export_predictions(
         else processed.score_mf
     )
     threshold_masks = postprocess_policy.fixed_threshold_mask(threshold_scores, threshold)
+    describe_inference = getattr(detector, "describe_inference", None)
+    inference_options = describe_inference() if callable(describe_inference) else None
     batch_size = raw_maps.shape[0]
     for batch_index in range(batch_size):
         metadata = metadata_items[batch_index] if batch_index < len(metadata_items) else {}
@@ -385,6 +387,8 @@ def export_predictions(
                 "normalization_scope": prediction_normalization_scope,
             },
         }
+        if inference_options:
+            payload["inference_options"] = inference_options
         if threshold_method == "yen":
             payload.update(
                 {

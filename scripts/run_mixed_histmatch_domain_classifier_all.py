@@ -100,6 +100,28 @@ def _run(args: argparse.Namespace) -> dict[str, Any]:
         reference_sha256 = sha256_file(reference_path)
         if reference_sha256 != report.get("reference_sha256") or reference_sha256 != normalization.get("reference_sha256"):
             raise InferenceAuditError("BraTS reference hash differs across dataset metadata")
+    elif normalization.get("type") == "andi_histmatch_mean888_raw_source":
+        dataset_kind = "andi_histmatch_mean888_raw_source"
+        expected = {
+            **EXPECTED_NORMALIZATION,
+            "type": dataset_kind,
+            "source_normalization": "none_positive_raw_foreground",
+        }
+        if {name: normalization.get(name) for name in expected} != expected:
+            raise InferenceAuditError("raw-source histmatch normalization contract differs from expected input")
+        if (
+            report.get("entries", {}).get("train") != EXPECTED_COUNT
+            or report.get("shape") != list(MODEL_SHAPE)
+            or report.get("dtype") != "float32"
+            or report.get("channel_order") != ["FLAIR", "T1", "T2"]
+        ):
+            raise InferenceAuditError("raw-source build report does not match the 84,341-row model input")
+        signature = report.get("input_signature", {})
+        if signature.get("normalization") != expected:
+            raise InferenceAuditError("raw-source build and normalization metadata differ")
+        reference_sha256 = sha256_file(reference_path)
+        if reference_sha256 != signature.get("reference_sha256") or reference_sha256 != normalization.get("reference_sha256"):
+            raise InferenceAuditError("BraTS reference hash differs across raw-source dataset metadata")
     elif normalization.get("type") == "robust_iqr":
         dataset_kind = "robust_iqr"
         if normalization != ROBUST_SPEC:
@@ -120,7 +142,7 @@ def _run(args: argparse.Namespace) -> dict[str, Any]:
         "source_entries": file_fingerprint(source_path),
         "data_mdb_stat": file_fingerprint(split_dir / "data.mdb", content=False),
     }
-    if dataset_kind == "andi_histmatch_mean888_robust_iqr":
+    if dataset_kind in {"andi_histmatch_mean888_robust_iqr", "andi_histmatch_mean888_raw_source"}:
         input_fingerprints["reference"] = file_fingerprint(reference_path)
     checkpoint_fingerprint = file_fingerprint(checkpoint)
     if args.device == "cuda" and not torch.cuda.is_available():

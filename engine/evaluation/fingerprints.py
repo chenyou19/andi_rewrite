@@ -50,6 +50,7 @@ def cache_fingerprints(
     model_config: dict[str, Any],
     anomaly_config: dict[str, Any],
     postprocess_policy: PostprocessPolicy,
+    inference_options: dict[str, Any] | None = None,
 ) -> tuple[str, str]:
     """Construct the byte-compatible raw and score cache fingerprints."""
 
@@ -107,6 +108,8 @@ def cache_fingerprints(
             ),
         },
     }
+    if inference_options is not None:
+        raw_payload["inference_options"] = inference_options
     raw_fingerprint = stable_fingerprint(json_safe(raw_payload))
 
     description = postprocess_policy.describe()

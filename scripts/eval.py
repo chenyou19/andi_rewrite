@@ -25,6 +25,7 @@ from andi_rewrite.anomaly import (
     build_postprocess_policy,
     supported_threshold_methods,
 )
+from andi_rewrite.anomaly.inference_profiles import INFERENCE_PROFILES, resolve_inference_profile
 from andi_rewrite.data import build_dataloader
 from andi_rewrite.diffusion.ddpm import build_diffusion
 from andi_rewrite.engine import VolumeEvaluator
@@ -89,26 +90,56 @@ def load_model_if_configured(model: torch.nn.Module, config: dict, device: torch
 def build_detector_from_config(config: dict) -> tuple[ANDiDetector, object | None]:
     """從 YAML 建立 detector 與選擇性的 distributed runtime。"""
 
-    seed = int(config.get("runtime", {}).get("seed", 73))
+    profile_selection = config.get("evaluation", {}).get("inference_profile")
+    profile = resolve_inference_profile(profile_selection)
+    runtime = config.get("runtime", {})
+    anomaly = config.get("anomaly", {})
+    model_config = config.get("model", {})
+    diffusion_config = config.get("diffusion", {})
+    amp_dtype = runtime.get("amp_dtype", "none")
+    if profile_selection == "original":
+        anomaly = {**anomaly, "num_timesteps": None, "streaming": False}
+        model_config = {**model_config, "attention_backend": "legacy"}
+        amp_dtype = "none"
+    elif profile != "original":
+        steps = int(diffusion_config.get("steps", diffusion_config.get("noise_steps", 1000)))
+        if steps < 200:
+            raise ValueError(f"evaluation.inference_profile={profile!r} requires diffusion.steps >= 200.")
+        runtime = {**runtime, "cudnn_benchmark": False}
+        anomaly = {
+            **anomaly,
+            "t_lower": 75,
+            "t_upper": 200,
+            "num_timesteps": 12 if profile == "fast12" else None,
+            "streaming": True,
+        }
+        model_config = {**model_config, "attention_backend": "no_weights"}
+
+    seed = int(runtime.get("seed", 73))
     set_seed(seed)
-    configure_evaluation_backend(config.get("runtime", {}))
+    configure_evaluation_backend(runtime)
     accelerator = build_accelerator(config)
-    device = accelerator.device if accelerator is not None else resolve_device(str(config.get("runtime", {}).get("device", "auto")))
-    model = build_model(config.get("model", {}), device=device)
+    device = accelerator.device if accelerator is not None else resolve_device(str(runtime.get("device", "auto")))
+    if profile != "original":
+        amp_dtype = "float16" if device.type == "cuda" else "none"
+    model = build_model(model_config, device=device)
     load_model_if_configured(model, config, device)
-    diffusion = build_diffusion(config.get("diffusion", {}), device=device)
+    diffusion = build_diffusion(diffusion_config, device=device)
     noise_plan = build_noise_plan(config.get("noise", {}))
     postprocess_policy = build_postprocess_policy(
         config.get("metrics", {}),
-        anomaly_config=config.get("anomaly", {}),
+        anomaly_config=anomaly,
+        median_cuda_device=device if profile != "original" and device.type == "cuda" else None,
     )
     detector = ANDiDetector(
         model=model,
         diffusion=diffusion,
         noise_plan=noise_plan,
-        config=config.get("anomaly", {}),
+        config=anomaly,
         device=device,
         postprocess_policy=postprocess_policy,
+        inference_profile=profile,
+        amp_dtype=amp_dtype,
     )
     return detector, accelerator
 
@@ -118,6 +149,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Build the rewritten ANDi evaluation pipeline.")
     parser.add_argument("--config", default=str(default_config), help="Path to a YAML eval config.")
     parser.add_argument("--run-eval", action="store_true", help="Run full volume evaluation and write CSV files.")
+    parser.add_argument(
+        "--inference-profile",
+        choices=INFERENCE_PROFILES,
+        help="Override evaluation.inference_profile (default: original).",
+    )
     parser.add_argument(
         "--threshold-method",
         choices=supported_threshold_methods(),
@@ -159,6 +195,8 @@ def main() -> None:
     args = build_parser().parse_args()
 
     config = load_config(args.config)
+    if args.inference_profile is not None:
+        config.setdefault("evaluation", {})["inference_profile"] = args.inference_profile
     apply_threshold_method_override(config, args.threshold_method)
     detector, accelerator = build_detector_from_config(config)
     print("Loaded eval config:")

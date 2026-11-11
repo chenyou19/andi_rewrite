@@ -33,6 +33,7 @@ def build_model(config: dict[str, Any], device: torch.device | str) -> nn.Module
             out_channels=int(config.get("out_channels", config.get("channels", 4))),
             image_size=int(config.get("image_size", 128)),
             time_dim=int(config.get("time_dim", 256)),
+            attention_backend=config.get("attention_backend", "legacy"),
         )
     elif model_type in {"convnext_unet", "convnext-unet"}:
         in_channels = int(config.get("in_channels", config.get("channels", 4)))

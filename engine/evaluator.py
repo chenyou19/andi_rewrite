@@ -13,6 +13,7 @@ from typing import Any, Iterable
 import torch
 
 from andi_rewrite.anomaly import ANDiDetector
+from andi_rewrite.anomaly.inference_profiles import profile_csv, profile_directory
 from andi_rewrite.anomaly.postprocess import (
     PostprocessPolicy,
     PostprocessResult,
@@ -49,10 +50,15 @@ class VolumeEvaluator:
         self.detector = detector
         self.config = config
         self.accelerator = accelerator
+        profile = getattr(detector, "inference_profile", "original")
         self.size_splits = int(config.get("size_splits", config.get("slice_batch_size", 155)))
         self.normalize_input = bool(config.get("normalize_input", True))
-        self.output_csv = Path(config.get("output_csv", config.get("output", "outputs/metrics/ANDi.csv")))
-        self.output_mf_csv = Path(config.get("output_mf_csv", config.get("output_mf", "outputs/metrics/ANDi_mf.csv")))
+        self.output_csv = profile_csv(
+            Path(config.get("output_csv", config.get("output", "outputs/metrics/ANDi.csv"))), profile
+        )
+        self.output_mf_csv = profile_csv(
+            Path(config.get("output_mf_csv", config.get("output_mf", "outputs/metrics/ANDi_mf.csv"))), profile
+        )
         self.threshold_start = float(config.get("thr_start", config.get("threshold_start", 0.01)))
         self.threshold_end = float(config.get("thr_end", config.get("threshold_end", 0.3)))
         self.threshold_step = float(config.get("thr_step", config.get("threshold_step", 0.001)))
@@ -76,6 +82,9 @@ class VolumeEvaluator:
             raise TypeError("evaluation.cache must be a mapping.")
         self.cache_config = cache_config
         self.cache_directory = cache_config.get("directory")
+        if self.cache_directory not in (None, "") and profile != "original":
+            cache_path = Path(self.cache_directory)
+            self.cache_directory = cache_path.with_name(f"{cache_path.name}_{profile}")
         self.cache_resume = bool(cache_config.get("resume", True))
         self.cache_keep_on_success = bool(cache_config.get("keep_on_success", True))
         external_sort_config = config.get("external_sort", {})
@@ -104,6 +113,13 @@ class VolumeEvaluator:
         self.kernel_size = int(median_config.get("kernel_size", config.get("kernel_size", 5)))
         self.prediction_output = config.get("prediction_output", {})
         self.prediction_enabled = bool(self.prediction_output.get("enabled", False))
+        if self.prediction_enabled and profile != "original":
+            self.prediction_output = {
+                **self.prediction_output,
+                "directory": str(profile_directory(
+                    Path(self.prediction_output.get("directory", "outputs/predictions")), profile
+                )),
+            }
         self.model_config = config.get("model", {})
         self.anomaly_config = config.get("anomaly", getattr(detector, "config", {}))
         candidate_policy = build_postprocess_policy(
@@ -111,6 +127,7 @@ class VolumeEvaluator:
             anomaly_config=self.anomaly_config,
             warn_legacy=getattr(detector, "postprocess_policy", None) is None,
             legacy_profile="evaluator",
+            median_cuda_device=getattr(detector, "median_cuda_device", None),
         )
         detector_policy = getattr(detector, "postprocess_policy", None)
         if (
@@ -413,11 +430,20 @@ class VolumeEvaluator:
         return fingerprints.nested_value(mapping, *parts)
 
     def _cache_fingerprints(self) -> tuple[str, str]:
+        inference_cache_options = getattr(self.detector, "inference_cache_options", None)
+        inference_options = inference_cache_options() if callable(inference_cache_options) else None
+        if inference_options is not None:
+            inference_options = {
+                **inference_options,
+                "normalize_input": self.normalize_input,
+                "size_splits": self.size_splits,
+            }
         return fingerprints.cache_fingerprints(
             self.config,
             model_config=self.model_config,
             anomaly_config=self.anomaly_config,
             postprocess_policy=self.postprocess_policy,
+            inference_options=inference_options,
         )
 
     def _open_disk_cache(self) -> DiskEvaluationCache:

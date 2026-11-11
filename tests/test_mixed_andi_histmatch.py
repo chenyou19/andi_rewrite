@@ -61,6 +61,8 @@ def test_spectrum_manifest_accepts_mixed_jsonl(tmp_path: Path) -> None:
 @pytest.mark.parametrize("kind,background,accepted", [
     ("andi_histmatch_mean888_raw_source", -1.0, True),
     ("andi_histmatch_mean888_robust_iqr", -1.0, True),
+    ("andi_histmatch_mean888_mean_std", -1.0, True),
+    ("andi_histmatch_mean888_mean_std", 0.0, False),
     ("p99", -1.0, False),
     ("andi_histmatch_mean888_raw_source", 0.0, False),
 ])

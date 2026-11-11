@@ -1,12 +1,21 @@
 from __future__ import annotations
 
 import warnings
+from collections.abc import Iterator
+from contextlib import nullcontext
 from typing import Any
 
 import torch
 import torch.nn as nn
 
-from andi_rewrite.anomaly.aggregation import build_aggregator
+from andi_rewrite.anomaly.aggregation import (
+    GeometricMeanAggregator,
+    MaxAggregator,
+    MeanAggregator,
+    SumAggregator,
+    build_aggregator,
+)
+from andi_rewrite.anomaly.inference_profiles import resolve_inference_profile
 from andi_rewrite.anomaly.postprocess import (
     PostprocessPolicy,
     build_postprocess_policy,
@@ -15,6 +24,9 @@ from andi_rewrite.anomaly.postprocess import (
 from andi_rewrite.diffusion import DDPMDiffusion
 from andi_rewrite.noise import NoisePlan
 from andi_rewrite.utils.progress import ProgressReporter
+
+
+_STREAMING_AGGREGATORS = {GeometricMeanAggregator, MeanAggregator, SumAggregator, MaxAggregator}
 
 
 class ANDiDetector:
@@ -33,14 +45,33 @@ class ANDiDetector:
         config: dict[str, Any],
         device: torch.device | str,
         postprocess_policy: PostprocessPolicy | None = None,
+        *,
+        inference_profile: str = "original",
+        amp_dtype: str = "none",
     ):
         self.config = dict(config)
         self.model = model
         self.diffusion = diffusion
         self.noise_plan = noise_plan
         self.device = torch.device(device)
+        self.inference_profile = resolve_inference_profile(inference_profile)
         self.t_lower = int(config.get("t_lower", config.get("start", 75)))
         self.t_upper = int(config.get("t_upper", config.get("stop", 200)))
+        self.num_timesteps = config.get("num_timesteps")
+        streaming = config.get("streaming", False)
+        if not isinstance(streaming, bool):
+            raise ValueError("anomaly.streaming must be true or false.")
+        self.streaming = streaming
+        if amp_dtype not in {"none", "float16", "bfloat16"}:
+            raise ValueError("runtime.amp_dtype must be 'none', 'float16', or 'bfloat16'.")
+        if amp_dtype != "none" and self.device.type != "cuda":
+            raise ValueError("Mixed precision inference requires a CUDA device.")
+        self.amp_dtype = None if amp_dtype == "none" else getattr(torch, amp_dtype)
+        self.attention_backend = getattr(model, "attention_backend", None)
+        self.cudnn_benchmark = torch.backends.cudnn.benchmark
+        self.median_cuda_device = (
+            self.device if self.inference_profile != "original" and self.device.type == "cuda" else None
+        )
         self.time_aggregator = build_aggregator(config.get("aggregation", "geometric"), default="geometric")
         self.modality_aggregator = build_aggregator(config.get("modality_pool", "max"), default="max")
         median_config = config.get("median_filter", {})
@@ -53,6 +84,7 @@ class ANDiDetector:
             config,
             anomaly_config=config,
             legacy_profile="detector",
+            median_cuda_device=self.median_cuda_device,
         )
         self.set_postprocess_policy(resolved_policy)
 
@@ -73,6 +105,61 @@ class ANDiDetector:
             )
             self.threshold = policy.threshold_method
 
+    def selected_timesteps(self) -> list[int]:
+        """Return descending samples at the centers of equal-width bins."""
+
+        if not 1 <= self.t_lower < self.t_upper <= self.diffusion.steps:
+            raise ValueError("Require 1 <= t_lower < t_upper <= diffusion.steps.")
+        span = self.t_upper - self.t_lower
+        count = span if self.num_timesteps is None else self.num_timesteps
+        if type(count) is not int or not 1 <= count <= span:
+            raise ValueError("anomaly.num_timesteps must be an integer within the timestep interval.")
+        return [
+            self.t_lower + ((2 * index + 1) * span) // (2 * count)
+            for index in reversed(range(count))
+        ]
+
+    def _iter_deviations(
+        self,
+        images: torch.Tensor,
+        progress: bool,
+        progress_description: str,
+        progress_leave: bool,
+    ) -> Iterator[torch.Tensor]:
+        timesteps = self.selected_timesteps()
+        images = images.to(self.device)
+        if self.amp_dtype is not None:
+            images = images.float()
+        batch = images.shape[0]
+        self.model.eval()
+        timestep_bar = ProgressReporter(
+            len(timesteps),
+            progress_description,
+            enabled=progress,
+            unit="step",
+            leave=progress_leave,
+        )
+        try:
+            for timestep in timesteps:
+                t = torch.full((batch,), timestep, device=self.device, dtype=torch.long)
+                noise = self.noise_plan.sample(images.shape, self.device, images.dtype)
+                x_t = self.diffusion.q_sample(images, t, noise)
+                autocast = (
+                    nullcontext() if self.amp_dtype is None else torch.autocast("cuda", dtype=self.amp_dtype)
+                )
+                with autocast:
+                    predicted_noise = self.model(x_t, t)
+                if self.amp_dtype is not None:
+                    predicted_noise = predicted_noise.float()
+                # Keep the small transition residuals in FP32 during mixed-precision inference.
+                gt_transition = self.diffusion.posterior_mean_from_noise(x_t, noise, t)
+                model_transition = self.diffusion.posterior_mean_from_noise(x_t, predicted_noise, t)
+                yield (gt_transition - model_transition).square()
+                timestep_bar.update(postfix={"t": timestep})
+        finally:
+            timestep_bar.close()
+
+    @torch.no_grad()
     def compute_deviation_stack(
         self,
         images: torch.Tensor,
@@ -82,38 +169,45 @@ class ANDiDetector:
     ) -> torch.Tensor:
         """回傳 squared transition deviation，形狀為 [B, T, C, H, W]。"""
 
-        if self.t_lower <= 0:
-            raise ValueError("ANDi t_lower must be >= 1 because x_0 has no previous transition.")
-        if self.t_upper <= self.t_lower:
-            raise ValueError("ANDi t_upper must be greater than t_lower.")
-
-        images = images.to(self.device)
-        batch = images.shape[0]
-        deviations = []
-        self.model.eval()
-        timestep_bar = ProgressReporter(
-            self.t_upper - self.t_lower,
-            progress_description,
-            enabled=progress,
-            unit="step",
-            leave=progress_leave,
-        )
-        with torch.no_grad():
-            try:
-                for timestep in reversed(range(self.t_lower, self.t_upper)):
-                    t = torch.full((batch,), timestep, device=self.device, dtype=torch.long)
-                    noise = self.noise_plan.sample(images.shape, self.device, images.dtype)
-                    x_t = self.diffusion.q_sample(images, t, noise)
-                    predicted_noise = self.model(x_t, t)
-                    # 比較真實 DDPM backward transition 與模型預測的 normative denoising
-                    # transition；ANDi 以兩者差異作為異常分數來源。
-                    gt_transition = self.diffusion.posterior_mean_from_noise(x_t, noise, t)
-                    model_transition = self.diffusion.posterior_mean_from_noise(x_t, predicted_noise, t)
-                    deviations.append((gt_transition - model_transition).square())
-                    timestep_bar.update(postfix={"t": timestep})
-            finally:
-                timestep_bar.close()
+        deviations = list(self._iter_deviations(images, progress, progress_description, progress_leave))
         return torch.stack(deviations, dim=1)
+
+    @property
+    def streams_timesteps(self) -> bool:
+        return self.streaming and type(self.time_aggregator) in _STREAMING_AGGREGATORS
+
+    @torch.no_grad()
+    def compute_scores_streaming(
+        self,
+        images: torch.Tensor,
+        progress: bool = False,
+        progress_description: str = "ANDi timesteps",
+        progress_leave: bool = False,
+    ) -> torch.Tensor:
+        """Pool deviations without retaining a full timestep stack."""
+
+        aggregator_type = type(self.time_aggregator)
+        if aggregator_type not in _STREAMING_AGGREGATORS:
+            stack = self.compute_deviation_stack(images, progress, progress_description, progress_leave)
+            return self.pool_modalities(self.aggregate_time(stack))
+        deviations = self._iter_deviations(images, progress, progress_description, progress_leave)
+        first = next(deviations)
+        # Preserve log(0) -> -inf -> zero, matching the stack aggregator.
+        accumulator = first.log() if aggregator_type is GeometricMeanAggregator else first
+        count = 1
+        for deviation in deviations:
+            if aggregator_type is GeometricMeanAggregator:
+                accumulator.add_(deviation.log())
+            elif aggregator_type is MaxAggregator:
+                torch.maximum(accumulator, deviation, out=accumulator)
+            else:
+                accumulator.add_(deviation)
+            count += 1
+        if aggregator_type in {GeometricMeanAggregator, MeanAggregator}:
+            accumulator.div_(count)
+        if aggregator_type is GeometricMeanAggregator:
+            accumulator.exp_()
+        return self.pool_modalities(accumulator)
 
     def aggregate_time(self, deviations: torch.Tensor) -> torch.Tensor:
         return self.time_aggregator(deviations, dim=1)
@@ -174,6 +268,36 @@ class ANDiDetector:
         output["per_modality_scores"] = per_modality
         return output
 
+    def describe_inference(self) -> dict[str, Any]:
+        if not hasattr(self, "inference_profile"):
+            return {}
+        return {
+            "profile": self.inference_profile,
+            "t_lower": self.t_lower,
+            "t_upper": self.t_upper,
+            "timesteps": self.selected_timesteps(),
+            "streaming": self.streams_timesteps,
+            "amp_dtype": str(self.amp_dtype).removeprefix("torch.") if self.amp_dtype else "none",
+            "attention_backend": self.attention_backend,
+            "device": str(self.device),
+            "cudnn_benchmark": self.cudnn_benchmark,
+        }
+
+    def inference_cache_options(self) -> dict[str, Any] | None:
+        """Identify changed scoring options without invalidating baseline caches."""
+
+        if not hasattr(self, "inference_profile"):
+            return None
+        if (
+            self.inference_profile != "original"
+            or self.num_timesteps is not None
+            or self.streaming
+            or self.amp_dtype is not None
+            or self.attention_backend == "no_weights"
+        ):
+            return self.describe_inference()
+        return None
+
     def describe(self) -> dict:
         postprocessing = self.postprocess_policy.describe()
         resolved_median = postprocessing.get("median_filter_settings", {})
@@ -182,6 +306,7 @@ class ANDiDetector:
             "t_upper": self.t_upper,
             "aggregation": self.time_aggregator.describe(),
             "modality_pool": self.modality_aggregator.describe(),
+            "inference_options": self.describe_inference(),
             "median_filter": {
                 "enabled": resolved_median.get("enabled", self.median_enabled),
                 "kernel_size": resolved_median.get("kernel_size", self.median_kernel_size),
