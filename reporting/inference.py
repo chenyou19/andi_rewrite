@@ -108,6 +108,12 @@ def _build_inference_report(
             "threshold_search_start": _first_present(metrics.get("thr_start"), metrics.get("threshold_start")),
             "threshold_search_end": _first_present(metrics.get("thr_end"), metrics.get("threshold_end")),
             "threshold_search_step": _first_present(metrics.get("thr_step"), metrics.get("threshold_step")),
+            **(
+                {"threshold_sweep_backend": evaluator.threshold_sweep_backend}
+                if result.get("memory_mode") == "disk_streaming"
+                and hasattr(evaluator, "threshold_sweep_backend")
+                else {}
+            ),
             "adaptive_threshold_enabled": True,
             "yen_threshold_enabled": threshold_method == "yen" and _yen_enabled(config),
             "raw_metrics_csv": str(raw_csv) if raw_csv else None,
@@ -196,6 +202,8 @@ def _inference_markdown(report: dict[str, Any]) -> str:
         _dict_table(report["inference_settings"]),
         "## Post-processing Settings",
         _dict_table(report["post_processing_settings"]),
+        *_timing_markdown(report["evaluation_result"].get("timing")),
+        *_prediction_writer_markdown(report["evaluation_result"].get("async_prediction_writer")),
         "## Metrics Summary",
         _metrics_markdown_table(report["metrics_summary"]),
         "## Raw Metrics",
@@ -208,6 +216,38 @@ def _inference_markdown(report: dict[str, Any]) -> str:
         "```",
     ]
     return "\n\n".join(sections) + "\n"
+
+
+def _timing_markdown(timing: dict[str, Any] | None) -> list[str]:
+    if timing is None:
+        return []
+    table = [
+        "| Stage | Total (s) | Shared (s) |",
+        "|---|---:|---:|",
+        *(
+            f"| {stage} | {elapsed:.3f} | {timing['shared_stage_seconds'][stage]:.3f} |"
+            for stage, elapsed in timing["stage_seconds"].items()
+        ),
+    ]
+    return [
+        "## Evaluation Timing",
+        f"Evaluator wall time was {timing['evaluator_wall_seconds']:.3f} s, "
+        f"including {timing['overhead_seconds']:.3f} s outside the timed stages.",
+        "\n".join(table),
+        f"See `{timing['timing_json']}` for CLI wall time and "
+        f"`{timing['subject_csv']}` for subject timings.",
+    ]
+
+
+def _prediction_writer_markdown(writer: dict[str, Any] | None) -> list[str]:
+    if writer is None:
+        return []
+    return [
+        "## Asynchronous Prediction Writes",
+        _dict_table(writer),
+        "Worker queue wait and service are sums across files. They can overlap foreground "
+        "evaluation and other workers. Foreground submission includes backpressure.",
+    ]
 
 
 def _metrics_markdown_table(summary: dict[str, dict[str, Any]]) -> str:

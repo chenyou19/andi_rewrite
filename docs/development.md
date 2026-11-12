@@ -77,7 +77,7 @@ python -B scripts\eval.py --config <eval-config.yaml> --run-eval
 | Script | 用途 | 主要 flags |
 |---|---|---|
 | `scripts/train.py` | 建立並執行 Trainer | `--config`, `--run-one-step`, `--fit`, `--sample-once`, `--eval-config` |
-| `scripts/eval.py` | Standalone volume evaluation | `--config`, `--run-eval`, `--threshold-method {yen,otsu}` |
+| `scripts/eval.py` | Standalone volume evaluation | `--config`, `--run-eval`, `--timing`, `--threshold-method {yen,otsu}` |
 | `scripts/run_5fold.py` | 準備 folds/config 並依序訓練 | `--dry-run`, `--configs-only`, `--only-folds` 等 |
 
 ### 資料前處理
@@ -151,9 +151,14 @@ Resume path 設在 `training.checkpoint.resume`。Checkpoint 不保存完整 run
 ```powershell
 python -B scripts\eval.py --config <eval.yaml> --run-eval
 python -B scripts\eval.py --config <eval.yaml> --run-eval --threshold-method otsu
+python -B scripts\eval.py --config <eval.yaml> --run-eval --timing
 ```
 
 需要 prediction export、完整 evaluation-cache fingerprint 或最完整 report metadata 時，使用這條 canonical path。`train.py` eval-after-fit 與 `eval_checkpoints50.py` 沒有轉送所有 top-level evaluation sections。
+
+比較 disk-streaming 效能時，對兩次評估使用相同 split、checkpoint、推論模式和輸出設定，並各用一個空的 `evaluation.cache.directory`。從 `evaluation_timing.json` 比較 `stage_seconds.metrics` 和 `cli_wall_seconds`，並核對兩個 metrics CSV、快取分數陣列和 NIfTI 預測的內容。
+
+比較 writer 和分桶時，基準用 `prediction_output.async_write.enabled: false` 與 `evaluation.threshold_sweep_backend: loop`，候選組用 `true` 與 `auto`。可從 inference report 的 `async_prediction_writer` 查看容量和 worker 時間。Worker 時間可以重疊，整體效能比較以 wall time 為準。2026-11-12 的 50 例 BraTS21 `fast12` 原型測試中，程序耗時從 237.41 秒降到 143.73 秒，兩組的指標 CSV、快取陣列及 250 個 NIfTI 檔均逐位元相同。
 
 ## 6. Extension points
 
@@ -206,6 +211,8 @@ Detector inference 目前不提供 epoch；需要在 inference 選擇 switch bra
 | `test_noise_statistics.py` | moments、correlation、radial PSD、determinism |
 | `test_postprocess_pipeline.py` | rewrite/original、Yen/Otsu、numerical safety、predictions/reports |
 | `test_streaming_evaluator.py` | parity、resume、fingerprint、corruption、external AUPRC |
+| `test_evaluation_timing.py` | 階段計時加總、CUDA 同步邊界、兩種評估模式、快取命中與計時檔案 |
+| `test_prediction_writer.py` | NIfTI 寫入設定、工作與容量上限、陣列與幾何快照、失敗清理、兩種評估模式的同步／非同步輸出一致性 |
 | `test_make_comparison_figures.py` | artifact validation、figure layout contract |
 
 新功能若碰到 Trainer、checkpoint、scheduler、DDPM reverse loop、registration 或 distributed execution，應補測試；這些是目前 coverage 最薄的區域。

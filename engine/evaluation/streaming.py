@@ -17,14 +17,17 @@ import torch
 from andi_rewrite.anomaly.postprocess import (
     BasePostprocessor,
     NormalizePostprocessor,
+    OriginalANDiPostprocessPolicy,
     PostprocessPolicy,
     PostprocessResult,
+    RewritePostprocessPolicy,
     apply_postprocess_pipeline,
     sanitize_scores,
 )
 from ..evaluation_cache import DiskEvaluationCache
 from andi_rewrite.metrics.classification import auprc, dice, external_auprc
 from andi_rewrite.utils.progress import ProgressReporter
+from . import threshold_sweep
 from .metrics import (
     empty_stream_stats,
     finalize_stream_stats,
@@ -32,6 +35,11 @@ from .metrics import (
     sweep_metric_row,
     update_stream_stats,
 )
+from .timing import EvaluationTimer, TIMING_DISABLED
+
+
+_DEFAULT_FIXED_THRESHOLD_MASK = PostprocessPolicy.fixed_threshold_mask
+_DEFAULT_STREAM_STATS = (empty_stream_stats, update_stream_stats, finalize_stream_stats)
 
 
 @dataclass(frozen=True)
@@ -164,6 +172,9 @@ class StreamingEvaluator:
         on_processed: Callable[[PostprocessResult], None],
         on_prediction_processed: Callable[[PostprocessResult], None],
         callbacks: StreamingCallbacks,
+        timing: EvaluationTimer = TIMING_DISABLED,
+        threshold_sweep_backend: str = "auto",
+        uses_default_stream_stats: bool = False,
     ) -> None:
         self.policy = policy
         self.metric_normalization_scope = metric_normalization_scope
@@ -189,6 +200,9 @@ class StreamingEvaluator:
         self.on_processed = on_processed
         self.on_prediction_processed = on_prediction_processed
         self.callbacks = callbacks
+        self.timing = timing
+        self.threshold_sweep_backend = threshold_sweep_backend
+        self.uses_default_stream_stats = uses_default_stream_stats
 
     def streaming_pipeline_plans(
         self,
@@ -235,10 +249,14 @@ class StreamingEvaluator:
         inferred = 0
         with torch.no_grad():
             try:
-                for volume_index, batch in enumerate(dataloader, start=1):
+                for volume_index, (batch, read_seconds) in enumerate(
+                    self.timing.batches(dataloader), start=1,
+                ):
                     image, label, metadata = self.split_batch(batch)
                     batch_size = int(image.shape[0])
                     items = self.metadata_items(metadata, batch_size)
+                    batch_indices = self.timing.register_subjects(items)
+                    self.timing.record("data_read", read_seconds, batch_indices)
                     missing_local_indices: list[int] = []
                     subject_ids: list[str] = []
                     label_available: list[bool] = []
@@ -262,18 +280,22 @@ class StreamingEvaluator:
                             missing_local_indices.append(local_index)
                         else:
                             cache_hits += 1
+                            self.timing.mark_cache_hit(current_index)
 
                     if missing_local_indices:
-                        selected = torch.as_tensor(
-                            missing_local_indices,
-                            dtype=torch.long,
-                            device=image.device,
-                        )
-                        selected_images = image.index_select(0, selected)
-                        anomaly_maps = self.volume_scores(
-                            selected_images,
-                            volume_index=volume_index,
-                        ).detach().cpu()
+                        with self.timing.span(
+                            "inference", tuple(subject_index + index for index in missing_local_indices),
+                        ):
+                            selected = torch.as_tensor(
+                                missing_local_indices,
+                                dtype=torch.long,
+                                device=image.device,
+                            )
+                            selected_images = image.index_select(0, selected)
+                            anomaly_maps = self.volume_scores(
+                                selected_images,
+                                volume_index=volume_index,
+                            ).detach().cpu()
                         for score_index, local_index in enumerate(missing_local_indices):
                             current_index = subject_index + local_index
                             item_label: torch.Tensor | None = None
@@ -325,7 +347,8 @@ class StreamingEvaluator:
                 for entry in cache.entries:
                     if not cache.has_mf(entry):
                         raw = cache.load_raw(entry)[None]
-                        processed = self.process_raw_maps(raw, normalization_scope="subject")
+                        with self.timing.span("postprocessing", entry["index"]):
+                            processed = self.process_raw_maps(raw, normalization_scope="subject")
                         cache.store_product(entry, key="mf", tensor=processed.score_mf[0])
                     progress.update()
             finally:
@@ -345,11 +368,12 @@ class StreamingEvaluator:
             )
             try:
                 for entry in cache.entries:
-                    raw = sanitize_scores(cache.load_raw(entry)[None])
-                    prepared = raw_plan.prepare(raw)
-                    item_minimum, item_maximum = self.callbacks.prepared_bounds(prepared)
-                    minimum = min(minimum, item_minimum)
-                    maximum = max(maximum, item_maximum)
+                    with self.timing.span("postprocessing"):
+                        raw = sanitize_scores(cache.load_raw(entry)[None])
+                        prepared = raw_plan.prepare(raw)
+                        item_minimum, item_maximum = self.callbacks.prepared_bounds(prepared)
+                        minimum = min(minimum, item_minimum)
+                        maximum = max(maximum, item_maximum)
                     progress.update()
             finally:
                 progress.close()
@@ -368,14 +392,15 @@ class StreamingEvaluator:
             try:
                 for entry in cache.entries:
                     if not cache.has_mf(entry):
-                        raw, score_raw = self.callbacks.raw_score_from_entry(
-                            cache,
-                            entry,
-                            raw_plan,
-                            raw_bounds,
-                        )
-                        source = raw if mf_source == "raw" else sanitize_scores(score_raw)
-                        score_mf = mf_plan.process(source, None)
+                        with self.timing.span("postprocessing", entry["index"]):
+                            raw, score_raw = self.callbacks.raw_score_from_entry(
+                                cache,
+                                entry,
+                                raw_plan,
+                                raw_bounds,
+                            )
+                            source = raw if mf_source == "raw" else sanitize_scores(score_raw)
+                            score_mf = mf_plan.process(source, None)
                         cache.store_product(entry, key="mf", tensor=score_mf[0])
                     progress.update()
             finally:
@@ -398,14 +423,15 @@ class StreamingEvaluator:
             try:
                 for entry in cache.entries:
                     if not cache.has_mf_pre(entry):
-                        raw, score_raw = self.callbacks.raw_score_from_entry(
-                            cache,
-                            entry,
-                            raw_plan,
-                            raw_bounds,
-                        )
-                        source = raw if mf_source == "raw" else sanitize_scores(score_raw)
-                        prepared_mf = mf_plan.prepare(source)
+                        with self.timing.span("postprocessing", entry["index"]):
+                            raw, score_raw = self.callbacks.raw_score_from_entry(
+                                cache,
+                                entry,
+                                raw_plan,
+                                raw_bounds,
+                            )
+                            source = raw if mf_source == "raw" else sanitize_scores(score_raw)
+                            prepared_mf = mf_plan.prepare(source)
                         cache.store_product(entry, key="mf_pre", tensor=prepared_mf[0])
                     progress.update()
             finally:
@@ -433,7 +459,8 @@ class StreamingEvaluator:
             for entry in cache.entries:
                 if not cache.has_mf(entry):
                     prepared_mf = cache.load_product(entry, "mf_pre")[None]
-                    score_mf = mf_plan.finish(prepared_mf, mf_bounds)
+                    with self.timing.span("postprocessing", entry["index"]):
+                        score_mf = mf_plan.finish(prepared_mf, mf_bounds)
                     cache.store_product(entry, key="mf", tensor=score_mf[0])
                 if entry.get("mf_pre") is not None:
                     cache.remove_mf_pre(entry)
@@ -482,11 +509,33 @@ class StreamingEvaluator:
                 score = cache.load_product(entry, "mf")
             else:
                 raw = cache.load_raw(entry)[None]
-                if raw_plan is None:
-                    score = self.process_raw_maps(raw, normalization_scope="subject").score_raw[0]
-                else:
-                    score = raw_plan.process(sanitize_scores(raw), raw_bounds)[0]
+                with self.timing.span("postprocessing", entry["index"]):
+                    if raw_plan is None:
+                        score = self.process_raw_maps(raw, normalization_scope="subject").score_raw[0]
+                    else:
+                        score = raw_plan.process(sanitize_scores(raw), raw_bounds)[0]
             yield score.detach().cpu().numpy(), label.detach().cpu().numpy()
+
+    def _bucket_cutoffs(self) -> tuple[np.ndarray, np.ndarray] | None:
+        policy = self.policy
+        if (
+            self.threshold_sweep_backend != "auto"
+            or not self.uses_default_stream_stats
+            or type(policy) not in (RewritePostprocessPolicy, OriginalANDiPostprocessPolicy)
+            or type(policy.threshold_mask_steps) is not list
+            or policy.threshold_mask_steps
+        ):
+            return None
+        fixed_mask = policy.fixed_threshold_mask
+        if (
+            getattr(fixed_mask, "__func__", None) is not _DEFAULT_FIXED_THRESHOLD_MASK
+            or getattr(fixed_mask, "__self__", None) is not policy
+        ):
+            return None
+        stream_stats = (self.empty_stream_stats, self.update_stream_stats, self.finalize_stream_stats)
+        if any(actual is not default for actual, default in zip(stream_stats, _DEFAULT_STREAM_STATS)):
+            return None
+        return threshold_sweep.prepare_cutoffs(self.thresholds)
 
     def summarize(
         self,
@@ -540,15 +589,17 @@ class StreamingEvaluator:
         )
         try:
             for entry in cache.entries:
-                raw, processed = self.callbacks.processed_stream_entry(
-                    cache,
-                    entry,
-                    raw_plan,
-                    raw_bounds,
-                )
+                with self.timing.span("postprocessing", entry["index"]):
+                    raw, processed = self.callbacks.processed_stream_entry(
+                        cache,
+                        entry,
+                        raw_plan,
+                        raw_bounds,
+                    )
                 self.on_processed(processed)
                 if self.prediction_enabled:
-                    prediction_processed = self.prediction_postprocess(raw, processed)
+                    with self.timing.span("postprocessing", entry["index"]):
+                        prediction_processed = self.prediction_postprocess(raw, processed)
                     self.on_prediction_processed(prediction_processed)
                     self.export_predictions(
                         raw,
@@ -557,66 +608,79 @@ class StreamingEvaluator:
                     )
 
                 label = cache.load_label(entry)
-                if labels_available and label is not None:
-                    label_batch = label[None]
-                    for threshold in self.thresholds:
-                        raw_segmentation = self.policy.fixed_threshold_mask(
-                            processed.score_raw,
-                            threshold,
-                        )
-                        mf_segmentation = self.policy.fixed_threshold_mask(
-                            processed.score_mf,
-                            threshold,
+                with self.timing.span("metrics", entry["index"]):
+                    if labels_available and label is not None:
+                        label_batch = label[None]
+                        cutoffs = self._bucket_cutoffs()
+                        if cutoffs is not None and threshold_sweep.supports_inputs(
+                            processed.score_raw, processed.score_mf, label_batch
+                        ):
+                            label_mask = label_batch.bool().detach().numpy()
+                            threshold_sweep.update_bucket_stats(
+                                raw_sweep, self.thresholds, cutoffs, processed.score_raw, label_mask
+                            )
+                            threshold_sweep.update_bucket_stats(
+                                mf_sweep, self.thresholds, cutoffs, processed.score_mf, label_mask
+                            )
+                        else:
+                            for threshold in self.thresholds:
+                                raw_segmentation = self.policy.fixed_threshold_mask(
+                                    processed.score_raw,
+                                    threshold,
+                                )
+                                mf_segmentation = self.policy.fixed_threshold_mask(
+                                    processed.score_mf,
+                                    threshold,
+                                )
+                                self.callbacks.update_stream_stats(
+                                    raw_sweep[threshold], raw_segmentation, label_batch
+                                )
+                                self.callbacks.update_stream_stats(
+                                    mf_sweep[threshold], mf_segmentation, label_batch
+                                )
+                        self.callbacks.update_stream_stats(
+                            raw_adaptive,
+                            processed.binary_mask_raw_postprocessed,
+                            label_batch,
                         )
                         self.callbacks.update_stream_stats(
-                            raw_sweep[threshold], raw_segmentation, label_batch
+                            mf_adaptive,
+                            processed.binary_mask_mf_postprocessed,
+                            label_batch,
                         )
                         self.callbacks.update_stream_stats(
-                            mf_sweep[threshold], mf_segmentation, label_batch
+                            raw_fixed,
+                            processed.score_raw > self.metric_threshold,
+                            label_batch,
                         )
-                    self.callbacks.update_stream_stats(
-                        raw_adaptive,
-                        processed.binary_mask_raw_postprocessed,
-                        label_batch,
+                        self.callbacks.update_stream_stats(
+                            mf_fixed,
+                            processed.score_mf > self.metric_threshold,
+                            label_batch,
+                        )
+
+                    raw_threshold_values.extend(
+                        float(value) for value in processed.thresholds_raw.detach().cpu().tolist()
                     )
-                    self.callbacks.update_stream_stats(
-                        mf_adaptive,
-                        processed.binary_mask_mf_postprocessed,
-                        label_batch,
-                    )
-                    self.callbacks.update_stream_stats(
-                        raw_fixed,
-                        processed.score_raw > self.metric_threshold,
-                        label_batch,
-                    )
-                    self.callbacks.update_stream_stats(
-                        mf_fixed,
-                        processed.score_mf > self.metric_threshold,
-                        label_batch,
+                    mf_threshold_values.extend(
+                        float(value) for value in processed.thresholds_mf.detach().cpu().tolist()
                     )
 
-                raw_threshold_values.extend(
-                    float(value) for value in processed.thresholds_raw.detach().cpu().tolist()
-                )
-                mf_threshold_values.extend(
-                    float(value) for value in processed.thresholds_mf.detach().cpu().tolist()
-                )
-
-                if sample_indices is not None:
-                    next_offset = global_offset + int(entry["numel"])
-                    lower = int(np.searchsorted(sample_indices, global_offset, side="left"))
-                    upper = int(np.searchsorted(sample_indices, next_offset, side="left"))
-                    if upper > lower:
-                        local_indices = sample_indices[lower:upper] - global_offset
-                        raw_flat = processed.score_raw.detach().cpu().numpy().reshape(-1)
-                        mf_flat = processed.score_mf.detach().cpu().numpy().reshape(-1)
-                        if label is None:
-                            raise RuntimeError("A sampled AUPRC subject unexpectedly has no label.")
-                        label_flat = label.detach().cpu().numpy().reshape(-1)
-                        sampled_raw[lower:upper] = raw_flat[local_indices]  # type: ignore[index]
-                        sampled_mf[lower:upper] = mf_flat[local_indices]  # type: ignore[index]
-                        sampled_labels[lower:upper] = label_flat[local_indices]  # type: ignore[index]
-                    global_offset = next_offset
+                    if sample_indices is not None:
+                        next_offset = global_offset + int(entry["numel"])
+                        lower = int(np.searchsorted(sample_indices, global_offset, side="left"))
+                        upper = int(np.searchsorted(sample_indices, next_offset, side="left"))
+                        if upper > lower:
+                            local_indices = sample_indices[lower:upper] - global_offset
+                            raw_flat = processed.score_raw.detach().cpu().numpy().reshape(-1)
+                            mf_flat = processed.score_mf.detach().cpu().numpy().reshape(-1)
+                            if label is None:
+                                raise RuntimeError("A sampled AUPRC subject unexpectedly has no label.")
+                            label_flat = label.detach().cpu().numpy().reshape(-1)
+                            sampled_raw[lower:upper] = raw_flat[local_indices]  # type: ignore[index]
+                            sampled_mf[lower:upper] = mf_flat[local_indices]  # type: ignore[index]
+                            sampled_labels[lower:upper] = label_flat[local_indices]  # type: ignore[index]
+                        global_offset = next_offset
                 progress.update()
         finally:
             progress.close()

@@ -11,6 +11,8 @@ from typing import Any
 import numpy as np
 import torch
 
+from .evaluation.timing import EvaluationTimer, TIMING_DISABLED
+
 
 CACHE_SCHEMA_VERSION = 1
 
@@ -58,6 +60,7 @@ class DiskEvaluationCache:
         score_fingerprint: str,
         resume: bool = True,
         keep_on_success: bool = True,
+        timing: EvaluationTimer = TIMING_DISABLED,
     ) -> None:
         self.root = Path(directory).expanduser().resolve()
         current = Path.cwd().resolve()
@@ -75,6 +78,7 @@ class DiskEvaluationCache:
         self.keep_on_success = bool(keep_on_success)
         self.raw_fingerprint = str(raw_fingerprint)
         self.score_fingerprint = str(score_fingerprint)
+        self._timing = timing
         self.manifest = self._open_or_create_manifest()
 
     @property
@@ -91,7 +95,8 @@ class DiskEvaluationCache:
 
     def _open_or_create_manifest(self) -> dict[str, Any]:
         if self.manifest_path.exists():
-            payload = json.loads(self.manifest_path.read_text(encoding="utf-8"))
+            with self._timing.span("data_read"):
+                payload = json.loads(self.manifest_path.read_text(encoding="utf-8"))
             if int(payload.get("schema_version", -1)) != CACHE_SCHEMA_VERSION:
                 raise RuntimeError(
                     "Evaluation cache schema mismatch. Use a new cache.directory; "
@@ -137,32 +142,34 @@ class DiskEvaluationCache:
         return payload
 
     def _ensure_directories(self) -> None:
-        for path in (
-            self.root,
-            self.raw_directory,
-            self.label_directory,
-            self.mf_directory,
-            self.staging_directory,
-            self.sort_directory,
-        ):
-            path.mkdir(parents=True, exist_ok=True)
+        with self._timing.span("file_write"):
+            for path in (
+                self.root,
+                self.raw_directory,
+                self.label_directory,
+                self.mf_directory,
+                self.staging_directory,
+                self.sort_directory,
+            ):
+                path.mkdir(parents=True, exist_ok=True)
 
-    def _write_manifest(self) -> None:
-        temporary = self.manifest_path.with_name(f".{self.manifest_path.name}.tmp")
-        temporary.write_text(
-            json.dumps(self.manifest, indent=2, sort_keys=True, ensure_ascii=False),
-            encoding="utf-8",
-        )
-        # Windows readers or scanners can briefly deny an atomic replacement.
-        # Keep the previous manifest intact and propagate persistent failures.
-        for attempt in range(8):
-            try:
-                os.replace(temporary, self.manifest_path)
-                break
-            except PermissionError:
-                if attempt == 7:
-                    raise
-                time.sleep(min(0.1 * (2 ** attempt), 1.0))
+    def _write_manifest(self, subject: int | tuple[int, ...] = ()) -> None:
+        with self._timing.span("file_write", subject):
+            temporary = self.manifest_path.with_name(f".{self.manifest_path.name}.tmp")
+            temporary.write_text(
+                json.dumps(self.manifest, indent=2, sort_keys=True, ensure_ascii=False),
+                encoding="utf-8",
+            )
+            # Windows readers or scanners can briefly deny an atomic replacement.
+            # Keep the previous manifest intact and propagate persistent failures.
+            for attempt in range(8):
+                try:
+                    os.replace(temporary, self.manifest_path)
+                    break
+                except PermissionError:
+                    if attempt == 7:
+                        raise
+                    time.sleep(min(0.1 * (2 ** attempt), 1.0))
 
     @staticmethod
     def _atomic_save_array(path: Path, array: np.ndarray) -> None:
@@ -212,17 +219,18 @@ class DiskEvaluationCache:
             raise RuntimeError(
                 f"Evaluation cache label availability changed for subject {subject_id!r}."
             )
-        self._validate_array(
-            self.root / entry["raw_file"],
-            entry["shape"],
-            entry["raw_dtype"],
-        )
-        if has_label:
+        with self._timing.span("data_read", index):
             self._validate_array(
-                self.root / entry["label_file"],
-                entry["label_shape"],
-                entry["label_dtype"],
+                self.root / entry["raw_file"],
+                entry["shape"],
+                entry["raw_dtype"],
             )
+            if has_label:
+                self._validate_array(
+                    self.root / entry["label_file"],
+                    entry["label_shape"],
+                    entry["label_dtype"],
+                )
         return entry
 
     def store_raw_entry(
@@ -247,7 +255,8 @@ class DiskEvaluationCache:
         ).astype(np.float32, copy=False)
         raw_name = f"{index:06d}_{subject_id}.npy"
         raw_path = self.raw_directory / raw_name
-        self._atomic_save_array(raw_path, raw_array)
+        with self._timing.span("file_write", index):
+            self._atomic_save_array(raw_path, raw_array)
 
         entry: dict[str, Any] = {
             "index": int(index),
@@ -272,7 +281,8 @@ class DiskEvaluationCache:
                     f"{raw_array.shape} for subject {subject_id!r}."
                 )
             label_path = self.label_directory / raw_name
-            self._atomic_save_array(label_path, label_array)
+            with self._timing.span("file_write", index):
+                self._atomic_save_array(label_path, label_array)
             entry.update(
                 {
                     "label_file": str(label_path.relative_to(self.root)),
@@ -281,7 +291,7 @@ class DiskEvaluationCache:
                 }
             )
         self.entries.append(entry)
-        self._write_manifest()
+        self._write_manifest(index)
         return entry
 
     def finish_collection(self, subject_count: int) -> None:
@@ -296,30 +306,33 @@ class DiskEvaluationCache:
         self._write_manifest()
 
     def load_raw(self, entry: dict[str, Any]) -> torch.Tensor:
-        array = np.array(
-            np.load(self.root / entry["raw_file"], mmap_mode="r", allow_pickle=False),
-            copy=True,
-        )
-        return torch.from_numpy(array).float()
+        with self._timing.span("data_read", entry["index"]):
+            array = np.array(
+                np.load(self.root / entry["raw_file"], mmap_mode="r", allow_pickle=False),
+                copy=True,
+            )
+            return torch.from_numpy(array).float()
 
     def load_label(self, entry: dict[str, Any]) -> torch.Tensor | None:
         if not entry.get("has_label"):
             return None
-        array = np.array(
-            np.load(self.root / entry["label_file"], mmap_mode="r", allow_pickle=False),
-            copy=True,
-        )
-        return torch.from_numpy(array).bool()
+        with self._timing.span("data_read", entry["index"]):
+            array = np.array(
+                np.load(self.root / entry["label_file"], mmap_mode="r", allow_pickle=False),
+                copy=True,
+            )
+            return torch.from_numpy(array).bool()
 
     def _valid_product(self, entry: dict[str, Any], key: str) -> bool:
         product = entry.get(key)
         if not isinstance(product, dict):
             return False
-        self._validate_array(
-            self.root / product["file"],
-            product["shape"],
-            product["dtype"],
-        )
+        with self._timing.span("data_read", entry["index"]):
+            self._validate_array(
+                self.root / product["file"],
+                product["shape"],
+                product["dtype"],
+            )
         return True
 
     def has_mf_pre(self, entry: dict[str, Any]) -> bool:
@@ -345,7 +358,9 @@ class DiskEvaluationCache:
         ).astype(np.float32, copy=False)
         directory = self.staging_directory if key == "mf_pre" else self.mf_directory
         path = directory / f"{int(entry['index']):06d}_{entry['subject_id']}.npy"
-        self._atomic_save_array(path, array)
+        index = entry["index"]
+        with self._timing.span("file_write", index):
+            self._atomic_save_array(path, array)
         entry[key] = {
             "file": str(path.relative_to(self.root)),
             "shape": [int(value) for value in array.shape],
@@ -353,28 +368,30 @@ class DiskEvaluationCache:
             "min": float(array.min()) if array.size else 0.0,
             "max": float(array.max()) if array.size else 0.0,
         }
-        self._write_manifest()
+        self._write_manifest(index)
 
     def load_product(self, entry: dict[str, Any], key: str) -> torch.Tensor:
         if not self._valid_product(entry, key):
             raise RuntimeError(
                 f"Evaluation cache product {key!r} is unavailable for {entry['subject_id']!r}."
             )
-        array = np.array(
-            np.load(self.root / entry[key]["file"], mmap_mode="r", allow_pickle=False),
-            copy=True,
-        )
-        return torch.from_numpy(array).float()
+        with self._timing.span("data_read", entry["index"]):
+            array = np.array(
+                np.load(self.root / entry[key]["file"], mmap_mode="r", allow_pickle=False),
+                copy=True,
+            )
+            return torch.from_numpy(array).float()
 
     def remove_mf_pre(self, entry: dict[str, Any]) -> None:
         product = entry.get("mf_pre")
         if not isinstance(product, dict):
             return
         path = self.root / product["file"]
-        if path.exists():
-            path.unlink()
+        with self._timing.span("file_write", entry["index"]):
+            if path.exists():
+                path.unlink()
         entry.pop("mf_pre", None)
-        self._write_manifest()
+        self._write_manifest(entry["index"])
 
     def get_bounds(self, key: str) -> tuple[float, float] | None:
         value = self.manifest.get(key)
@@ -392,4 +409,5 @@ class DiskEvaluationCache:
         resolved = self.root.resolve()
         if resolved == Path.cwd().resolve() or resolved.parent == resolved:
             raise RuntimeError(f"Refusing to remove broad cache path: {resolved}")
-        shutil.rmtree(resolved)
+        with self._timing.span("file_write"):
+            shutil.rmtree(resolved)

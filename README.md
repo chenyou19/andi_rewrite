@@ -10,6 +10,7 @@
 |---|---|
 | [架構與執行流程](docs/architecture.md) | 理解系統邊界、模組責任、資料流、狀態、錯誤與限制 |
 | [YAML 設定參考](docs/configuration.md) | 建立或修改 training/evaluation config |
+| [AER bottleneck 精煉](docs/aer.md) | 啟用可選的 AER、載入既有權重、執行合成驗證 |
 | [後處理與 threshold](docs/postprocessing.md) | 比較 `rewrite` / `original_andi`、Yen / Otsu、score / mask pipelines |
 | [開發與驗證](docs/development.md) | 建立環境、執行測試、使用 scripts、擴充 factory/registry |
 | [UCSF-PDGM adapter](docs/datasets/ucsf-pdgm.md) | 查閱現行 channel、discovery、geometry、CSV 與 metadata 契約 |
@@ -20,13 +21,14 @@
 ## 核心能力
 
 - 2D DDPM noise-prediction training，預設四個邏輯通道依序為 `flair`、`t1`、`t1ce`、`t2`。
-- `ANDiUNet` 與 `ConvNeXtUNet` model factory。
+- `ANDiUNet` 與 `ConvNeXtUNet` model factory，兩者均可選用 AER bottleneck 精煉。
 - Gaussian、Pyramid、Spectrum、Empirical Spectrum 與 Hybrid noise sampler。
 - Static 與 epoch-switch noise plan；目前 checked-in YAML 都使用 static plan。
 - AdamW、warmup-cosine scheduler、EMA、checkpoint resume 與 reverse-sample 圖片輸出。
 - Raw BraTS healthy-slice、LMDB slice、BraTS-style volume、Shifts/Ljubljana-MS 與 UCSF-PDGM dataset adapters。
 - In-memory 與單程序 disk-streaming full-volume evaluation。
 - 可組合的 anomaly aggregation、postprocess registry、Yen/Otsu adaptive threshold、threshold sweep 與 NIfTI prediction export。
+- 相容的 disk-streaming threshold sweep 自動使用精確分桶。兩種評估模式都可選用有界的非同步 NIfTI 寫入。
 - 可選的 Hugging Face Accelerate training/in-memory evaluation；disk streaming 不支援 distributed execution。
 - Healthy-slice LMDB、K-fold、empirical spectrum、registration、diagnostic 與 figure scripts。
 
@@ -112,7 +114,7 @@ python -B scripts\train.py --config <prepared-train-config.yaml> --run-one-step
 python -B scripts\train.py --config <prepared-train-config.yaml> --fit
 ```
 
-`configs/train_lmdb.yaml` 本身是 20-epoch template，但 checkpoint/sample 的 `start_epoch` 都是 120，所以直接 `--fit` 只會完成 training 與 report，不會寫 checkpoint/sample。需要 artifacts 時，複製後把相應 `start_epoch` 與 `every_epochs`/`save_every_epochs` 調到本次 epoch 範圍內。
+`configs/train_lmdb.yaml` 使用 `D:/project/data/BraTS21/healthy_slices_unbalanced` 的未做 Z 軸平衡抽樣 LMDB，訓練 20 epochs。Checkpoint/sample 的 `start_epoch` 都是 3（零起算），間隔為 4，因此會在完成第 4、8、12、16、20 個 epoch 時儲存。
 
 Full-volume evaluation：
 
@@ -138,6 +140,7 @@ python -B scripts\eval.py --config <prepared-eval-config.yaml> --run-eval --thre
 
 - `configs/train.yaml`：直接讀取 raw BraTS healthy slices 的 training template。
 - `configs/train_lmdb.yaml`：讀取預處理 LMDB 的 training template。
+- `configs/train_brats21_unbalanced_filtered_gaussian20.yaml`：使用未做 Z 軸平衡抽樣的 BraTS21 LMDB 與其 radial 功率頻譜，訓練 filtered-Gaussian noise 模型 20 epochs，每 4 epochs 儲存 checkpoint/sample。頻譜檔為 `outputs/spectrum/brats21_healthy_unbalanced_empirical_spectrum.npz`。
 - `configs/eval.yaml`：`rewrite` postprocess 的 standalone evaluation template。
 - `configs/eval_original_andi.yaml`：reference-compatible `original_andi` postprocess template。
 
@@ -176,6 +179,7 @@ Standalone `scripts/eval.py --run-eval` 可產生：
 
 - Raw 與 MF metric CSV，預設為 `ANDi.csv`、`ANDi_mf.csv`。
 - `inference_report.md`、`inference_report.json`、`inference_metrics_summary.csv`。
+- 使用 `--timing` 時另存 `evaluation_timing.json` 與 `evaluation_timing_subjects.csv`，記錄逐階段與逐病例耗時。量測範圍見 [評估計時](docs/configuration.md#評估計時)。
 - 可選的 per-subject NIfTI scores、adaptive/fixed masks 與 `prediction_metadata.json`。
 - Disk-streaming mode 的 `.npy` cache 與 manifest。
 
@@ -193,6 +197,8 @@ prediction_metadata.json
 ```
 
 Native-grid restoration 只依 shape 做 trilinear score / nearest mask resize，再沿用 reference NIfTI affine/header；它不是一般 affine registration。
+
+`prediction_output.async_write.enabled: true` 可讓 CPU worker 背景壓縮與寫入 NIfTI。評估會等所有 NIfTI 寫入完成，再產出指標 CSV 與報表。Disk-streaming 的 `evaluation.threshold_sweep_backend` 預設為 `auto`，相容的 sweep 使用精確分桶，`loop` 可指定原有逐閾值計算。詳細設定見 [預測輸出與評估設定](docs/configuration.md#11-prediction_output)。
 
 ## 測試
 

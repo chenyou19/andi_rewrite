@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 from datetime import datetime
 from pathlib import Path
+from time import perf_counter
 
 try:
     from _bootstrap import bootstrap
@@ -30,6 +31,7 @@ from andi_rewrite.data import build_dataloader
 from andi_rewrite.diffusion.ddpm import build_diffusion
 from andi_rewrite.engine import VolumeEvaluator
 from andi_rewrite.engine.checkpoint import unwrap_model
+from andi_rewrite.engine.evaluation.timing import write_timing
 from andi_rewrite.models import build_model
 from andi_rewrite.noise import build_noise_plan
 from andi_rewrite.utils.reporting import save_inference_report
@@ -149,6 +151,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Build the rewritten ANDi evaluation pipeline.")
     parser.add_argument("--config", default=str(default_config), help="Path to a YAML eval config.")
     parser.add_argument("--run-eval", action="store_true", help="Run full volume evaluation and write CSV files.")
+    parser.add_argument("--timing", action="store_true", help="Measure evaluation stages and write timing artifacts.")
     parser.add_argument(
         "--inference-profile",
         choices=INFERENCE_PROFILES,
@@ -193,10 +196,13 @@ def apply_threshold_method_override(config: dict, method: str | None) -> dict:
 
 def main() -> None:
     args = build_parser().parse_args()
+    cli_started = perf_counter()
 
     config = load_config(args.config)
     if args.inference_profile is not None:
         config.setdefault("evaluation", {})["inference_profile"] = args.inference_profile
+    if args.timing:
+        config.setdefault("evaluation", {}).setdefault("timing", {})["enabled"] = True
     apply_threshold_method_override(config, args.threshold_method)
     detector, accelerator = build_detector_from_config(config)
     print("Loaded eval config:")
@@ -221,13 +227,15 @@ def main() -> None:
         )
         dataloader = evaluator.prepare(dataloader)
         eval_start = datetime.now().astimezone()
+        cli_setup_seconds = perf_counter() - cli_started if evaluator.timing_enabled else 0.0
         result = evaluator.evaluate(dataloader)
         eval_end = datetime.now().astimezone()
         if result:
             print("Evaluation result:")
             print_config(result)
             if evaluator.is_main_process:
-                save_inference_report(
+                report_started = perf_counter() if evaluator.timing_enabled else 0.0
+                report_dir = save_inference_report(
                     config=config,
                     evaluator=evaluator,
                     result=result,
@@ -237,6 +245,16 @@ def main() -> None:
                     config_path=args.config,
                     cli_args=vars(args),
                 )
+                if evaluator.timing_enabled:
+                    report_finished = perf_counter()
+                    write_timing(
+                        report_dir or evaluator.output_csv.parent,
+                        result["timing"],
+                        evaluator.last_timing_subjects,
+                        cli_wall_seconds=report_finished - cli_started,
+                        cli_setup_seconds=cli_setup_seconds,
+                        cli_report_seconds=report_finished - report_started,
+                    )
     else:
         print("Configuration loaded. Use --run-eval to run full volume evaluation.")
 

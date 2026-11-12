@@ -11,6 +11,7 @@ from typing import Any
 import torch
 import torch.nn as nn
 
+from .aer import AERConfig
 from .convnext_unet import ConvNeXtUNet
 from .unet import ANDiUNet
 
@@ -27,6 +28,7 @@ def build_model(config: dict[str, Any], device: torch.device | str) -> nn.Module
     """建立 model 並移到指定 device。"""
 
     model_type = str(config.get("type", "andi_unet")).lower()
+    aer = AERConfig.from_mapping(config.get("aer"))
     if model_type in {"andi_unet", "original_unet", "unet"}:
         model = ANDiUNet(
             in_channels=int(config.get("in_channels", config.get("channels", 4))),
@@ -34,6 +36,7 @@ def build_model(config: dict[str, Any], device: torch.device | str) -> nn.Module
             image_size=int(config.get("image_size", 128)),
             time_dim=int(config.get("time_dim", 256)),
             attention_backend=config.get("attention_backend", "legacy"),
+            aer=aer,
         )
     elif model_type in {"convnext_unet", "convnext-unet"}:
         in_channels = int(config.get("in_channels", config.get("channels", 4)))
@@ -47,6 +50,7 @@ def build_model(config: dict[str, Any], device: torch.device | str) -> nn.Module
             time_emb_dim=int(config.get("time_emb_dim", config.get("time_dim", 256))),
             dropout=float(config.get("dropout", 0.0)),
             image_size=int(config.get("image_size", config.get("size", 128))),
+            aer=aer,
         )
     else:
         raise ValueError(f"Unknown model type: {model_type}")

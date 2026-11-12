@@ -197,11 +197,13 @@ Standalone `detect()` 還回傳完整 deviation stack 與 per-modality scores；
 
 `metrics/classification.py` 提供 AUPRC、Dice、confusion rates 與 external-sort AUPRC。Evaluator 的 Dice 是 per-subject mean；sensitivity/specificity/precision 由所有 voxels 的 micro counts 計算。兩個 mask 都空時 Dice 回傳 `0.0`。Sampled AUPRC 在超過上限時以 seeded、with-replacement sampling；exact streaming AUPRC 使用 bounded-memory external sort。
 
+Disk streaming 用交集、預測陽性與標註陽性的 voxel 數計算 Dice 與混淆矩陣。固定閾值 sweep 預設選用 `auto`，在相容的 CPU float32 scores、內建 policy、空 threshold-mask pipeline 與預設 metric hooks 下，可分桶並以反向累加重建每個閾值的整數計數。其他情況走逐閾值遮罩比較，也可用 `evaluation.threshold_sweep_backend: loop` 明確指定。
+
 完整行為、optional dependency fallback 與 YAML 範例見 [postprocessing.md](postprocessing.md)。
 
 ### Engine 與 infrastructure
 
-`Trainer` 擁有 model、AdamW optimizer、optional scheduler、EMA copy、epoch state、checkpoint/sample policy。`VolumeEvaluator` 現為相容 facade/orchestrator；batch input、collection、metrics/output、prediction export、fingerprints 與 disk streaming 分別由 `engine/evaluation/` 的 cohesive modules 擁有。
+`Trainer` 擁有 model、AdamW optimizer、optional scheduler、EMA copy、epoch state、checkpoint/sample policy。`VolumeEvaluator` 現為相容 facade/orchestrator。Batch input、collection、metrics/output、prediction export 與 writer、fingerprints 和 disk streaming 分別由 `engine/evaluation/` 的 modules 負責。
 
 其他支援元件：
 
@@ -294,6 +296,8 @@ Prediction 可以重用 metric-scope processed tensors，或依 `prediction_outp
 輸出包括 raw/MF score、method-specific raw/MF/selected adaptive mask、可選 fixed-threshold mask與 metadata JSON。這只恢復 shape，假設 model/native axes 對應；不是 affine-aware registration。
 
 Canonical standalone evaluation 的 in-memory 與 disk-streaming paths 都支援 prediction export。Disk mode 會在 streaming metrics pass 逐 cached subject 還原並匯出，不需要把全 dataset score 留在 RAM。Eval-after-fit 與 `eval_checkpoints50.py` 沒有完整轉送 top-level `prediction_output`。
+
+啟用 `prediction_output.async_write` 時，主程序每次評估建立一個 `engine/evaluation/prediction_writer.py` writer。預測後處理、原生格點還原及 metadata JSON 仍由主執行緒執行。Writer 在工作數及陣列容量限制內接收 NumPy 陣列、affine 和含 extensions 的 header 副本，再由 CPU worker 壓縮與寫檔。同路徑寫入依提交順序完成。評估等候所有 NIfTI 後才寫 metrics CSV、建立成功 result 並執行 cache cleanup。任何評估錯誤會取消尚未開始的寫檔並等待執行中的工作，已完成的預測檔可能保留。續跑會使用磁碟快取並重新匯出預測。
 
 ### Five-fold orchestration
 

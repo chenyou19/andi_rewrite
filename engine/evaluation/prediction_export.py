@@ -15,6 +15,7 @@ from andi_rewrite.anomaly.postprocess import PostprocessPolicy, PostprocessResul
 
 from .fingerprints import json_safe
 from .inputs import safe_subject_id
+from .timing import EvaluationTimer, TIMING_DISABLED
 
 
 def resize_volume_to_shape(
@@ -181,6 +182,8 @@ def export_predictions(
     save_nifti_callback: Callable[[np.ndarray, Any, Path, Any], None] | None = None,
     resize_volume_callback: Callable[[torch.Tensor, tuple[int, int, int], bool], torch.Tensor] | None = None,
     json_safe_callback: Callable[[Any], Any] | None = None,
+    timing: EvaluationTimer = TIMING_DISABLED,
+    timing_subject_offset: int = 0,
 ) -> int:
     """Export one batch of prediction products and return the next index."""
 
@@ -208,23 +211,28 @@ def export_predictions(
         if threshold_source in {"raw", "score_raw", "anomaly_score_raw"}
         else processed.score_mf
     )
-    threshold_masks = postprocess_policy.fixed_threshold_mask(threshold_scores, threshold)
+    batch_size = raw_maps.shape[0]
+    # This batch-wide export step is shared unless there is only one subject.
+    threshold_subject = timing_subject_offset if batch_size == 1 else ()
+    with timing.span("postprocessing", threshold_subject, synchronize=False):
+        threshold_masks = postprocess_policy.fixed_threshold_mask(threshold_scores, threshold)
     describe_inference = getattr(detector, "describe_inference", None)
     inference_options = describe_inference() if callable(describe_inference) else None
-    batch_size = raw_maps.shape[0]
     for batch_index in range(batch_size):
+        timing_subject = timing_subject_offset + batch_index
         metadata = metadata_items[batch_index] if batch_index < len(metadata_items) else {}
         prediction_index += 1
         subject_id = subject_id_for(metadata.get("subject_id", f"subject_{prediction_index:04d}"))
         subject_root = output_dir / subject_id
-        spatial_metadata = load_spatial_metadata(metadata)
+        with timing.span("data_read", timing_subject):
+            spatial_metadata = load_spatial_metadata(metadata)
+            reference_image = load_reference(metadata)
         if spatial_metadata is not None and restore_native:
             subject_dir = subject_root / "native_grid"
         elif spatial_metadata is not None and save_model_grid:
             subject_dir = subject_root / "model_grid"
         else:
             subject_dir = subject_root
-        reference_image = load_reference(metadata)
         if reference_image is None:
             if restore_native:
                 raise ValueError("prediction_output.restore_native_grid requires metadata.reference_path.")
@@ -252,31 +260,43 @@ def export_predictions(
                 return restore_spatial_volume(item, spatial_metadata, continuous=continuous)
             return resize_volume(item, native_shape, continuous)
 
-        raw_score_model = processed.score_raw[batch_index]
-        mf_score_model = processed.score_mf[batch_index]
-        binary_mask_raw_model = processed.binary_mask_raw_postprocessed[batch_index].bool()
-        binary_mask_mf_model = processed.binary_mask_mf_postprocessed[batch_index].bool()
-        binary_mask_model = binary_mask_raw_model if use_raw_binary_mask else binary_mask_mf_model
-        threshold_mask_model = threshold_masks[batch_index].bool()
+        with timing.span("postprocessing", timing_subject, synchronize=False):
+            raw_score_model = processed.score_raw[batch_index]
+            mf_score_model = processed.score_mf[batch_index]
+            binary_mask_raw_model = processed.binary_mask_raw_postprocessed[batch_index].bool()
+            binary_mask_mf_model = processed.binary_mask_mf_postprocessed[batch_index].bool()
+            binary_mask_model = binary_mask_raw_model if use_raw_binary_mask else binary_mask_mf_model
+            threshold_mask_model = threshold_masks[batch_index].bool()
 
-        raw_score = restore(raw_score_model, continuous=True)
-        mf_score = restore(mf_score_model, continuous=True)
-        binary_mask_raw = restore(
-            binary_mask_raw_model.float(),
-            continuous=False,
-        ).bool()
-        binary_mask_mf = restore(
-            binary_mask_mf_model.float(),
-            continuous=False,
-        ).bool()
-        binary_mask = binary_mask_raw if use_raw_binary_mask else binary_mask_mf
-        threshold_mask = restore(threshold_masks[batch_index].float(), continuous=False).bool()
+            raw_score = restore(raw_score_model, continuous=True)
+            mf_score = restore(mf_score_model, continuous=True)
+            binary_mask_raw = restore(
+                binary_mask_raw_model.float(),
+                continuous=False,
+            ).bool()
+            binary_mask_mf = restore(
+                binary_mask_mf_model.float(),
+                continuous=False,
+            ).bool()
+            binary_mask = binary_mask_raw if use_raw_binary_mask else binary_mask_mf
+            threshold_mask = restore(threshold_masks[batch_index].float(), continuous=False).bool()
 
-        finite_raw = torch.nan_to_num(raw_score.float(), nan=0.0, posinf=0.0, neginf=0.0)
-        finite_mf = torch.nan_to_num(mf_score.float(), nan=0.0, posinf=0.0, neginf=0.0)
+            finite_raw = torch.nan_to_num(raw_score.float(), nan=0.0, posinf=0.0, neginf=0.0)
+            finite_mf = torch.nan_to_num(mf_score.float(), nan=0.0, posinf=0.0, neginf=0.0)
         save_binary_mask = prediction_output.get("save_binary_mask")
         if save_binary_mask is None:
             save_binary_mask = prediction_output.get("save_yen_mask", True)
+
+        def write_product(value: torch.Tensor, target_reference: Any, path: Path, dtype: Any) -> None:
+            with timing.span("postprocessing", timing_subject, synchronize=False):
+                if dtype == np.float32:
+                    array = torch.nan_to_num(
+                        value.float(), nan=0.0, posinf=0.0, neginf=0.0,
+                    ).cpu().numpy()
+                else:
+                    array = value.cpu().numpy().astype(dtype)
+            with timing.span("file_write", timing_subject):
+                save_image(array, target_reference, path, dtype)
 
         def save_products(
             target_dir: Path,
@@ -289,15 +309,15 @@ def export_predictions(
             mask_threshold: torch.Tensor,
         ) -> None:
             if bool(prediction_output.get("save_raw_score", True)):
-                save_image(
-                    torch.nan_to_num(score_raw.float(), nan=0.0, posinf=0.0, neginf=0.0).cpu().numpy(),
+                write_product(
+                    score_raw,
                     target_reference,
                     target_dir / "anomaly_score_raw.nii.gz",
                     np.float32,
                 )
             if bool(prediction_output.get("save_median_filtered_score", True)):
-                save_image(
-                    torch.nan_to_num(score_mf.float(), nan=0.0, posinf=0.0, neginf=0.0).cpu().numpy(),
+                write_product(
+                    score_mf,
                     target_reference,
                     target_dir / "anomaly_score_mf.nii.gz",
                     np.float32,
@@ -308,15 +328,15 @@ def export_predictions(
                     (f"{threshold_method}_mf", mask_mf),
                     (threshold_method, mask_selected),
                 ):
-                    save_image(
-                        value.cpu().numpy().astype(np.uint8),
+                    write_product(
+                        value,
                         target_reference,
                         target_dir / f"lesion_mask_{suffix}.nii.gz",
                         np.uint8,
                     )
             if bool(prediction_output.get("save_threshold_mask", False)):
-                save_image(
-                    mask_threshold.cpu().numpy().astype(np.uint8),
+                write_product(
+                    mask_threshold,
                     target_reference,
                     target_dir / "lesion_mask_threshold.nii.gz",
                     np.uint8,
@@ -399,6 +419,7 @@ def export_predictions(
                 }
             )
         metadata_path = (subject_root if spatial_metadata is not None else subject_dir) / "prediction_metadata.json"
-        metadata_path.parent.mkdir(parents=True, exist_ok=True)
-        metadata_path.write_text(json.dumps(make_json_safe(payload), indent=2), encoding="utf-8")
+        with timing.span("file_write", timing_subject):
+            metadata_path.parent.mkdir(parents=True, exist_ok=True)
+            metadata_path.write_text(json.dumps(make_json_safe(payload), indent=2), encoding="utf-8")
     return prediction_index

@@ -4,6 +4,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from .aer import AERConfig, AERDenoiser
+
 
 class SelfAttention(nn.Module):
     """原版 ANDi attention block，保留給 full-size UNet 重用。"""
@@ -89,7 +91,7 @@ class Up(nn.Module):
         return x + emb
 
 
-class ANDiUNet(nn.Module):
+class ANDiUNet(AERDenoiser):
     """相容原版 ANDi model shape 的 self-attention UNet。"""
 
     def __init__(
@@ -100,6 +102,7 @@ class ANDiUNet(nn.Module):
         time_dim: int = 256,
         *,
         attention_backend: str = "legacy",
+        aer: AERConfig | None = None,
     ):
         super().__init__()
         if attention_backend not in {"legacy", "no_weights"}:
@@ -126,6 +129,7 @@ class ANDiUNet(nn.Module):
         self.up3 = Up(128, 32, self.time_dim)
         self.up4 = Up(64, 32, self.time_dim)
         self.outc = nn.Conv2d(32, out_channels, kernel_size=1)
+        self._init_aer(256, aer)
 
     def pos_encoding(self, timesteps: torch.Tensor, channels: int) -> torch.Tensor:
         inv_freq = 1.0 / (
@@ -136,7 +140,9 @@ class ANDiUNet(nn.Module):
         pos_enc_b = torch.cos(timesteps.repeat(1, channels // 2) * inv_freq)
         return torch.cat([pos_enc_a, pos_enc_b], dim=-1)
 
-    def unet_forward(self, x: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
+    def unet_forward(
+        self, x: torch.Tensor, t: torch.Tensor, *, return_aer_aux: bool = False
+    ) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor | None]:
         x1 = self.inc(x)
         x1 = self.inc2(x1)
         x2 = self.down1(x1, t)
@@ -149,14 +155,21 @@ class ANDiUNet(nn.Module):
         x5 = self.bot1(x5)
         x5 = self.bot3(x5)
         x = self.sa4(x5)
+        x, proposal_loss = self._refine_bottleneck(x, return_aer_aux)
         x = self.up1(x, x4, t)
         x = self.sa5(x)
         x = self.up2(x, x3, t)
         x = self.sa6(x)
         x = self.up3(x, x2, t)
         x = self.up4(x, x1, t)
-        return self.outc(x)
+        predicted_noise = self.outc(x)
+        return (predicted_noise, proposal_loss) if return_aer_aux else predicted_noise
 
-    def forward(self, x: torch.Tensor, timesteps: torch.Tensor) -> torch.Tensor:
+    def forward(
+        self, x: torch.Tensor, timesteps: torch.Tensor, *, return_aer_aux: bool = False
+    ) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor | None]:
         timesteps = timesteps.unsqueeze(-1).type(x.dtype)
-        return self.unet_forward(x, self.pos_encoding(timesteps, self.time_dim).type(x.dtype))
+        embedding = self.pos_encoding(timesteps, self.time_dim).type(x.dtype)
+        if return_aer_aux:
+            return self.unet_forward(x, embedding, return_aer_aux=True)
+        return self.unet_forward(x, embedding)

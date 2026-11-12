@@ -7,6 +7,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from .aer import AERConfig, AERDenoiser
+
 
 def _group_count(channels: int, max_groups: int = 8) -> int:
     for groups in range(min(max_groups, channels), 0, -1):
@@ -98,7 +100,7 @@ class ConvNeXtStage(nn.Module):
         return x
 
 
-class ConvNeXtUNet(nn.Module):
+class ConvNeXtUNet(AERDenoiser):
     """ConvNeXt-style U-Net for DDPM noise prediction."""
 
     def __init__(
@@ -111,6 +113,8 @@ class ConvNeXtUNet(nn.Module):
         time_emb_dim: int = 256,
         dropout: float = 0.0,
         image_size: int | None = None,
+        *,
+        aer: AERConfig | None = None,
     ):
         super().__init__()
         del image_size
@@ -187,8 +191,11 @@ class ConvNeXtUNet(nn.Module):
         self.final_norm = nn.GroupNorm(_group_count(channels[0]), channels[0])
         self.final_act = nn.SiLU()
         self.out = nn.Conv2d(channels[0], self.out_channels, kernel_size=1)
+        self._init_aer(bottleneck_channels, aer)
 
-    def forward(self, x: torch.Tensor, timesteps: torch.Tensor) -> torch.Tensor:
+    def forward(
+        self, x: torch.Tensor, timesteps: torch.Tensor, *, return_aer_aux: bool = False
+    ) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor | None]:
         input_size = x.shape[-2:]
         time_emb = self.time_embedding(timesteps).to(dtype=x.dtype)
 
@@ -201,6 +208,7 @@ class ConvNeXtUNet(nn.Module):
                 x = self.downsamples[index](x)
 
         x = self.bottleneck(x, time_emb)
+        x, proposal_loss = self._refine_bottleneck(x, return_aer_aux)
         for projection, stage, skip in zip(
             self.decoder_projections,
             self.decoder_stages,
@@ -214,4 +222,4 @@ class ConvNeXtUNet(nn.Module):
         x = self.out(self.final_act(self.final_norm(x)))
         if x.shape[-2:] != input_size:
             x = F.interpolate(x, size=input_size, mode="bilinear", align_corners=False)
-        return x
+        return (x, proposal_loss) if return_aer_aux else x

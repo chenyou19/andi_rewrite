@@ -37,6 +37,7 @@ from andi_rewrite.engine.evaluation.metrics import (  # noqa: E402
     update_stream_stats,
 )
 from andi_rewrite.engine.evaluator import VolumeEvaluator  # noqa: E402
+from andi_rewrite.metrics.classification import dice  # noqa: E402
 
 
 class _DummyDetector:
@@ -395,6 +396,41 @@ class EvaluatorRefactorContractTest(unittest.TestCase):
                 "precision": 0.75,
             },
         )
+
+    def assert_streaming_accumulator_matches_legacy(self, device: str) -> None:
+        empty = torch.zeros((2, 3), dtype=torch.bool, device=device)
+        full = torch.ones_like(empty)
+        mixed = torch.tensor([[0, -1, 0], [1, 1, 0]], device=device)
+        cases = (
+            (empty, empty),
+            (empty, full),
+            (full, full),
+            (mixed.float().T, full.T),
+            (mixed, full[:, :1]),  # Legacy Dice and confusion counts handle broadcasting differently.
+            (empty[:0], full[:0]),
+        )
+        expected = empty_stream_stats()
+        actual = empty_stream_stats()
+        for prediction, label in cases:
+            with self.subTest(device=device, prediction=prediction.shape, label=label.shape):
+                prediction_mask = prediction.bool()
+                label_mask = label.bool()
+                expected["dice_sum"] += dice(prediction_mask, label_mask)
+                expected["subjects"] += 1
+                expected["tp"] += torch.logical_and(prediction_mask, label_mask).sum().item()
+                expected["tn"] += torch.logical_and(~prediction_mask, ~label_mask).sum().item()
+                expected["fp"] += torch.logical_and(prediction_mask, ~label_mask).sum().item()
+                expected["fn"] += torch.logical_and(~prediction_mask, label_mask).sum().item()
+                update_stream_stats(actual, prediction, label)
+                self.assertEqual(actual, expected)
+                self.assertEqual(finalize_stream_stats(actual), finalize_stream_stats(expected))
+
+    def test_streaming_accumulator_matches_legacy_on_cpu(self) -> None:
+        self.assert_streaming_accumulator_matches_legacy("cpu")
+
+    @unittest.skipUnless(torch.cuda.is_available(), "CUDA unavailable")
+    def test_streaming_accumulator_matches_legacy_on_cuda(self) -> None:
+        self.assert_streaming_accumulator_matches_legacy("cuda")
 
 
 if __name__ == "__main__":

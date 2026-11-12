@@ -14,9 +14,15 @@ from andi_rewrite.diffusion import DDPMDiffusion
 from andi_rewrite.engine.checkpoint import load_checkpoint, save_checkpoint, unwrap_model
 from andi_rewrite.engine.ema import EMA
 from andi_rewrite.engine.schedulers import build_scheduler
+from andi_rewrite.models.aer import AERConfig, AERFeatureRefiner2D
 from andi_rewrite.noise import NoisePlan
 from andi_rewrite.utils.progress import ProgressReporter
 from andi_rewrite.utils.visualization import save_images
+
+
+def _aer_config(model: nn.Module) -> AERConfig | None:
+    refiner = getattr(unwrap_model(model), "aer", None)
+    return refiner.config if isinstance(refiner, AERFeatureRefiner2D) else None
 
 
 class Trainer:
@@ -51,15 +57,17 @@ class Trainer:
         self.normalize_input = bool(config.get("normalize_input", True))
         self.finite_checks = bool(config.get("finite_checks", True))
         self.loss_fn = nn.MSELoss()
+        aer_config = _aer_config(model)
+        self.aer_enabled = aer_config is not None
         scheduler_type = str(config.get("scheduler", {}).get("type", "warmup_cosine")).lower()
         # 原版 ANDi scheduler 預期 optimizer lr=1，實際 learning rate 由 LambdaLR 輸出。
         optimizer_lr = 1.0 if scheduler_type == "warmup_cosine" else float(
             config.get("learning_rate", config.get("target_lr", 1.0e-4))
         )
-        self.optimizer = torch.optim.AdamW(
-            self.model.parameters(),
-            lr=optimizer_lr,
-        )
+        parameters = self.model.parameters()
+        if aer_config is not None and aer_config.freeze_backbone:
+            parameters = (parameter for parameter in parameters if parameter.requires_grad)
+        self.optimizer = torch.optim.AdamW(parameters, lr=optimizer_lr)
         self.scheduler = build_scheduler(config, self.optimizer, self.steps_per_epoch, self.epochs)
 
         ema_config = config.get("ema", {})
@@ -191,9 +199,23 @@ class Trainer:
         self._require_finite("noise", noise)
         x_t = self.diffusion.q_sample(images, timesteps, noise)
         self._require_finite("noisy_input", x_t)
-        predicted_noise = (model or self.model)(x_t, timesteps)
+        selected_model = self.model if model is None else model
+        aer_config = _aer_config(selected_model)
+        auxiliary_loss = None
+        if (
+            aer_config is not None and aer_config.steps > 0
+            and aer_config.mode in ("guarded", "unguarded") and aer_config.aux_loss_weight > 0
+            and selected_model.training and torch.is_grad_enabled()
+        ):
+            predicted_noise, auxiliary_loss = selected_model(x_t, timesteps, return_aer_aux=True)
+        else:
+            predicted_noise = selected_model(x_t, timesteps)
         self._require_finite("predicted_noise", predicted_noise)
-        loss = self.loss_fn(predicted_noise, noise)
+        noise_loss = self.loss_fn(predicted_noise, noise)
+        loss = noise_loss
+        if auxiliary_loss is not None:
+            self._require_finite("AER auxiliary loss", auxiliary_loss)
+            loss = noise_loss + aer_config.aux_loss_weight * auxiliary_loss
         self._require_finite("loss", loss)
         diagnostics = {
             "input_shape": list(images.shape),
@@ -205,6 +227,12 @@ class Trainer:
             "loss_finite": bool(math.isfinite(float(loss.detach().cpu()))),
             "batch_size": int(images.shape[0]),
         }
+        if aer_config is not None:
+            diagnostics.update(
+                noise_loss=float(noise_loss.detach().cpu()),
+                auxiliary_loss=float(auxiliary_loss.detach().cpu()) if auxiliary_loss is not None else 0.0,
+                total_loss=float(loss.detach().cpu()),
+            )
         return loss, diagnostics
 
     def _require_finite_gradients(self) -> None:
@@ -237,7 +265,10 @@ class Trainer:
             }
         )
         self._last_step_diagnostics = diagnostics
-        return {"loss": float(loss.detach().cpu())}
+        result = {"loss": float(loss.detach().cpu())}
+        if self.aer_enabled:
+            result.update({name: diagnostics[name] for name in ("noise_loss", "auxiliary_loss", "total_loss")})
+        return result
 
     def run_one_step_diagnostics(
         self,
@@ -326,6 +357,15 @@ class Trainer:
             "checkpoint_path",
         ]
         write_header = not self.metrics_path.exists()
+        if self.aer_enabled:
+            # Existing legacy logs keep their header if an output directory is reused.
+            aer_fields = ["train_noise_loss", "train_auxiliary_loss"]
+            if not write_header:
+                with self.metrics_path.open(newline="", encoding="utf-8") as handle:
+                    existing = next(csv.reader(handle), None)
+                write_header = existing is None
+            if write_header or existing == fieldnames + aer_fields:
+                fieldnames.extend(aer_fields)
         with self.metrics_path.open("a", newline="", encoding="utf-8") as handle:
             writer = csv.DictWriter(handle, fieldnames=fieldnames)
             if write_header:
@@ -353,6 +393,8 @@ class Trainer:
                 if self.device.type == "cuda":
                     torch.cuda.reset_peak_memory_stats(self.device)
                 train_loss_sum = 0.0
+                noise_loss_sum = 0.0
+                auxiliary_loss_sum = 0.0
                 train_sample_count = 0
                 batch_bar = ProgressReporter(
                     self.steps_per_epoch,
@@ -366,6 +408,9 @@ class Trainer:
                         result = self.train_step(batch, epoch=epoch)
                         batch_size = int(self._last_step_diagnostics.get("batch_size", 1))
                         train_loss_sum += result["loss"] * batch_size
+                        if self.aer_enabled:
+                            noise_loss_sum += result["noise_loss"] * batch_size
+                            auxiliary_loss_sum += result["auxiliary_loss"] * batch_size
                         train_sample_count += batch_size
                         batch_bar.update(postfix={"loss": f"{result['loss']:.6f}"})
                 finally:
@@ -413,6 +458,12 @@ class Trainer:
                     "gpu_peak_bytes": peak_memory,
                     "checkpoint_path": str(checkpoint_path) if checkpoint_path is not None else None,
                 }
+                aer_text = ""
+                if self.aer_enabled:
+                    train_noise_loss = noise_loss_sum / train_sample_count
+                    train_auxiliary_loss = auxiliary_loss_sum / train_sample_count
+                    epoch_metrics.update(train_noise_loss=train_noise_loss, train_auxiliary_loss=train_auxiliary_loss)
+                    aer_text = f"noise_loss={train_noise_loss:.6f} auxiliary_loss={train_auxiliary_loss:.6f} "
                 self.last_epoch_metrics = epoch_metrics
                 self._write_epoch_metrics(epoch_metrics)
                 if self.is_main_process:
@@ -421,6 +472,7 @@ class Trainer:
                         "Epoch "
                         f"index={epoch} completed={epoch + 1} "
                         f"loss={train_loss:.6f} validation_loss={validation_text} "
+                        f"{aer_text}"
                         f"lr={learning_rate:.10g} "
                         f"elapsed_seconds={elapsed:.3f} "
                         f"gpu_peak_bytes={peak_memory} checkpoint={checkpoint_path}"

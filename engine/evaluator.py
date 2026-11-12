@@ -30,7 +30,9 @@ from .evaluation import (
     metrics,
     output,
     prediction_export,
+    prediction_writer,
     streaming,
+    timing,
 )
 
 
@@ -50,6 +52,12 @@ class VolumeEvaluator:
         self.detector = detector
         self.config = config
         self.accelerator = accelerator
+        self.timing_enabled = timing.timing_enabled(config)
+        if self.timing_enabled and getattr(accelerator, "num_processes", 1) > 1:
+            raise ValueError("evaluation.timing.enabled requires a single evaluation process.")
+        self._timing = timing.TIMING_DISABLED
+        self._timing_prediction_start = 0
+        self.last_timing_subjects: list[dict[str, Any]] = []
         profile = getattr(detector, "inference_profile", "original")
         self.size_splits = int(config.get("size_splits", config.get("slice_batch_size", 155)))
         self.normalize_input = bool(config.get("normalize_input", True))
@@ -62,6 +70,11 @@ class VolumeEvaluator:
         self.threshold_start = float(config.get("thr_start", config.get("threshold_start", 0.01)))
         self.threshold_end = float(config.get("thr_end", config.get("threshold_end", 0.3)))
         self.threshold_step = float(config.get("thr_step", config.get("threshold_step", 0.001)))
+        self.threshold_sweep_backend = config.get("threshold_sweep_backend", "auto")
+        if not isinstance(self.threshold_sweep_backend, str) or self.threshold_sweep_backend not in (
+            "auto", "loop",
+        ):
+            raise ValueError("evaluation.threshold_sweep_backend must be 'auto' or 'loop'.")
         self.metric_threshold = float(config.get("threshold", 0.5))
         self.compute_auprc = bool(config.get("compute_auprc", True))
         auprc_max_samples = config.get("auprc_max_samples")
@@ -113,6 +126,10 @@ class VolumeEvaluator:
         self.kernel_size = int(median_config.get("kernel_size", config.get("kernel_size", 5)))
         self.prediction_output = config.get("prediction_output", {})
         self.prediction_enabled = bool(self.prediction_output.get("enabled", False))
+        self._async_write_config = prediction_writer.AsyncWriteConfig.from_mapping(
+            self.prediction_output.get("async_write", {}),
+        )
+        self._prediction_writer: prediction_writer.AsyncPredictionWriter | None = None
         if self.prediction_enabled and profile != "original":
             self.prediction_output = {
                 **self.prediction_output,
@@ -319,6 +336,7 @@ class VolumeEvaluator:
             return
         processed = processed or self._prediction_postprocess(raw_maps.detach().cpu())
         self.last_prediction_processed = processed
+        writer = self._prediction_writer
         self._prediction_index = prediction_export.export_predictions(
             raw_maps,
             metadata_items,
@@ -332,9 +350,11 @@ class VolumeEvaluator:
             prediction_index=self._prediction_index,
             safe_subject_id_callback=self._safe_subject_id,
             load_reference_image_callback=self._load_reference_image,
-            save_nifti_callback=self._save_nifti,
+            save_nifti_callback=self._save_nifti if writer is None else writer.submit,
             resize_volume_callback=self._resize_volume_to_shape,
             json_safe_callback=self._json_safe,
+            timing=self._timing,
+            timing_subject_offset=self._prediction_index - self._timing_prediction_start,
         )
 
     def collect(self, dataloader: Iterable) -> tuple[torch.Tensor, torch.Tensor | None, list[dict[str, Any]]]:
@@ -346,6 +366,7 @@ class VolumeEvaluator:
             has_label=self._has_label,
             accelerator=self.accelerator,
             progress_enabled=self._progress_enabled(),
+            timing=self._timing,
         )
 
     # In-memory metric compatibility wrappers.
@@ -454,6 +475,7 @@ class VolumeEvaluator:
             score_fingerprint=score_fingerprint,
             resume=self.cache_resume,
             keep_on_success=self.cache_keep_on_success,
+            timing=self._timing,
         )
 
     def _streaming_helper(self) -> streaming.StreamingEvaluator:
@@ -470,6 +492,14 @@ class VolumeEvaluator:
             external_sort_chunk_bytes=self.external_sort_chunk_bytes,
             prediction_enabled=self.prediction_enabled,
             progress_enabled=self._progress_enabled(),
+            threshold_sweep_backend=self.threshold_sweep_backend,
+            uses_default_stream_stats=all(
+                actual is expected
+                for actual, expected in zip(
+                    (self._empty_stream_stats, self._update_stream_stats, self._finalize_stream_stats),
+                    _DEFAULT_FACADE_STREAM_STATS,
+                )
+            ),
             volume_scores=self._volume_scores,
             split_batch=self._split_batch,
             metadata_items=self._metadata_items,
@@ -483,6 +513,7 @@ class VolumeEvaluator:
             on_prediction_processed=lambda processed: setattr(
                 self, "last_prediction_processed", processed
             ),
+            timing=self._timing,
             callbacks=streaming.StreamingCallbacks(
                 streaming_pipeline_plans=self._streaming_pipeline_plans,
                 prepared_bounds=self._prepared_bounds,
@@ -587,6 +618,7 @@ class VolumeEvaluator:
         raw_bounds: tuple[float, float] | None,
     ) -> tuple[dict[Any, Any], dict[Any, Any]]:
         self._prediction_index = 0
+        self._timing_prediction_start = 0
         return self._streaming_helper().summarize(cache, raw_plan, raw_bounds)
 
     def _result(
@@ -633,9 +665,9 @@ class VolumeEvaluator:
         )
         cache_hits, inferred = self._collect_to_disk_cache(dataloader, cache)
         raw_plan, _, _, raw_bounds = self._prepare_streaming_scores(cache)
-        scores, scores_mf = self._summarize_streaming(cache, raw_plan, raw_bounds)
-        self.write_original_style_csv(scores, self.output_csv)
-        self.write_original_style_csv(scores_mf, self.output_mf_csv)
+        with self._timing.span("metrics"):
+            scores, scores_mf = self._summarize_streaming(cache, raw_plan, raw_bounds)
+        self._write_metric_csvs(scores, scores_mf)
         result = self._result(
             subjects=len(cache.entries),
             labels_available=cache.labels_available,
@@ -649,21 +681,74 @@ class VolumeEvaluator:
         cache.cleanup_after_success()
         return result
 
+    def _drain_prediction_writes(self) -> None:
+        writer = self._prediction_writer
+        if writer is not None and not writer.closed:
+            with self._timing.span("file_write"):
+                writer.close()
+
+    def _write_metric_csvs(self, scores: dict[Any, Any], scores_mf: dict[Any, Any]) -> None:
+        self._drain_prediction_writes()
+        with self._timing.span("file_write"):
+            self.write_original_style_csv(scores, self.output_csv)
+            self.write_original_style_csv(scores_mf, self.output_mf_csv)
+
     def evaluate(self, dataloader: Iterable) -> dict[str, Any]:
+        if self.timing_enabled:
+            detector_device = torch.device(self.detector.device)
+            median = self.postprocess_policy.describe().get("median_filter_settings", {})
+            median_device = getattr(self.detector, "median_cuda_device", None)
+            self.last_timing_subjects = []
+            self._timing_prediction_start = self._prediction_index
+            self._timing = timing.EvaluationTimer(
+                inference_device=detector_device,
+                postprocess_device=median_device if median.get("backend") == "cuda" else None,
+            )
+        try:
+            if self.prediction_enabled and self._async_write_config.enabled and self.is_main_process:
+                self._prediction_writer = prediction_writer.AsyncPredictionWriter(
+                    self._save_nifti, self._async_write_config,
+                )
+            result = self._evaluate(dataloader)
+            writer = self._prediction_writer
+            if writer is not None:
+                self._drain_prediction_writes()
+                if result:
+                    result["async_prediction_writer"] = writer.summary()
+            if result and self.timing_enabled:
+                summary = self._timing.finish()
+                if writer is not None:
+                    summary["scope"]["file_write"] = (
+                        "Foreground metrics CSV, prediction JSON, evaluation-cache writes and cleanup, "
+                        "NIfTI submission and backpressure, and final NIfTI drain. "
+                        "Asynchronous compression and write service can overlap these stages."
+                    )
+                self.last_timing_subjects = self._timing.subjects
+                result["timing"] = summary
+            return result
+        finally:
+            if self._prediction_writer is not None:
+                self._prediction_writer.close(abort=True)
+                self._prediction_writer = None
+            self._timing = timing.TIMING_DISABLED
+
+    def _evaluate(self, dataloader: Iterable) -> dict[str, Any]:
         if self.memory_mode == "disk_streaming":
             return self._evaluate_disk_streaming(dataloader)
         raw_maps, labels, metadata = self.collect(dataloader)
         if not self.is_main_process:
             return {}
-        processed = self.process_raw_maps(raw_maps, self.metric_normalization_scope)
+        with self._timing.span("postprocessing"):
+            processed = self.process_raw_maps(raw_maps, self.metric_normalization_scope)
         self.last_processed = processed
         if self.prediction_enabled:
-            prediction_processed = self._prediction_postprocess(raw_maps, processed)
+            with self._timing.span("postprocessing"):
+                prediction_processed = self._prediction_postprocess(raw_maps, processed)
             self.last_prediction_processed = prediction_processed
             self._export_predictions(raw_maps, metadata, processed=prediction_processed)
-        scores, scores_mf = self.summarize_processed(processed, labels)
-        self.write_original_style_csv(scores, self.output_csv)
-        self.write_original_style_csv(scores_mf, self.output_mf_csv)
+        with self._timing.span("metrics"):
+            scores, scores_mf = self.summarize_processed(processed, labels)
+        self._write_metric_csvs(scores, scores_mf)
         return self._result(
             subjects=len(metadata),
             labels_available=labels is not None,
@@ -672,3 +757,10 @@ class VolumeEvaluator:
             normalization_scope=processed.normalization_scope,
             threshold_method=processed.threshold_method,
         )
+
+
+_DEFAULT_FACADE_STREAM_STATS = (
+    VolumeEvaluator._empty_stream_stats,
+    VolumeEvaluator._update_stream_stats,
+    VolumeEvaluator._finalize_stream_stats,
+)

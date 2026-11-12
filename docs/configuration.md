@@ -111,7 +111,7 @@ Standalone `scripts/eval.py` 給 evaluator 的 shallow merge：
 data < metrics < evaluation
 ```
 
-也就是同名 key 以 `evaluation` 優先，接著另外注入完整的 top-level `prediction_output`、`model`、`anomaly` 與 `_run_config`。CLI `--threshold-method` 覆蓋 `metrics.threshold_method`，`--inference-profile` 覆蓋 `evaluation.inference_profile`。
+也就是同名 key 以 `evaluation` 優先，接著另外注入完整的 top-level `prediction_output`、`model`、`anomaly` 與 `_run_config`。CLI `--threshold-method` 覆蓋 `metrics.threshold_method`，`--inference-profile` 覆蓋 `evaluation.inference_profile`，`--timing` 開啟 `evaluation.timing.enabled`。
 
 兩個路徑不是完全等價：
 
@@ -319,6 +319,10 @@ model:
 `use_ema` code default 是 `false`；templates 常設為 `true`。有 `ema_model` 時才使用 EMA，否則載入 regular model state。
 
 `model.checkpoint` 是 evaluation load path。Training resume 不讀它，而使用 `training.checkpoint.resume`。
+
+### 可選 AER bottleneck 精煉
+
+在 `andi_unet` 或 `convnext_unet` 的 `model.aer` 中設定 `enabled: true` 即可啟用。省略區塊時預設停用。可由 [train_aer.yaml](../configs/train_aer.yaml) 開始，完整欄位、訓練 loss 與 checkpoint 相容方式見 [AER 使用說明](aer.md)。
 
 ## 6. `diffusion`
 
@@ -643,6 +647,11 @@ prediction_output:
   threshold: 0.5
   threshold_source: median_filtered
   save_threshold_mask: false
+  async_write:
+    enabled: false
+    workers: 4
+    max_pending_jobs: 8
+    max_pending_bytes: 268435456
 ```
 
 | Key | Default / behavior |
@@ -658,8 +667,14 @@ prediction_output:
 | `threshold` | fallback `metrics.threshold` |
 | `threshold_source` | 同 source selection |
 | `save_threshold_mask` | `false` |
+| `async_write.enabled` | `false`，維持同步寫入。啟用預測匯出及此選項時，主程序使用 CPU worker 寫 NIfTI。 |
+| `async_write.workers` | `4` 個 worker。 |
+| `async_write.max_pending_jobs` | 預設為 `2 * workers`，包含排隊及執行中的 NIfTI。 |
+| `async_write.max_pending_bytes` | `268435456`（256 MiB），限制排隊及執行中的 NumPy 陣列副本總量。 |
 
 這個 section 由 canonical standalone evaluation 使用。In-memory path 對收集完成的 tensors 匯出；disk-streaming path 則在 streaming metrics pass 逐 cached subject 匯出。Eval-after-fit 與 `eval_checkpoints50.py` 沒有把 section 傳入 evaluator。
+
+`async_write` 須為 mapping，`enabled` 須為布林值，三個 worker 和容量設定須為正整數。Byte budget 以輸出 dtype 計算，只涵蓋 writer 持有的陣列副本。主執行緒的陣列、header 副本與壓縮緩衝區另計。達到任一容量限制時會等待。單一輸出超過 byte budget 時，請提高 `max_pending_bytes` 或切回同步寫入。所有 NIfTI 完成後才會寫 metrics CSV。遇到錯誤會取消尚未開始的工作並等待執行中的寫檔，disk-streaming cache 可供續跑。
 
 ## 12. `evaluation`
 
@@ -668,6 +683,7 @@ evaluation:
   progress:
     enabled: true
   memory_mode: in_memory
+  threshold_sweep_backend: auto
   normalize_input: true
   size_splits: 155
 ```
@@ -677,6 +693,8 @@ evaluation:
 | `progress` | bool 或 `{enabled: bool}`; true |
 | `inference_profile` | `original` 預設，可選 `engineering125` 或 `fast12` |
 | `memory_mode` | `in_memory` default / `disk_streaming` |
+| `threshold_sweep_backend` | `auto` 預設，相容的 disk-streaming sweep 使用精確分桶。`loop` 強制逐閾值計算。 |
+| `timing.enabled` | `false`；支援單程序 `in_memory` 與 `disk_streaming` |
 | `size_splits` / `slice_batch_size` | `155`; often inherited from data via merge |
 | `normalize_input` | `true`; often inherited from data |
 | `rank` | `3` legacy morphology fallback |
@@ -726,6 +744,34 @@ evaluation:
 | `external_sort.chunk_bytes` | 256 MiB；must be > 0 |
 
 Disk streaming 是 single-process；啟用 `prediction_output` 時可逐 cached subject 匯出。Resume 驗證 fingerprints、subject order、label availability、shape/dtype 與 cache files；mismatch/corruption 會 fail closed。
+
+`auto` 使用 CPU float32 score 和原有的嚴格 `score > threshold` 比較，保留 per-subject Dice 與全體 voxel confusion counts。若有自訂 threshold-mask pipeline、policy 或 stream metric hooks，或資料和閾值不相容，會沿用逐閾值計算。`in_memory` 沿用原有 sweep。這個設定只作用於固定閾值 sweep，適應性閾值、固定 cutoff 摘要與 AUPRC 各自沿用原有計算。
+
+### 評估計時
+
+在 standalone evaluation 加上 `--timing`，或設定以下 YAML。
+
+```yaml
+evaluation:
+  timing:
+    enabled: true
+```
+
+報表與 metrics CSV 位於同一目錄，並沿用推論模式的子目錄。標準 inference report 摘要列出各階段耗時。完整的 `evaluation_timing.json` 包含總計、共用耗時、未歸類的 evaluator 開銷、逐病例記錄與 count、mean、median、p95。逐病例資料也寫入 `evaluation_timing_subjects.csv`，所有時間均以秒為單位。
+
+| 欄位 | 量測範圍 |
+|---|---|
+| `data_read` | DataLoader 初始化、等待 batch、結束 iterator，以及磁碟快取與預測參考檔的讀取。DataLoader worker 可與其他階段重疊，記錄的是主程序等待的時間。 |
+| `inference` | Detector 的實際 wall time，包含輸入整理、資料傳輸、分數聚合和輸出搬回 CPU。CUDA 在評分前後同步。 |
+| `postprocessing` | 分數正規化、median filter、適應性遮罩、預測輸出的 resize 與陣列轉換。啟用 CUDA median filter 時使用對應裝置同步。 |
+| `file_write` | Metrics CSV、預測 JSON、評估快取及同步 NIfTI 寫入。非同步 NIfTI 模式計入提交、背壓等待和最後收尾。 |
+| `metrics` | Threshold sweep、指標彙整與 AUPRC，包含 exact streaming AUPRC 的外部排序暫存檔 I/O。 |
+
+逐病例記錄保留可獨立量測的工作。同一個 batch 有多位病例時，讀取等待時間與推論時間各自均分給參與的病例，並在 `amortized_stages` 標明。整批 in-memory 後處理、整批 metrics 與其他跨病例工作計入 `shared_stage_seconds`。逐病例的 `attributed_total_seconds` 加總已歸給該病例的階段。磁碟快取命中的病例仍有輸入讀取，且推論時間為零。p95 使用 nearest-rank。
+
+`evaluator_wall_seconds` 從開始評估至完成 metrics CSV 與快取收尾，等於各階段總和加上 `overhead_seconds`。 `cli_wall_seconds` 從解析命令列參數後開始，經由設定載入、模型與 DataLoader 建立、評估，直到一般 inference report 完成。計時 JSON 和 CSV 的寫入在此量測區間之外。
+
+非同步模式的 evaluator result 與 inference report 另列 `async_prediction_writer`，包含檔案數、容量高水位、主執行緒提交與等待時間及最終收尾時間。Worker 等待與壓縮寫入時間是逐檔加總，可能彼此重疊，也可能與主執行緒工作重疊。
 
 ## 13. Checked-in config inventory
 

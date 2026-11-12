@@ -8,6 +8,7 @@ from typing import Any, Iterable
 import torch
 
 from andi_rewrite.utils.progress import ProgressReporter
+from .timing import EvaluationTimer, TIMING_DISABLED
 
 
 def collect_volumes(
@@ -19,6 +20,7 @@ def collect_volumes(
     has_label: Callable[[torch.Tensor | None, dict[str, Any]], bool],
     accelerator: Any,
     progress_enabled: bool,
+    timing: EvaluationTimer = TIMING_DISABLED,
 ) -> tuple[torch.Tensor, torch.Tensor | None, list[dict[str, Any]]]:
     """Collect raw maps, all-or-nothing labels, and subject metadata in order."""
 
@@ -38,10 +40,13 @@ def collect_volumes(
     )
     with torch.no_grad():
         try:
-            for volume_index, batch in enumerate(dataloader, start=1):
+            for volume_index, (batch, read_seconds) in enumerate(timing.batches(dataloader), start=1):
                 image, label, metadata = split_batch(batch)
                 items = metadata_items(metadata, int(image.shape[0]))
-                anomaly_map = volume_scores(image, volume_index=volume_index)
+                subject_indices = timing.register_subjects(items)
+                timing.record("data_read", read_seconds, subject_indices)
+                with timing.span("inference", subject_indices):
+                    anomaly_map = volume_scores(image, volume_index=volume_index)
                 label_available = [has_label(label, item) for item in items]
                 if label is not None:
                     label = label.to(anomaly_map.device).bool()
@@ -71,7 +76,9 @@ def collect_volumes(
                         f"first volume has shape {tuple(labels[0].shape[1:])}. Set "
                         "evaluation.memory_mode: disk_streaming for variable-depth data."
                     )
-                maps.append(anomaly_map.detach().cpu())
+                # The device-to-host copy is blocking and follows synchronized scoring.
+                with timing.span("inference", subject_indices, synchronize=False):
+                    maps.append(anomaly_map.detach().cpu())
                 if label is not None:
                     labels.append(label.detach().cpu())
                 label_flags.extend(label_available)

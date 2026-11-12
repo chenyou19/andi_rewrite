@@ -11,7 +11,7 @@ runtime:
 
 data:
   type: lmdb
-  path: C:/ML/data/BraTS_2021_healthy_lmdb
+  path: D:/project/data/BraTS21/healthy_slices_unbalanced
   image_size: 128
   channels: 4
   batch_size: 52
@@ -58,13 +58,13 @@ training:
     enabled: true
   checkpoint:
     dir: outputs/checkpoints
-    start_epoch: 120
+    start_epoch: 3  # Zero-based: save after epochs 4, 8, 12, 16, 20.
     save_every_epochs: 4
     resume:
   samples:
     enabled: true
     output_dir: outputs/samples
-    start_epoch: 120
+    start_epoch: 3  # Zero-based: sample after epochs 4, 8, 12, 16, 20.
     every_epochs: 4
     num_images: 3
     channels: 4

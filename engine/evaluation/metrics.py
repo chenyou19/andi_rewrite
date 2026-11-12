@@ -78,16 +78,42 @@ def update_stream_stats(
     prediction: torch.Tensor,
     label: torch.Tensor,
 ) -> None:
-    """Accumulate per-subject Dice and micro confusion counts in legacy order."""
+    """Reuse positive counts for per-subject Dice and micro confusion totals."""
 
     prediction = prediction.bool()
     label = label.bool()
-    stats["dice_sum"] = float(stats["dice_sum"]) + dice(prediction, label)
+    if prediction.shape == label.shape and prediction.device == label.device:
+        if prediction.device.type == "cpu":
+            predicted_mask = prediction.detach().numpy()
+            label_mask = label.detach().numpy()
+            tp = np.count_nonzero(predicted_mask & label_mask)
+            predicted_positive = np.count_nonzero(predicted_mask)
+            label_positive = np.count_nonzero(label_mask)
+        else:
+            tp, predicted_positive, label_positive = torch.stack((
+                torch.count_nonzero(prediction & label),
+                torch.count_nonzero(prediction),
+                torch.count_nonzero(label),
+            )).tolist()
+        fp = predicted_positive - tp
+        fn = label_positive - tp
+        tn = prediction.numel() - tp - fp - fn
+        dice_value = 2.0 * tp / max(float(predicted_positive + label_positive), 1.0e-8)
+    else:
+        # Dice historically sums the original masks, while confusion counts
+        # use the broadcast shape. Keep those semantics for mismatched shapes.
+        dice_value = dice(prediction, label)
+        tp = torch.logical_and(prediction, label).sum().item()
+        tn = torch.logical_and(~prediction, ~label).sum().item()
+        fp = torch.logical_and(prediction, ~label).sum().item()
+        fn = torch.logical_and(~prediction, label).sum().item()
+
+    stats["dice_sum"] = float(stats["dice_sum"]) + dice_value
     stats["subjects"] = int(stats["subjects"]) + 1
-    stats["tp"] = int(stats["tp"]) + int(torch.logical_and(prediction, label).sum().item())
-    stats["tn"] = int(stats["tn"]) + int(torch.logical_and(~prediction, ~label).sum().item())
-    stats["fp"] = int(stats["fp"]) + int(torch.logical_and(prediction, ~label).sum().item())
-    stats["fn"] = int(stats["fn"]) + int(torch.logical_and(~prediction, label).sum().item())
+    stats["tp"] = int(stats["tp"]) + tp
+    stats["tn"] = int(stats["tn"]) + tn
+    stats["fp"] = int(stats["fp"]) + fp
+    stats["fn"] = int(stats["fn"]) + fn
 
 
 def finalize_stream_stats(stats: dict[str, float | int]) -> dict[str, float]:
